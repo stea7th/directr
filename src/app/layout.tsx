@@ -1,37 +1,37 @@
 import "./globals.css"
 import type { Metadata } from "next"
-import Link from "next/link"
+import NavLink from "@/components/NavLink"
 
 export const metadata: Metadata = {
   title: "Directr",
-  description: "AI video assistant",
+  description: "Your AI Content Director",
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="bg-gray-950 text-white">
-        {/* Navbar */}
-        <header className="border-b border-gray-800">
-          <nav className="mx-auto max-w-5xl px-4 py-3 flex justify-between items-center">
-            <Link href="/" className="font-semibold text-lg">
-              Directr
-            </Link>
-            <div className="flex gap-6 text-sm text-gray-300">
-              <Link href="/app">Create</Link>
-              <Link href="/app/campaigns">Campaigns</Link>
-              <Link href="/app/analytics">Analytics</Link>
-              <Link href="/app/settings">Settings</Link>
+      <body>
+        <header className="sticky top-0 z-20 border-b" style={{borderColor:"var(--border)", background:"rgba(11,11,11,0.6)", backdropFilter:"blur(8px)"}}>
+          <nav className="container flex items-center justify-between py-3">
+            <a href="/" className="font-semibold tracking-tight">Directr</a>
+            <div className="flex items-center gap-6">
+              <NavLink href="/app">Create</NavLink>
+              <NavLink href="/app/campaigns">Campaigns</NavLink>
+              <NavLink href="/app/analytics">Analytics</NavLink>
+              <NavLink href="/app/settings">Settings</NavLink>
             </div>
           </nav>
         </header>
-
-        {/* Page content */}
-        <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
+        <main className="container py-6">{children}</main>
+        <footer className="border-t mt-10 py-8 text-sm muted" style={{borderColor:"var(--border)"}}>
+          <div className="container flex items-center justify-between">
+            <div>© {new Date().getFullYear()} Directr</div>
+            <div className="flex gap-4">
+              <a className="hover:underline" href="/privacy">Privacy</a>
+              <a className="hover:underline" href="/terms">Terms</a>
+            </div>
+          </div>
+        </footer>
       </body>
     </html>
   )
