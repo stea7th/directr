@@ -35,7 +35,12 @@ export default function CreatePage() {
   async function magicLink() {
     const email = prompt("Email for magic link?")
     if (!email) return
-    const { error } = await supabase.auth.signInWithOtp({ email })
+    const { error } = await supabase.auth.signInWithOtp({
+  email,
+  options: {
+    emailRedirectTo: `https://directr-beta.vercel.app/auth/callback`,
+  },
+});
     if (error) return alert(error.message)
     alert("Check your email for a magic link.")
   }
