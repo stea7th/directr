@@ -86,13 +86,72 @@ def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_F
         "numerals": "true",
         "paragraphs": "true",
         "utterances": "false",
+        "diarize": "false",
     }
     with open(local_media_path, "rb") as f:
         resp = requests.post(url, headers=headers, params=params, data=f, timeout=180)
     if resp.status_code >= 400:
         raise RuntimeError(f"Deepgram error {resp.status_code}: {resp.text[:200]}")
     obj = resp.json()
-    cues = _json_to_cues(obj)
+
+    try:
+        alt = obj["results"]["channels"][0]["alternatives"][0]
+    except Exception:
+        raise RuntimeError("No transcription alternatives returned.")
+
+    sentences = []
+    paras = alt.get("paragraphs", {}).get("paragraphs")
+    if paras:
+        for p in paras:
+            for s in p.get("sentences", []):
+                start = float(s.get("start", 0.0))
+                end = float(s.get("end", start + 2.0))
+                text = (s.get("text") or "").strip()
+                if text:
+                    sentences.append((start, end, text))
+    else:
+        words = alt.get("words", [])
+        group, last_end = [], None
+        for w in words:
+            a = w.get("start"); b = w.get("end"); t = (w.get("word") or "").strip()
+            if a is None or b is None or not t:
+                continue
+            a = float(a); b = float(b)
+            if not group:
+                group = [(a, b, t)]
+            else:
+                gap = a - (last_end if last_end is not None else a)
+                dur = b - group[0][0]
+                if gap > 0.6 or dur > 3.0 or len(group) >= 12:
+                    sentences.append((group[0][0], group[-1][1], " ".join(x[2] for x in group)))
+                    group = [(a, b, t)]
+                else:
+                    group.append((a, b, t))
+            last_end = b
+        if group:
+            sentences.append((group[0][0], group[-1][1], " ".join(x[2] for x in group)))
+
+    word_list = alt.get("words", [])
+
+    def words_in_range(a, b):
+        out = []
+        for w in word_list:
+            ws = w.get("start"); we = w.get("end"); txt = (w.get("word") or "").strip()
+            if ws is None or we is None or not txt:
+                continue
+            ws = float(ws); we = float(we)
+            if ws >= a - 0.02 and we <= b + 0.02:
+                out.append((ws, we, txt))
+        return out
+
+    def fmt_ass_time(t):
+        cs = int(round(t * 100))
+        h = cs // 360000
+        m = (cs % 360000) // 6000
+        s = (cs % 6000) // 100
+        c = cs % 100
+        return f"{h}:{m:02d}:{s:02d}.{c:02d}"
+
     ass_path = tempfile.mktemp(suffix=".ass")
     with open(ass_path, "w", encoding="utf-8") as out:
         out.write("[Script Info]\n")
@@ -100,30 +159,53 @@ def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_F
         out.write("PlayResX: 1080\n")
         out.write("PlayResY: 1920\n")
         out.write("ScaledBorderAndShadow: yes\n\n")
+
         out.write("[V4+ Styles]\n")
         out.write("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n")
-        out.write(f"Style: TikTokCap,{font_name},{font_size},&H00FFFFFF,&H0000FFFF,&H00101010,&H80000000,-1,0,0,0,100,100,0,0,3,8,0,2,60,60,110,1\n")
+        out.write(f"Style: CapBase,{font_name},{font_size},&H00FFFFFF,&H0026E6FF,&H00202020,&H00000000,-1,0,0,0,100,100,0,0,3,5,0,2,60,60,140,1\n")
+        out.write(f"Style: CapHi,{font_name},{font_size},&H00FFFFFF,&H0026E6FF,&H00101010,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,2,60,60,140,1\n")
         if overlay:
-            out.write("Style: BigOverlay,Impact,220,&H66FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,5,30,30,900,1\n")
+            out.write("Style: BigOverlay,Impact,220,&H55FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,5,30,30,900,1\n")
         out.write("\n")
+
         out.write("[Events]\n")
         out.write("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")
-        for a, b, text in cues:
-            start = _fmt_ass_time(a)
-            end = _fmt_ass_time(b)
-            safe = text.replace("\n"," ").replace("\r"," ")
-            out.write(f"Dialogue: 0,{start},{end},TikTokCap,,0,0,110,,{safe}\\N\n")
+
+        for (a, b, sentence) in sentences:
+            start = fmt_ass_time(a)
+            end = fmt_ass_time(b)
+
+            base_line = (
+                r"{\an2\blur2\fad(120,80)\t(0,200,\blur0)}" +
+                sentence.replace("\n", " ").replace("\r", " ")
+            )
+            out.write(f"Dialogue: 0,{start},{end},CapBase,,0,0,140,,{base_line}\\N\n")
+
+            words = words_in_range(a, b)
+            if words:
+                k_parts = []
+                for (ws, we, txt) in words:
+                    dur_cs = max(1, int(round((we - ws) * 100)))
+                    safe_txt = txt.replace("{","(").replace("}",")")
+                    k_parts.append(rf"{{\k{dur_cs}}}{safe_txt}")
+                hi_line = r"{\an2\blur0\bord3}" + " ".join(k_parts)
+                out.write(f"Dialogue: 1,{start},{end},CapHi,,0,0,140,,{hi_line}\\N\n")
+            else:
+                hi_line = r"{\an2\t(0,300,\bord4)}" + sentence.replace("\n"," ").replace("\r"," ")
+                out.write(f"Dialogue: 1,{start},{end},CapHi,,0,0,140,,{hi_line}\\N\n")
+
             if overlay:
-                kw = pick_keyword(text)
+                kw = pick_keyword(sentence)
                 if kw:
-                    out.write(f"Dialogue: 0,{start},{end},BigOverlay,,0,0,900,,{kw.upper()}\\N\n")
+                    out.write(f"Dialogue: -1,{start},{end},BigOverlay,,0,0,900,,{kw.upper()}\\N\n")
+
     try:
         dlg_count = sum(1 for _ in open(ass_path, "r", encoding="utf-8") if _.startswith("Dialogue:"))
         print(f"   ASS cues: {dlg_count}", flush=True)
     except Exception:
         pass
-    return ass_path
 
+    return ass_path
 def load_env_clean(path):
     if os.path.exists(path):
         with open(path, "r", encoding="utf-8-sig") as f:
