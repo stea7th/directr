@@ -11,7 +11,14 @@ type Job = {
   error?: string | null
   created_at?: string
 }
-
+const getSignedDownloadUrl = async (path: string, filename: string) => {
+  const { data, error } = await supabase
+    .storage
+    .from("videos")
+    .createSignedUrl(path, 3600, { download: filename });
+  if (error) throw error;
+  return data.signedUrl;
+};
 export default function CreatePage() {
   const [userId, setUserId] = useState("")
   const [file, setFile] = useState<File | null>(null)
@@ -182,31 +189,63 @@ export default function CreatePage() {
 }
 
 function JobRow({ job }: { job: Job }) {
-  const [url, setUrl] = useState("")
+  const [url, setUrl] = useState("");
 
   useEffect(() => {
-    ;(async () => {
-      if (job.status === "done" && job.output_path) {
-        const { data } = await supabase.storage.from("videos").createSignedUrl(job.output_path, 600)
-        setUrl(data?.signedUrl || "")
+    (async () => {
+      try {
+        if (
+          job.status === "done" &&
+          job.output_path &&
+          job.output_path.toLowerCase().endsWith(".mp4")
+        ) {
+          const filename =
+            job.output_path.split("/").pop() || "video.mp4";
+          const { data, error } = await supabase
+            .storage
+            .from("videos")
+            .createSignedUrl(job.output_path, 3600, { download: filename });
+          if (error) throw error;
+          setUrl(data?.signedUrl || "");
+        } else {
+          setUrl("");
+        }
+      } catch {
+        setUrl("");
       }
-    })()
-  }, [job.status, job.output_path])
+    })();
+  }, [job.status, job.output_path]);
 
   return (
-    <li>
-      <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", gap:12}}>
-        <div style={{minWidth:0}}>
-          <div className="muted" style={{fontSize:12, wordBreak:"break-all"}}>Job: {job.id}</div>
-          <div style={{marginTop:4}}>
-            Status: <span className="pill">{job.status}</span>
-            {job.status === "error" && job.error && <span style={{marginLeft:8, color:"#f88"}}>({job.error})</span>}
-          </div>
-        </div>
-        <a className="btn btn-outline" href={url} target="_blank" rel="noreferrer">Download</a>
+    <li className="flex items-center justify-between gap-3 py-2 border-b">
+      <div className="text-sm">
+        <div className="font-medium">Job: {job.id}</div>
+        <div className="text-xs text-gray-500">Status: {job.status}</div>
       </div>
+
+      {url ? (
+        <button
+          onClick={() => {
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = job.output_path?.split("/").pop() || "video.mp4";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+          }}
+          className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
+        >
+          Download video
+        </button>
+      ) : (
+        <span className="text-xs text-gray-400">
+          {job.output_path && !job.output_path.toLowerCase().endsWith(".mp4")
+            ? "Captions only"
+            : "No video yet"}
+        </span>
+      )}
     </li>
-  )
+  );
 }
 async function handleDownload(job: any) {
   try {
