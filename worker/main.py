@@ -200,37 +200,44 @@ def burn_captions(input_mp4: str, sub_path: str, output_mp4: str):
 
 def process_job(job: dict):
     print(f"processing job {job.get('id')} -> {json.dumps(job, default=str)[:220]}", flush=True)
+
+    # mark processing immediately
     supabase.table("jobs").update({"status": "processing"}).eq("id", job["id"]).execute()
 
     try:
+        # --- validate input_path ---
         key = job.get("input_path")
         if not key or not isinstance(key, str):
             raise RuntimeError(f"invalid input_path in row: {key!r}")
 
+        # --- download original media ---
         local_in = download_from_storage(key)
+        if not os.path.exists(local_in):
+            raise RuntimeError(f"input file missing after download: {local_in}")
         print(f"downloaded input: {local_in}", flush=True)
-        # CONTINUE with transcribe -> burn -> upload -> mark done ...
-     
-        # 2) Transcribe → ASS (karaoke)
+
+        # --- transcribe -> ASS (karaoke style) ---
         ass_path = transcribe_to_ass_deepgram(local_in, DEFAULT_FONT, 56, overlay=False)
+        if not os.path.exists(ass_path):
+            raise RuntimeError(f"ASS file missing: {ass_path}")
         print("got ASS captions", flush=True)
-if not os.path.exists(local_in):
-    raise RuntimeError(f"input file missing: {local_in}")
-if not os.path.exists(ass_path):
-    raise RuntimeError(f"ass file missing: {ass_path}")
-        # 3) Burn captions to MP4
+
+        # --- burn captions onto video ---
         out_mp4 = tempfile.mktemp(suffix="-captioned.mp4")
         burn_captions(local_in, ass_path, out_mp4)
-        print("burned MP4", flush=True)
+        if not os.path.exists(out_mp4) or os.path.getsize(out_mp4) == 0:
+            raise RuntimeError("ffmpeg produced no output")
+        print(f"burned MP4: {out_mp4}", flush=True)
 
-        # 4) Upload MP4 and mark done
-        key = f"{job['user_id']}/{job['id']}-captioned.mp4"
-        upload_path(key, out_mp4, "video/mp4")
-        print(f"uploaded {key}", flush=True)
+        # --- upload final video ---
+        out_key = f"{job['user_id']}/{job['id']}-captioned.mp4"
+        upload_path(out_key, out_mp4, "video/mp4")
+        print(f"uploaded {out_key}", flush=True)
 
+        # --- mark done ---
         supabase.table("jobs").update({
             "status": "done",
-            "output_path": key
+            "output_path": out_key
         }).eq("id", job["id"]).execute()
         print("job done", flush=True)
 
