@@ -127,11 +127,9 @@ def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_F
     if paras:
         for p in paras:
             for s in p.get("sentences", []):
-                a = float(s.get("start", 0.0))
-                b = float(s.get("end", a + 2.0))
+                a = float(s.get("start", 0.0)); b = float(s.get("end", a + 2.0))
                 txt = (s.get("text") or "").strip()
-                if txt:
-                    sentences.append((a, b, txt))
+                if txt: sentences.append((a, b, txt))
     else:
         words_all = alt.get("words", []) or []
         group, last_end = [], None
@@ -140,21 +138,20 @@ def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_F
             if a is None or b is None or not t: continue
             a = float(a); b = float(b)
             if not group:
-                group = [(a, b, t)]
+                group = [(a,b,t)]
             else:
                 gap = a - (last_end if last_end is not None else a)
                 dur = b - group[0][0]
                 if gap > 0.6 or dur > 3.0 or len(group) >= 12:
                     sentences.append((group[0][0], group[-1][1], " ".join(x[2] for x in group)))
-                    group = [(a, b, t)]
+                    group = [(a,b,t)]
                 else:
-                    group.append((a, b, t))
+                    group.append((a,b,t))
             last_end = b
         if group:
             sentences.append((group[0][0], group[-1][1], " ".join(x[2] for x in group)))
 
     word_list = alt.get("words", []) or []
-
     def words_in_range(a, b):
         out = []
         for w in word_list:
@@ -175,37 +172,25 @@ def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_F
 
         out.write("[V4+ Styles]\n")
         out.write("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n")
-        # PrimaryColour/BackColour use ASS &HAABBGGRR (AA=alpha). 00=opaque, 80≈50% alpha.
-        # BorderStyle=3 = opaque background box behind glyphs (clean, TikTok-style).
         out.write(f"Style: Cap,{font_name},{font_size},&H00FFFFFF,&H00000000,&H00000000,&H80101010,-1,0,0,0,100,100,0,0,3,0,0,2,60,60,170,1\n\n")
 
         out.write("[Events]\n")
         out.write("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")
 
         for (a, b, sentence) in sentences:
-            start = fmt_ass_time(a)
-            end = fmt_ass_time(b)
+            start = fmt_ass_time(a); end = fmt_ass_time(b)
             words = words_in_range(a, b)
-
             if words:
                 parts = []
                 for (ws, we, txt) in words:
-                    dur_cs = max(1, int(round((we - ws) * 100)))  # centiseconds for \k
-                    safe_txt = txt.replace("{", "(").replace("}", ")")
-                    # \k = karaoke timing; then a subtle bounce-in using \t scale up then back
+                    dur_cs = max(1, int(round((we - ws) * 100)))
+                    safe_txt = txt.replace("{","(").replace("}",")")
                     parts.append(rf"{{\k{dur_cs}\bord0\shad0\t(0,120,\fscx110\fscy110)\t(120,240,\fscx100\fscy100)}}{safe_txt}")
                 line = r"{\an2}" + " ".join(parts)
             else:
-                base_txt = sentence.replace("\n", " ").replace("\r", " ")
+                base_txt = sentence.replace("\n"," ").replace("\r"," ")
                 line = r"{\an2\bord0\shad0\t(0,160,\fscx108\fscy108)\t(160,280,\fscx100\fscy100)}" + base_txt
-
             out.write(f"Dialogue: 0,{start},{end},Cap,,0,0,170,,{line}\\N\n")
-
-    try:
-        dlg_count = sum(1 for L in open(ass_path, "r", encoding="utf-8") if L.startswith("Dialogue:"))
-        print(f"ass: cues={dlg_count}", flush=True)
-    except Exception:
-        pass
 
     return ass_path
 
