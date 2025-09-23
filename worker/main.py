@@ -17,14 +17,33 @@ def run(cmd):
     return p.stdout
 
 def download_from_storage(key: str) -> str:
+    if not key:
+        raise RuntimeError("download_from_storage: empty input_path")
+
+    print(f"downloading from storage: bucket={SUPABASE_BUCKET} key={key}", flush=True)
+
     res = supabase.storage.from_(SUPABASE_BUCKET).create_signed_url(key, 3600)
-    url = res.get("signedURL") or res.get("signedUrl") or res["signed_url"]
+
+    # Handle all possible shapes the SDK might return
+    signed_url = (
+        (res.get("signed_url") or res.get("signedURL")) or
+        (res.get("data", {}) or {}).get("signed_url") or
+        (res.get("data", {}) or {}).get("signedUrl")
+    )
+    if not signed_url:
+        raise RuntimeError(f"create_signed_url failed for '{key}': {res}")
+
     fd, path = tempfile.mkstemp(suffix=os.path.splitext(key)[1] or ".mp4")
     os.close(fd)
-    r = requests.get(url, timeout=300)
-    r.raise_for_status()
+
+    r = requests.get(signed_url, timeout=300)
+    if r.status_code >= 400:
+        raise RuntimeError(f"GET {signed_url} -> {r.status_code} {r.text[:160]}")
+
     with open(path, "wb") as f:
         f.write(r.content)
+
+    print(f"downloaded to {path}", flush=True)
     return path
 
 def upload_path(key: str, local_path: str, content_type: str) -> None:
@@ -168,14 +187,17 @@ def burn_captions(input_mp4: str, sub_path: str, output_mp4: str):
     ])
 
 def process_job(job: dict):
-    print(f"processing job {job.get('id')}", flush=True)
+    print(f"processing job {job.get('id')} -> {json.dumps(job, default=str)[:240]}", flush=True)
     supabase.table("jobs").update({"status": "processing"}).eq("id", job["id"]).execute()
 
     try:
-        # 1) Download original media from storage
-        local_in = download_from_storage(job["input_path"])
-        print("downloaded input", flush=True)
+        key = job.get("input_path")
+        if not key or not isinstance(key, str):
+            raise RuntimeError(f"invalid input_path: {key}")
 
+        local_in = download_from_storage(key)
+        print("downloaded input", flush=True)
+     
         # 2) Transcribe → ASS (karaoke)
         ass_path = transcribe_to_ass_deepgram(local_in, DEFAULT_FONT, 56, overlay=False)
         print("got ASS captions", flush=True)
