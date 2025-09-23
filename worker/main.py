@@ -1,7 +1,8 @@
 import os, time, json, shlex, mimetypes, tempfile, subprocess, requests
 from supabase import create_client, Client
 
-# ── Env ─────────────────────────────────────────────────────────────────────────
+print("boot: importing worker/main.py", flush=True)
+
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "videos")
@@ -9,9 +10,16 @@ DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
 DEFAULT_FONT = os.getenv("DEFAULT_FONT", "Inter")
 POLL_SECONDS = int(os.getenv("POLL_SECONDS", "3"))
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+_sb: Client | None = None
+def get_supabase() -> Client:
+    global _sb
+    if _sb is None:
+        if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+            raise RuntimeError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
+        _sb = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+        print("boot: supabase client created", flush=True)
+    return _sb
 
-# ── Utilities ───────────────────────────────────────────────────────────────────
 def run(cmd: list[str]) -> str:
     p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     if p.returncode != 0:
@@ -28,10 +36,9 @@ def safe_tmp(suffix: str) -> str:
 def download_from_storage(key: str) -> str:
     if not key or not isinstance(key, str):
         raise RuntimeError(f"invalid input_path: {key!r}")
-    print(f"downloading from storage: bucket={SUPABASE_BUCKET} key={key}", flush=True)
+    print(f"dl: bucket={SUPABASE_BUCKET} key={key}", flush=True)
 
-    resp = supabase.storage.from_(SUPABASE_BUCKET).create_signed_url(key, 3600)
-
+    resp = get_supabase().storage.from_(SUPABASE_BUCKET).create_signed_url(key, 3600)
     signed_url = None
     if isinstance(resp, dict):
         signed_url = resp.get("signed_url") or resp.get("signedURL")
@@ -60,15 +67,15 @@ def download_from_storage(key: str) -> str:
 
     if not os.path.exists(path) or os.path.getsize(path) == 0:
         raise RuntimeError("download produced empty file")
-    print(f"downloaded to {path}", flush=True)
+    print(f"dl: wrote {path}", flush=True)
     return path
 
 def upload_path(key: str, local_path: str, content_type: str) -> None:
     if not os.path.exists(local_path):
-        raise RuntimeError(f"upload_path: missing file {local_path}")
-    print(f"uploading key={key} from {local_path}", flush=True)
+        raise RuntimeError(f"upload_path missing: {local_path}")
+    print(f"up: {local_path} -> {SUPABASE_BUCKET}/{key}", flush=True)
     with open(local_path, "rb") as f:
-        supabase.storage.from_(SUPABASE_BUCKET).upload(
+        get_supabase().storage.from_(SUPABASE_BUCKET).upload(
             path=key,
             file=f,
             file_options={"contentType": content_type, "upsert": True},
@@ -82,7 +89,6 @@ def fmt_ass_time(t: float) -> str:
     c = cs % 100
     return f"{h}:{m:02d}:{s:02d}.{c:02d}"
 
-# ── Transcription → Animated ASS (karaoke) ──────────────────────────────────────
 def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_FONT, font_size: int = 56) -> str:
     if not DEEPGRAM_API_KEY:
         raise RuntimeError("Missing DEEPGRAM_API_KEY")
@@ -109,7 +115,6 @@ def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_F
     obj = resp.json()
     alt = obj["results"]["channels"][0]["alternatives"][0]
 
-    # Sentences
     sentences = []
     paras = alt.get("paragraphs", {}).get("paragraphs")
     if paras:
@@ -188,16 +193,14 @@ def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_F
                 hi_line = r"{\an2\t(0,300,\bord4)}" + sentence.replace("\n"," ").replace("\r"," ")
                 out.write(f"Dialogue: 1,{start},{end},CapHi,,0,0,140,,{hi_line}\\N\n")
 
-    # quick stat to aid debugging
     try:
         dlg_count = sum(1 for line in open(ass_path, "r", encoding="utf-8") if line.startswith("Dialogue:"))
-        print(f"ASS cues: {dlg_count}", flush=True)
+        print(f"ass: cues={dlg_count}", flush=True)
     except Exception:
         pass
 
     return ass_path
 
-# ── Burn captions (force 9:16 and ASS) ──────────────────────────────────────────
 def burn_captions(input_mp4: str, sub_path: str, output_mp4: str):
     if not input_mp4 or not isinstance(input_mp4, str):
         raise RuntimeError(f"burn_captions: invalid input_mp4 {input_mp4!r}")
@@ -228,11 +231,9 @@ def burn_captions(input_mp4: str, sub_path: str, output_mp4: str):
         output_mp4
     ])
 
-# ── Job processing ──────────────────────────────────────────────────────────────
 def process_job(job: dict):
-    print(f"processing job {job.get('id')} -> {json.dumps(job, default=str)[:220]}", flush=True)
-    supabase.table("jobs").update({"status": "processing"}).eq("id", job["id"]).execute()
-
+    print(f"job: start {job.get('id')} -> {json.dumps(job, default=str)[:220]}", flush=True)
+    get_supabase().table("jobs").update({"status": "processing"}).eq("id", job["id"]).execute()
     try:
         key = job.get("input_path")
         if not key or not isinstance(key, str):
@@ -241,64 +242,68 @@ def process_job(job: dict):
         local_in = download_from_storage(key)
         if not os.path.exists(local_in):
             raise RuntimeError(f"input file missing after download: {local_in}")
-        print(f"downloaded input: {local_in}", flush=True)
+        print(f"job: input {local_in}", flush=True)
 
         ass_path = transcribe_to_ass_deepgram(local_in, DEFAULT_FONT, 56)
         if not os.path.exists(ass_path):
             raise RuntimeError(f"ASS file missing: {ass_path}")
-        print("got ASS captions", flush=True)
+        print("job: got ASS", flush=True)
 
         out_mp4 = safe_tmp("-captioned.mp4")
-        print(f"burning to {out_mp4}", flush=True)
+        print(f"job: burning -> {out_mp4}", flush=True)
         burn_captions(local_in, ass_path, out_mp4)
 
-        if not out_mp4 or not isinstance(out_mp4, str):
-            raise RuntimeError("out_mp4 path is None/invalid after burn")
-        if not os.path.exists(out_mp4):
-            raise RuntimeError(f"ffmpeg output missing: {out_mp4}")
-        try:
-            size = os.path.getsize(out_mp4)
-        except Exception as se:
-            raise RuntimeError(f"stat failed on output: {se}")
-        if size == 0:
-            raise RuntimeError("ffmpeg produced zero-byte file")
-        print(f"burned MP4: {out_mp4} ({size} bytes)", flush=True)
+        if not os.path.exists(out_mp4) or os.path.getsize(out_mp4) == 0:
+            raise RuntimeError("ffmpeg produced no output")
+        print(f"job: burned {out_mp4} size={os.path.getsize(out_mp4)}", flush=True)
 
         out_key = f"{job['user_id']}/{job['id']}-captioned.mp4"
         upload_path(out_key, out_mp4, "video/mp4")
-        print(f"uploaded {out_key}", flush=True)
+        print(f"job: uploaded {out_key}", flush=True)
 
-        supabase.table("jobs").update({
+        get_supabase().table("jobs").update({
             "status": "done",
             "output_path": out_key
         }).eq("id", job["id"]).execute()
-        print("job done", flush=True)
+        print("job: done", flush=True)
 
     except Exception as e:
         msg = str(e)
-        print(f"job {job.get('id')} error: {msg}", flush=True)
-        supabase.table("jobs").update({
+        print(f"job: error {job.get('id')}: {msg}", flush=True)
+        get_supabase().table("jobs").update({
             "status": "error",
             "error": msg[:240]
         }).eq("id", job["id"]).execute()
 
 def poll_once() -> bool:
-    res = supabase.table("jobs").select("*").eq("status","queued").order("created_at", desc=False).limit(1).execute()
+    sb = get_supabase()
+    res = sb.table("jobs").select("*").eq("status","queued").order("created_at", desc=False).limit(1).execute()
     items = res.data or []
     if not items:
         return False
-    print("found queued job", flush=True)
+    print("loop: found queued job", flush=True)
     process_job(items[0])
     return True
 
 def main():
-    print("worker started", flush=True)
+    print("boot: starting loop", flush=True)
+    # quick health probe: count jobs table
+    try:
+        cnt = get_supabase().table("jobs").select("id", count="exact").limit(1).execute()
+        print(f"boot: jobs table reachable (count mode ok)", flush=True)
+    except Exception as e:
+        print(f"boot: jobs table check failed: {e}", flush=True)
+    tick = 0
     while True:
         try:
             did = poll_once()
         except Exception as e:
-            print(f"loop error: {e}", flush=True)
+            print(f"loop: error {e}", flush=True)
             did = False
+        if not did:
+            tick += 1
+            if tick % 10 == 0:
+                print("loop: heartbeat (idle)", flush=True)
         time.sleep(0 if did else POLL_SECONDS)
 
 if __name__ == "__main__":
