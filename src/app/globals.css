@@ -2,44 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Theme */
-:root{ --bg:#0b0b0b; --fg:#fff; --muted:#a3a3a3; --card:#111214; --border:#1f2228; --accent:#7c5cff; }
-*{ box-sizing:border-box }
-html,body{ background:var(--bg); color:var(--fg); margin:0; font:16px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"; }
+:root { color-scheme: dark; }
 
-/* Typography */
-h1{ font-size:28px; font-weight:700; letter-spacing:-.01em; margin:0 0 10px }
-h2{ font-size:18px; font-weight:600; margin:0 0 8px }
-a{ color:#9db4ff; text-decoration:none }
-a:hover{ text-decoration:underline }
-.muted{ color:var(--muted) }
+html, body { height: 100%; }
 
-/* Layout */
-.container{ max-width:1100px; margin:0 auto; padding:0 16px }
-.stack-6 > * + *{ margin-top:24px }           /* vertical rhythm */
-.grid-2{ display:grid; grid-template-columns:1fr; gap:24px }
-@media (min-width:900px){ .grid-2{ grid-template-columns:1fr 1fr } }
+a { @apply text-neutral-200 hover:text-white; }
 
-/* Surfaces */
-.card{ background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px }
-.hr{ height:1px; background:var(--border); border:0; margin:24px 0 }
+.card { @apply rounded-lg border border-neutral-800 bg-neutral-900/60 backdrop-blur px-4 py-3; }
 
-/* Header/Nav */
-.navbar{ position:sticky; top:0; z-index:20; backdrop-filter:blur(8px); background:rgba(11,11,11,.7); border-bottom:1px solid var(--border) }
-.nav{ display:flex; align-items:center; justify-content:space-between; padding:12px 0 }
-.navlinks{ display:flex; gap:18px }
-.navlinks a{ color:#bdbdbd }
-.navlinks a:hover{ color:#fff }
+.input { @apply w-full rounded-md border border-neutral-700 bg-neutral-800/60 px-3 py-2 text-sm placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40; }
 
-/* Inputs & Buttons */
-.input{ width:100%; border:1px solid var(--border); background:transparent; color:var(--fg); border-radius:8px; padding:8px 12px }
-.btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:8px 12px; font-weight:600; font-size:14px; border-radius:8px; cursor:pointer; border:none; background:#fff; color:#000 }
-.btn:hover{ filter:brightness(95%) }
-.btn:disabled{ opacity:.6; cursor:not-allowed }
-.btn-outline{ background:transparent; color:var(--fg); border:1px solid var(--border) }
-.btn-outline:hover{ background:#16181d }
-.pill{ font-size:12px; border:1px solid var(--border); border-radius:999px; padding:2px 8px; color:var(--muted) }
+.select { @apply rounded-md border border-neutral-700 bg-neutral-800/60 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40; }
 
-/* Lists */
-.list{ list-style:none; padding:0; margin:0 }
-.list li{ padding:12px; border:1px solid var(--border); border-radius:10px }
+.btn { @apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors; }
+
+.btn-primary { @apply btn bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50; }
+
+.btn-secondary { @apply btn bg-neutral-800 text-neutral-100 hover:bg-neutral-700; }
+
+.badge { @apply inline-flex items-center rounded-full border border-neutral-700 bg-neutral-800/60 px-2 py-0.5 text-[11px] text-neutral-300; }
