@@ -82,9 +82,12 @@ def upload_path(key: str, local_path: str, content_type: str) -> None:
         get_supabase().storage.from_(SUPABASE_BUCKET).upload(
             path=key,
             file=f,
-            file_options={"contentType": content_type, "upsert": True},
+            file_options={
+                "contentType": content_type,
+                "cacheControl": "3600",
+                "upsert": "true"  # string, NOT boolean
+            },
         )
-
 def fmt_ass_time(t: float) -> str:
     cs = int(round(t * 100))
     h = cs // 360000
