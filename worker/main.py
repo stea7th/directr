@@ -17,31 +17,43 @@ def run(cmd):
     return p.stdout
 
 def download_from_storage(key: str) -> str:
-    if not key:
-        raise RuntimeError("download_from_storage: empty input_path")
+    if not key or not isinstance(key, str):
+        raise RuntimeError(f"invalid input_path: {key!r}")
 
     print(f"downloading from storage: bucket={SUPABASE_BUCKET} key={key}", flush=True)
 
-    res = supabase.storage.from_(SUPABASE_BUCKET).create_signed_url(key, 3600)
+    resp = supabase.storage.from_(SUPABASE_BUCKET).create_signed_url(key, 3600)
 
-    # Handle all possible shapes the SDK might return
-    signed_url = (
-        (res.get("signed_url") or res.get("signedURL")) or
-        (res.get("data", {}) or {}).get("signed_url") or
-        (res.get("data", {}) or {}).get("signedUrl")
-    )
+    # handle all possible shapes that supabase-py v2 may return
+    signed_url = None
+    if isinstance(resp, dict):
+        signed_url = resp.get("signed_url") or resp.get("signedURL")
+        if not signed_url:
+            data = resp.get("data") or {}
+            signed_url = data.get("signed_url") or data.get("signedURL") or data.get("signedUrl")
+    else:
+        data = getattr(resp, "data", None)
+        if isinstance(data, dict):
+            signed_url = data.get("signed_url") or data.get("signedURL") or data.get("signedUrl")
+        if not signed_url:
+            # sometimes resp is already the URL
+            signed_url = getattr(resp, "signed_url", None) or getattr(resp, "signedURL", None)
+
     if not signed_url:
-        raise RuntimeError(f"create_signed_url failed for '{key}': {res}")
+        raise RuntimeError(f"create_signed_url returned no URL for {key!r}: {repr(resp)[:240]}")
 
     fd, path = tempfile.mkstemp(suffix=os.path.splitext(key)[1] or ".mp4")
     os.close(fd)
 
     r = requests.get(signed_url, timeout=300)
     if r.status_code >= 400:
-        raise RuntimeError(f"GET {signed_url} -> {r.status_code} {r.text[:160]}")
+        raise RuntimeError(f"GET signed_url -> {r.status_code} {r.text[:160]}")
 
     with open(path, "wb") as f:
         f.write(r.content)
+
+    if not os.path.exists(path) or os.path.getsize(path) == 0:
+        raise RuntimeError("download produced empty file")
 
     print(f"downloaded to {path}", flush=True)
     return path
@@ -187,21 +199,25 @@ def burn_captions(input_mp4: str, sub_path: str, output_mp4: str):
     ])
 
 def process_job(job: dict):
-    print(f"processing job {job.get('id')} -> {json.dumps(job, default=str)[:240]}", flush=True)
+    print(f"processing job {job.get('id')} -> {json.dumps(job, default=str)[:220]}", flush=True)
     supabase.table("jobs").update({"status": "processing"}).eq("id", job["id"]).execute()
 
     try:
         key = job.get("input_path")
         if not key or not isinstance(key, str):
-            raise RuntimeError(f"invalid input_path: {key}")
+            raise RuntimeError(f"invalid input_path in row: {key!r}")
 
         local_in = download_from_storage(key)
-        print("downloaded input", flush=True)
+        print(f"downloaded input: {local_in}", flush=True)
+        # CONTINUE with transcribe -> burn -> upload -> mark done ...
      
         # 2) Transcribe → ASS (karaoke)
         ass_path = transcribe_to_ass_deepgram(local_in, DEFAULT_FONT, 56, overlay=False)
         print("got ASS captions", flush=True)
-
+if not os.path.exists(local_in):
+    raise RuntimeError(f"input file missing: {local_in}")
+if not os.path.exists(ass_path):
+    raise RuntimeError(f"ass file missing: {ass_path}")
         # 3) Burn captions to MP4
         out_mp4 = tempfile.mktemp(suffix="-captioned.mp4")
         burn_captions(local_in, ass_path, out_mp4)
