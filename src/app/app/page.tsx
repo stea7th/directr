@@ -27,7 +27,10 @@ export default function CreatePage() {
   const [downloadUrl, setDownloadUrl] = useState("")
   const [jobs, setJobs] = useState<Job[]>([])
   const [busy, setBusy] = useState(false)
-
+const [fontName, setFontName] = useState("Anton");
+const [fontSize, setFontSize] = useState(72);
+const [styleName, setStyleName] = useState("Classic White");
+const [position, setPosition] = useState("bottom");
   useEffect(() => {
     ;(async () => {
       const { data } = await supabase.auth.getUser()
