@@ -1,6 +1,7 @@
-import os, time, tempfile, mimetypes, shlex, json, subprocess, requests
+import os, time, json, shlex, mimetypes, tempfile, subprocess, requests
 from supabase import create_client, Client
 
+# ── Env ─────────────────────────────────────────────────────────────────────────
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "videos")
@@ -10,21 +11,27 @@ POLL_SECONDS = int(os.getenv("POLL_SECONDS", "3"))
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-def run(cmd):
+# ── Utilities ───────────────────────────────────────────────────────────────────
+def run(cmd: list[str]) -> str:
     p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     if p.returncode != 0:
         raise RuntimeError(p.stdout)
     return p.stdout
 
+def safe_tmp(suffix: str) -> str:
+    f = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+    try:
+        return f.name
+    finally:
+        f.close()
+
 def download_from_storage(key: str) -> str:
     if not key or not isinstance(key, str):
         raise RuntimeError(f"invalid input_path: {key!r}")
-
     print(f"downloading from storage: bucket={SUPABASE_BUCKET} key={key}", flush=True)
 
     resp = supabase.storage.from_(SUPABASE_BUCKET).create_signed_url(key, 3600)
 
-    # handle all possible shapes that supabase-py v2 may return
     signed_url = None
     if isinstance(resp, dict):
         signed_url = resp.get("signed_url") or resp.get("signedURL")
@@ -36,11 +43,10 @@ def download_from_storage(key: str) -> str:
         if isinstance(data, dict):
             signed_url = data.get("signed_url") or data.get("signedURL") or data.get("signedUrl")
         if not signed_url:
-            # sometimes resp is already the URL
             signed_url = getattr(resp, "signed_url", None) or getattr(resp, "signedURL", None)
 
     if not signed_url:
-        raise RuntimeError(f"create_signed_url returned no URL for {key!r}: {repr(resp)[:240]}")
+        raise RuntimeError(f"create_signed_url returned no URL for {key!r}: {repr(resp)[:200]}")
 
     fd, path = tempfile.mkstemp(suffix=os.path.splitext(key)[1] or ".mp4")
     os.close(fd)
@@ -54,11 +60,13 @@ def download_from_storage(key: str) -> str:
 
     if not os.path.exists(path) or os.path.getsize(path) == 0:
         raise RuntimeError("download produced empty file")
-
     print(f"downloaded to {path}", flush=True)
     return path
 
 def upload_path(key: str, local_path: str, content_type: str) -> None:
+    if not os.path.exists(local_path):
+        raise RuntimeError(f"upload_path: missing file {local_path}")
+    print(f"uploading key={key} from {local_path}", flush=True)
     with open(local_path, "rb") as f:
         supabase.storage.from_(SUPABASE_BUCKET).upload(
             path=key,
@@ -73,14 +81,12 @@ def fmt_ass_time(t: float) -> str:
     s = (cs % 6000) // 100
     c = cs % 100
     return f"{h}:{m:02d}:{s:02d}.{c:02d}"
-def download_from_storage(key: str) -> str:
-    print(f"downloading from storage: {key}", flush=True)
-    res = supabase.storage.from_(SUPABASE_BUCKET).create_signed_url(key, 3600)
-    url = res.get("signedURL") or res.get("signedUrl") or res["signed_url"]
-    ...
-def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_FONT, font_size: int = 56, overlay: bool = False) -> str:
+
+# ── Transcription → Animated ASS (karaoke) ──────────────────────────────────────
+def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_FONT, font_size: int = 56) -> str:
     if not DEEPGRAM_API_KEY:
         raise RuntimeError("Missing DEEPGRAM_API_KEY")
+
     url = "https://api.deepgram.com/v1/listen"
     headers = {
         "Authorization": f"Token {DEEPGRAM_API_KEY}",
@@ -103,17 +109,19 @@ def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_F
     obj = resp.json()
     alt = obj["results"]["channels"][0]["alternatives"][0]
 
+    # Sentences
     sentences = []
     paras = alt.get("paragraphs", {}).get("paragraphs")
     if paras:
         for p in paras:
             for s in p.get("sentences", []):
-                a = float(s.get("start", 0.0)); b = float(s.get("end", a + 2.0))
+                a = float(s.get("start", 0.0))
+                b = float(s.get("end", a + 2.0))
                 txt = (s.get("text") or "").strip()
                 if txt:
                     sentences.append((a, b, txt))
     else:
-        words = alt.get("words", [])
+        words = alt.get("words", []) or []
         group, last_end = [], None
         for w in words:
             a = w.get("start"); b = w.get("end"); t = (w.get("word") or "").strip()
@@ -133,7 +141,7 @@ def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_F
         if group:
             sentences.append((group[0][0], group[-1][1], " ".join(x[2] for x in group)))
 
-    word_list = alt.get("words", [])
+    word_list = alt.get("words", []) or []
 
     def words_in_range(a, b):
         out = []
@@ -145,7 +153,7 @@ def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_F
                 out.append((ws, we, txt))
         return out
 
-    ass_path = tempfile.mktemp(suffix=".ass")
+    ass_path = safe_tmp(".ass")
     with open(ass_path, "w", encoding="utf-8") as out:
         out.write("[Script Info]\n")
         out.write("ScriptType: v4.00+\n")
@@ -156,8 +164,7 @@ def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_F
         out.write("[V4+ Styles]\n")
         out.write("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n")
         out.write(f"Style: CapBase,{font_name},{font_size},&H00FFFFFF,&H0026E6FF,&H00202020,&H00000000,-1,0,0,0,100,100,0,0,3,5,0,2,60,60,140,1\n")
-        out.write(f"Style: CapHi,{font_name},{font_size},&H00FFFFFF,&H0026E6FF,&H00101010,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,2,60,60,140,1\n")
-        out.write("\n")
+        out.write(f"Style: CapHi,{font_name},{font_size},&H00FFFFFF,&H0026E6FF,&H00101010,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,2,60,60,140,1\n\n")
 
         out.write("[Events]\n")
         out.write("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")
@@ -167,6 +174,7 @@ def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_F
             end = fmt_ass_time(b)
             base_line = r"{\an2\blur2\fad(120,80)\t(0,200,\blur0)}" + sentence.replace("\n"," ").replace("\r"," ")
             out.write(f"Dialogue: 0,{start},{end},CapBase,,0,0,140,,{base_line}\\N\n")
+
             words = words_in_range(a, b)
             if words:
                 k_parts = []
@@ -180,13 +188,35 @@ def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_F
                 hi_line = r"{\an2\t(0,300,\bord4)}" + sentence.replace("\n"," ").replace("\r"," ")
                 out.write(f"Dialogue: 1,{start},{end},CapHi,,0,0,140,,{hi_line}\\N\n")
 
+    # quick stat to aid debugging
+    try:
+        dlg_count = sum(1 for line in open(ass_path, "r", encoding="utf-8") if line.startswith("Dialogue:"))
+        print(f"ASS cues: {dlg_count}", flush=True)
+    except Exception:
+        pass
+
     return ass_path
 
+# ── Burn captions (force 9:16 and ASS) ──────────────────────────────────────────
 def burn_captions(input_mp4: str, sub_path: str, output_mp4: str):
+    if not input_mp4 or not isinstance(input_mp4, str):
+        raise RuntimeError(f"burn_captions: invalid input_mp4 {input_mp4!r}")
+    if not sub_path or not isinstance(sub_path, str):
+        raise RuntimeError(f"burn_captions: invalid sub_path {sub_path!r}")
+    if not output_mp4 or not isinstance(output_mp4, str):
+        raise RuntimeError(f"burn_captions: invalid output_mp4 {output_mp4!r}")
+    if not os.path.exists(input_mp4):
+        raise RuntimeError(f"burn_captions: input missing {input_mp4}")
+    if not os.path.exists(sub_path):
+        raise RuntimeError(f"burn_captions: subs missing {sub_path}")
+
     if sub_path.lower().endswith(".ass"):
         vf = f"scale=-2:1920,crop=1080:1920,ass={shlex.quote(sub_path)}"
     else:
-        vf = "scale=-2:1920,crop=1080:1920," + f"subtitles={shlex.quote(sub_path)}:charenc=UTF-8:force_style='Fontname={DEFAULT_FONT},Fontsize=64,PrimaryColour=&H00FFFFFF&,OutlineColour=&H00202020&,BorderStyle=3,Outline=4,Shadow=0,MarginV=120'"
+        vf = "scale=-2:1920,crop=1080:1920," + \
+             f"subtitles={shlex.quote(sub_path)}:charenc=UTF-8:" + \
+             f"force_style='Fontname={DEFAULT_FONT},Fontsize=64,PrimaryColour=&H00FFFFFF&,OutlineColour=&H00202020&,BorderStyle=3,Outline=4,Shadow=0,MarginV=120'"
+
     run([
         "ffmpeg","-y",
         "-i", input_mp4,
@@ -198,43 +228,46 @@ def burn_captions(input_mp4: str, sub_path: str, output_mp4: str):
         output_mp4
     ])
 
+# ── Job processing ──────────────────────────────────────────────────────────────
 def process_job(job: dict):
     print(f"processing job {job.get('id')} -> {json.dumps(job, default=str)[:220]}", flush=True)
-
-    # mark processing immediately
     supabase.table("jobs").update({"status": "processing"}).eq("id", job["id"]).execute()
 
     try:
-        # --- validate input_path ---
         key = job.get("input_path")
         if not key or not isinstance(key, str):
             raise RuntimeError(f"invalid input_path in row: {key!r}")
 
-        # --- download original media ---
         local_in = download_from_storage(key)
         if not os.path.exists(local_in):
             raise RuntimeError(f"input file missing after download: {local_in}")
         print(f"downloaded input: {local_in}", flush=True)
 
-        # --- transcribe -> ASS (karaoke style) ---
-        ass_path = transcribe_to_ass_deepgram(local_in, DEFAULT_FONT, 56, overlay=False)
+        ass_path = transcribe_to_ass_deepgram(local_in, DEFAULT_FONT, 56)
         if not os.path.exists(ass_path):
             raise RuntimeError(f"ASS file missing: {ass_path}")
         print("got ASS captions", flush=True)
 
-        # --- burn captions onto video ---
-        out_mp4 = tempfile.mktemp(suffix="-captioned.mp4")
+        out_mp4 = safe_tmp("-captioned.mp4")
+        print(f"burning to {out_mp4}", flush=True)
         burn_captions(local_in, ass_path, out_mp4)
-        if not os.path.exists(out_mp4) or os.path.getsize(out_mp4) == 0:
-            raise RuntimeError("ffmpeg produced no output")
-        print(f"burned MP4: {out_mp4}", flush=True)
 
-        # --- upload final video ---
+        if not out_mp4 or not isinstance(out_mp4, str):
+            raise RuntimeError("out_mp4 path is None/invalid after burn")
+        if not os.path.exists(out_mp4):
+            raise RuntimeError(f"ffmpeg output missing: {out_mp4}")
+        try:
+            size = os.path.getsize(out_mp4)
+        except Exception as se:
+            raise RuntimeError(f"stat failed on output: {se}")
+        if size == 0:
+            raise RuntimeError("ffmpeg produced zero-byte file")
+        print(f"burned MP4: {out_mp4} ({size} bytes)", flush=True)
+
         out_key = f"{job['user_id']}/{job['id']}-captioned.mp4"
         upload_path(out_key, out_mp4, "video/mp4")
         print(f"uploaded {out_key}", flush=True)
 
-        # --- mark done ---
         supabase.table("jobs").update({
             "status": "done",
             "output_path": out_key
@@ -248,14 +281,8 @@ def process_job(job: dict):
             "status": "error",
             "error": msg[:240]
         }).eq("id", job["id"]).execute()
-def poll_once():
-    res = supabase.table("jobs").select("*").eq("status","queued").order("created_at", desc=False).limit(1).execute()
-    items = res.data or []
-    if not items:
-        return False
-    process_job(items[0])
-    return True
-def poll_once():
+
+def poll_once() -> bool:
     res = supabase.table("jobs").select("*").eq("status","queued").order("created_at", desc=False).limit(1).execute()
     items = res.data or []
     if not items:
@@ -263,13 +290,14 @@ def poll_once():
     print("found queued job", flush=True)
     process_job(items[0])
     return True
+
 def main():
     print("worker started", flush=True)
     while True:
         try:
             did = poll_once()
         except Exception as e:
-            print(f"error: {e}", flush=True)
+            print(f"loop error: {e}", flush=True)
             did = False
         time.sleep(0 if did else POLL_SECONDS)
 
