@@ -7,15 +7,6 @@ export const metadata: Metadata = {
   description: "Your AI Content Director",
 };
 
-const NavLink = ({ href, label }: { href: string; label: string }) => (
-  <Link
-    href={href}
-    className="text-sm text-neutral-300 hover:text-white px-3 py-2 rounded-md transition-colors"
-  >
-    {label}
-  </Link>
-);
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
@@ -25,11 +16,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" className="font-semibold tracking-tight text-white">
               Directr
             </Link>
-            <nav className="flex items-center gap-1">
-              <NavLink href="/app" label="Create" />
-              <NavLink href="/campaigns" label="Campaigns" />
-              <NavLink href="/analytics" label="Analytics" />
-              <NavLink href="/settings" label="Settings" />
+            <nav className="flex items-center gap-4 text-sm text-neutral-300">
+              <Link href="/app" className="hover:text-white">Create</Link>
+              <Link href="/campaigns" className="hover:text-white">Campaigns</Link>
+              <Link href="/analytics" className="hover:text-white">Analytics</Link>
+              <Link href="/settings" className="hover:text-white">Settings</Link>
             </nav>
           </div>
         </header>
