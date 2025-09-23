@@ -16,4 +16,4 @@ RUN pip install --no-cache-dir -r /app/worker/requirements.txt
 
 WORKDIR /app/worker
 
-CMD ["python", "main.py"]
+CMD ["python", "-u", "main.py"]]
