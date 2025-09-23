@@ -8,12 +8,9 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-
 COPY worker/ /app/worker/
 COPY worker/requirements.txt /app/worker/requirements.txt
-
 RUN pip install --no-cache-dir -r /app/worker/requirements.txt
 
 WORKDIR /app/worker
-
-CMD ["python", "-u", "main.py"]]
+CMD ["python", "-u", "main.py"]
