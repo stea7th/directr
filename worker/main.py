@@ -164,19 +164,41 @@ def burn_captions(input_mp4: str, sub_path: str, output_mp4: str):
     ])
 
 def process_job(job: dict):
-    supabase.table("jobs").update({"status":"processing"}).eq("id", job["id"]).execute()
-    local_in = download_from_storage(job["input_path"])
-    ass_path = transcribe_to_ass_deepgram(local_in, DEFAULT_FONT, 56, overlay=False)
-    out_mp4 = tempfile.mktemp(suffix="-captioned.mp4")
-    try:
-        burn_captions(local_in, ass_path, out_mp4)
-    except Exception as e:
-        supabase.table("jobs").update({"status":"error","error":f"ffmpeg:{str(e)[:180]}"}).eq("id", job["id"]).execute()
-        return
-    key = f"{job['user_id']}/{job['id']}-captioned.mp4"
-    upload_path(key, out_mp4, "video/mp4")
-    supabase.table("jobs").update({"status":"done","output_path":key}).eq("id", job["id"]).execute()
+    print(f"processing job {job.get('id')}", flush=True)
+    supabase.table("jobs").update({"status": "processing"}).eq("id", job["id"]).execute()
 
+    try:
+        # 1) Download original media from storage
+        local_in = download_from_storage(job["input_path"])
+        print("downloaded input", flush=True)
+
+        # 2) Transcribe → ASS (karaoke)
+        ass_path = transcribe_to_ass_deepgram(local_in, DEFAULT_FONT, 56, overlay=False)
+        print("got ASS captions", flush=True)
+
+        # 3) Burn captions to MP4
+        out_mp4 = tempfile.mktemp(suffix="-captioned.mp4")
+        burn_captions(local_in, ass_path, out_mp4)
+        print("burned MP4", flush=True)
+
+        # 4) Upload MP4 and mark done
+        key = f"{job['user_id']}/{job['id']}-captioned.mp4"
+        upload_path(key, out_mp4, "video/mp4")
+        print(f"uploaded {key}", flush=True)
+
+        supabase.table("jobs").update({
+            "status": "done",
+            "output_path": key
+        }).eq("id", job["id"]).execute()
+        print("job done", flush=True)
+
+    except Exception as e:
+        msg = str(e)
+        print(f"job {job.get('id')} error: {msg}", flush=True)
+        supabase.table("jobs").update({
+            "status": "error",
+            "error": msg[:240]
+        }).eq("id", job["id"]).execute()
 def poll_once():
     res = supabase.table("jobs").select("*").eq("status","queued").order("created_at", desc=False).limit(1).execute()
     items = res.data or []
@@ -184,7 +206,14 @@ def poll_once():
         return False
     process_job(items[0])
     return True
-
+def poll_once():
+    res = supabase.table("jobs").select("*").eq("status","queued").order("created_at", desc=False).limit(1).execute()
+    items = res.data or []
+    if not items:
+        return False
+    print("found queued job", flush=True)
+    process_job(items[0])
+    return True
 def main():
     print("worker started", flush=True)
     while True:
