@@ -96,7 +96,7 @@ def fmt_ass_time(t: float) -> str:
     c = cs % 100
     return f"{h}:{m:02d}:{s:02d}.{c:02d}"
 
-def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_FONT, font_size: int = 56) -> str:
+def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_FONT, font_size: int = 64) -> str:
     if not DEEPGRAM_API_KEY:
         raise RuntimeError("Missing DEEPGRAM_API_KEY")
 
@@ -133,9 +133,9 @@ def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_F
                 if txt:
                     sentences.append((a, b, txt))
     else:
-        words = alt.get("words", []) or []
+        words_all = alt.get("words", []) or []
         group, last_end = [], None
-        for w in words:
+        for w in words_all:
             a = w.get("start"); b = w.get("end"); t = (w.get("word") or "").strip()
             if a is None or b is None or not t: continue
             a = float(a); b = float(b)
@@ -154,6 +154,60 @@ def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_F
             sentences.append((group[0][0], group[-1][1], " ".join(x[2] for x in group)))
 
     word_list = alt.get("words", []) or []
+
+    def words_in_range(a, b):
+        out = []
+        for w in word_list:
+            ws = w.get("start"); we = w.get("end"); txt = (w.get("word") or "").strip()
+            if ws is None or we is None or not txt: continue
+            ws = float(ws); we = float(we)
+            if ws >= a - 0.02 and we <= b + 0.02:
+                out.append((ws, we, txt))
+        return out
+
+    ass_path = safe_tmp(".ass")
+    with open(ass_path, "w", encoding="utf-8") as out:
+        out.write("[Script Info]\n")
+        out.write("ScriptType: v4.00+\n")
+        out.write("PlayResX: 1080\n")
+        out.write("PlayResY: 1920\n")
+        out.write("ScaledBorderAndShadow: yes\n\n")
+
+        out.write("[V4+ Styles]\n")
+        out.write("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n")
+        # PrimaryColour/BackColour use ASS &HAABBGGRR (AA=alpha). 00=opaque, 80≈50% alpha.
+        # BorderStyle=3 = opaque background box behind glyphs (clean, TikTok-style).
+        out.write(f"Style: Cap,{font_name},{font_size},&H00FFFFFF,&H00000000,&H00000000,&H80101010,-1,0,0,0,100,100,0,0,3,0,0,2,60,60,170,1\n\n")
+
+        out.write("[Events]\n")
+        out.write("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")
+
+        for (a, b, sentence) in sentences:
+            start = fmt_ass_time(a)
+            end = fmt_ass_time(b)
+            words = words_in_range(a, b)
+
+            if words:
+                parts = []
+                for (ws, we, txt) in words:
+                    dur_cs = max(1, int(round((we - ws) * 100)))  # centiseconds for \k
+                    safe_txt = txt.replace("{", "(").replace("}", ")")
+                    # \k = karaoke timing; then a subtle bounce-in using \t scale up then back
+                    parts.append(rf"{{\k{dur_cs}\bord0\shad0\t(0,120,\fscx110\fscy110)\t(120,240,\fscx100\fscy100)}}{safe_txt}")
+                line = r"{\an2}" + " ".join(parts)
+            else:
+                base_txt = sentence.replace("\n", " ").replace("\r", " ")
+                line = r"{\an2\bord0\shad0\t(0,160,\fscx108\fscy108)\t(160,280,\fscx100\fscy100)}" + base_txt
+
+            out.write(f"Dialogue: 0,{start},{end},Cap,,0,0,170,,{line}\\N\n")
+
+    try:
+        dlg_count = sum(1 for L in open(ass_path, "r", encoding="utf-8") if L.startswith("Dialogue:"))
+        print(f"ass: cues={dlg_count}", flush=True)
+    except Exception:
+        pass
+
+    return ass_path
 
     def words_in_range(a, b):
         out = []
