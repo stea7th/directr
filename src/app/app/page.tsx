@@ -52,48 +52,28 @@ export default function CreatePage() {
     alert("Check your email for a magic link.")
   }
 
-  async function handleUpload() {
-  try {
-    if (!userId) { window.alert("Sign in first."); return }
-    if (!file) { window.alert("Pick a file"); return }
+ async function handleUpload() {
+  if (!file) { alert("Choose a file"); return; }
+  if (!user) { alert("Sign in"); return; }
 
-    setBusy(true)
+  const jobId = crypto.randomUUID();
+  const ext = file.name.split(".").pop()?.toLowerCase() || "mp4";
+  const key = `${user.id}/${jobId}.${ext}`;
 
-    const path = `${userId}/${Date.now()}-${file.name}`
-    const up = await supabase.storage.from("videos").upload(path, file)
+  const { error: upErr } = await supabase
+    .storage
+    .from("videos")
+    .upload(key, file, { contentType: "video/mp4", upsert: true });
+  if (upErr) { alert("Upload failed"); return; }
 
-    if (up.error) {
-      console.error("Upload error:", up.error)
-      window.alert(`Upload failed: ${up.error.message || "unknown error"}`)
-      setBusy(false)
-      return
-    }
+  const { error: insErr } = await supabase
+    .from("jobs")
+    .insert([{ id: jobId, user_id: user.id, status: "queued", input_path: key }]);
+  if (insErr) { alert("DB insert failed"); return; }
 
-    const ins = await supabase
-      .from("jobs")
-      .insert({ user_id: userId, status: "queued", source_path: path })
-      .select("id")
-      .single()
-
-    if (ins.error || !ins.data) {
-      console.error("Insert job error:", ins.error)
-      window.alert(`Job insert failed: ${ins.error?.message || "unknown error"}`)
-      setBusy(false)
-      return
-    }
-
-    setJobId(ins.data.id)
-    localStorage.setItem("lastJobId", ins.data.id)
-    poll(ins.data.id)
-    loadJobs(userId)
-  } catch (e: any) {
-    console.error(e)
-    window.alert(e?.message || "Upload failed")
-  } finally {
-    setBusy(false)
-  }
+  alert(`Job queued: ${jobId}`);
+  await loadJobs(user.id);
 }
-
   function poll(id: string) {
     setStatusText("checking…")
     const t = setInterval(async () => {
