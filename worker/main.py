@@ -9,7 +9,10 @@ SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "videos")
 DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
 DEFAULT_FONT = os.getenv("DEFAULT_FONT", "Inter")
 POLL_SECONDS = int(os.getenv("POLL_SECONDS", "3"))
-
+TARGET_W = int(os.getenv("TARGET_W", "720"))      # was 1080
+TARGET_H = int(os.getenv("TARGET_H", "1280"))     # was 1920
+CRF      = os.getenv("CRF", "23")                 # a bit more compressed than 20
+AUDIO_BR = os.getenv("AUDIO_BR", "128k")          # was 192k
 _sb: Client | None = None
 def get_supabase() -> Client:
     global _sb
@@ -208,24 +211,35 @@ def burn_captions(input_mp4: str, sub_path: str, output_mp4: str):
     if not os.path.exists(sub_path):
         raise RuntimeError(f"subs missing {sub_path}")
 
-    # Scale to fit inside 1080x1920 (portrait), then pad to exactly 1080x1920.
-    # This avoids invalid crops on narrow/wide sources.
-    base = "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(1080-iw)/2:(1920-ih)/2:black"
+    # Fit inside TARGET_W x TARGET_H and pad to exact size (portrait-safe).
+    base = (
+        f"scale={TARGET_W}:{TARGET_H}:force_original_aspect_ratio=decrease,"
+        f"pad={TARGET_W}:{TARGET_H}:(ow-iw)/2:(oh-ih)/2:black"
+    )
 
     if sub_path.lower().endswith(".ass"):
         vf = f"{base},ass={shlex.quote(sub_path)}"
     else:
-        vf = f"{base},subtitles={shlex.quote(sub_path)}:charenc=UTF-8:force_style='Fontname={DEFAULT_FONT},Fontsize=64,PrimaryColour=&H00FFFFFF&,OutlineColour=&H00202020&,BorderStyle=3,Outline=4,Shadow=0,MarginV=120'"
+        vf = (
+            f"{base},subtitles={shlex.quote(sub_path)}:charenc=UTF-8:"
+            f"force_style='Fontname={DEFAULT_FONT},Fontsize=64,"
+            f"PrimaryColour=&H00FFFFFF&,OutlineColour=&H00202020&,"
+            f"BorderStyle=3,Outline=4,Shadow=0,MarginV=120'"
+        )
 
     cmd = [
         "ffmpeg", "-hide_banner", "-y",
         "-i", input_mp4,
         "-vf", vf,
-        "-c:v","h264","-preset","veryfast","-crf","20",
-        "-pix_fmt","yuv420p",
-        "-c:a","aac","-b:a","192k",
-        "-movflags","+faststart",
-        output_mp4
+        # ↓ Keep CPU/RAM low
+        "-threads", "1",
+        "-c:v", "libx264", "-preset", "ultrafast", "-crf", CRF,
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", AUDIO_BR,
+        "-movflags", "+faststart",
+        # (Optional but helpful on tiny instances)
+        "-max_muxing_queue_size", "1024",
+        output_mp4,
     ]
     print("ffmpeg:", " ".join(shlex.quote(x) for x in cmd), flush=True)
     out = run(cmd)
