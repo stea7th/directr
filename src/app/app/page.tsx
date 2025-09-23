@@ -54,6 +54,9 @@ export default function CreatePage() {
 
  async function handleUpload() {
   if (!file) { alert("Choose a file"); return; }
+
+  const { data: auth } = await supabase.auth.getUser();
+  const user = auth?.user;
   if (!user) { alert("Sign in"); return; }
 
   const jobId = crypto.randomUUID();
@@ -64,12 +67,12 @@ export default function CreatePage() {
     .storage
     .from("videos")
     .upload(key, file, { contentType: "video/mp4", upsert: true });
-  if (upErr) { alert("Upload failed"); return; }
+  if (upErr) { alert(`Upload failed: ${upErr.message}`); return; }
 
   const { error: insErr } = await supabase
     .from("jobs")
     .insert([{ id: jobId, user_id: user.id, status: "queued", input_path: key }]);
-  if (insErr) { alert("DB insert failed"); return; }
+  if (insErr) { alert(`DB insert failed: ${insErr.message}`); return; }
 
   alert(`Job queued: ${jobId}`);
   await loadJobs(user.id);
