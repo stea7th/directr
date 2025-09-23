@@ -42,7 +42,11 @@ def fmt_ass_time(t: float) -> str:
     s = (cs % 6000) // 100
     c = cs % 100
     return f"{h}:{m:02d}:{s:02d}.{c:02d}"
-
+def download_from_storage(key: str) -> str:
+    print(f"downloading from storage: {key}", flush=True)
+    res = supabase.storage.from_(SUPABASE_BUCKET).create_signed_url(key, 3600)
+    url = res.get("signedURL") or res.get("signedUrl") or res["signed_url"]
+    ...
 def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_FONT, font_size: int = 56, overlay: bool = False) -> str:
     if not DEEPGRAM_API_KEY:
         raise RuntimeError("Missing DEEPGRAM_API_KEY")
