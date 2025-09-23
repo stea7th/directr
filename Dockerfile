@@ -4,12 +4,20 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg fonts-dejavu fonts-noto-core && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends \
+      ffmpeg \
+      libass9 \
+      libfreetype6 \
+      fontconfig \
+      fonts-dejavu \
+      fonts-noto-core \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
 COPY worker/ /app/worker/
 COPY worker/requirements.txt /app/worker/requirements.txt
+
 RUN pip install --no-cache-dir -r /app/worker/requirements.txt
 
 WORKDIR /app/worker
