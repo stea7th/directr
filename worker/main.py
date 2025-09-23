@@ -23,8 +23,9 @@ def get_supabase() -> Client:
 def run(cmd: list[str]) -> str:
     p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     if p.returncode != 0:
-        raise RuntimeError(p.stdout)
-    return p.stdout
+        tail = p.stdout[-4000:] if p.stdout else ""
+        raise RuntimeError(f"cmd failed rc={p.returncode}\n{tail}")
+    return p.stdout or ""
 
 def safe_tmp(suffix: str) -> str:
     f = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
@@ -202,35 +203,33 @@ def transcribe_to_ass_deepgram(local_media_path: str, font_name: str = DEFAULT_F
     return ass_path
 
 def burn_captions(input_mp4: str, sub_path: str, output_mp4: str):
-    if not input_mp4 or not isinstance(input_mp4, str):
-        raise RuntimeError(f"burn_captions: invalid input_mp4 {input_mp4!r}")
-    if not sub_path or not isinstance(sub_path, str):
-        raise RuntimeError(f"burn_captions: invalid sub_path {sub_path!r}")
-    if not output_mp4 or not isinstance(output_mp4, str):
-        raise RuntimeError(f"burn_captions: invalid output_mp4 {output_mp4!r}")
     if not os.path.exists(input_mp4):
-        raise RuntimeError(f"burn_captions: input missing {input_mp4}")
+        raise RuntimeError(f"input missing {input_mp4}")
     if not os.path.exists(sub_path):
-        raise RuntimeError(f"burn_captions: subs missing {sub_path}")
+        raise RuntimeError(f"subs missing {sub_path}")
+
+    # Scale to fit inside 1080x1920 (portrait), then pad to exactly 1080x1920.
+    # This avoids invalid crops on narrow/wide sources.
+    base = "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(1080-iw)/2:(1920-ih)/2:black"
 
     if sub_path.lower().endswith(".ass"):
-        vf = f"scale=-2:1920,crop=1080:1920,ass={shlex.quote(sub_path)}"
+        vf = f"{base},ass={shlex.quote(sub_path)}"
     else:
-        vf = "scale=-2:1920,crop=1080:1920," + \
-             f"subtitles={shlex.quote(sub_path)}:charenc=UTF-8:" + \
-             f"force_style='Fontname={DEFAULT_FONT},Fontsize=64,PrimaryColour=&H00FFFFFF&,OutlineColour=&H00202020&,BorderStyle=3,Outline=4,Shadow=0,MarginV=120'"
+        vf = f"{base},subtitles={shlex.quote(sub_path)}:charenc=UTF-8:force_style='Fontname={DEFAULT_FONT},Fontsize=64,PrimaryColour=&H00FFFFFF&,OutlineColour=&H00202020&,BorderStyle=3,Outline=4,Shadow=0,MarginV=120'"
 
-    run([
-        "ffmpeg","-y",
+    cmd = [
+        "ffmpeg", "-hide_banner", "-y",
         "-i", input_mp4,
         "-vf", vf,
         "-c:v","h264","-preset","veryfast","-crf","20",
-        "-c:a","aac","-b:a","192k",
         "-pix_fmt","yuv420p",
+        "-c:a","aac","-b:a","192k",
         "-movflags","+faststart",
         output_mp4
-    ])
-
+    ]
+    print("ffmpeg:", " ".join(shlex.quote(x) for x in cmd), flush=True)
+    out = run(cmd)
+    print("ffmpeg done:", out[-4000:], flush=True)
 def process_job(job: dict):
     print(f"job: start {job.get('id')} -> {json.dumps(job, default=str)[:220]}", flush=True)
     get_supabase().table("jobs").update({"status": "processing"}).eq("id", job["id"]).execute()
