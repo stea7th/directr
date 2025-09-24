@@ -1,20 +1,12 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+export default {
   content: [
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}"
+    "./src/app/**/*.{ts,tsx}",
+    "./src/components/**/*.{ts,tsx}",
   ],
   theme: {
     extend: {
-      colors: {
-        brand: {
-          50: "#eef2ff",
-          100: "#e0e7ff",
-          600: "#4f46e5",
-          700: "#4338ca",
-        }
-      }
+      container: { center: true, padding: "1rem" }
     },
   },
   plugins: [],
