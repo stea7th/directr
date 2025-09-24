@@ -5,9 +5,7 @@ export default {
     "./src/components/**/*.{ts,tsx}",
   ],
   theme: {
-    extend: {
-      container: { center: true, padding: "1rem" }
-    },
+    extend: {},
   },
   plugins: [],
 };
