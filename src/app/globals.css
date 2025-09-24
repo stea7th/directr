@@ -1,44 +1,7 @@
-@tailwind base;
+@t@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --bg: #0a0a0a;
-  --fg: #f3f4f6;
-  --muted: #9ca3af;
-  --card: #121212;
-  --ring: 220 13% 91%;
-}
-
-html, body {
-  height: 100%;
-}
-
-body {
-  background: var(--bg);
-  color: var(--fg);
-}
-
-.btn {
-  @apply inline-flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15 transition disabled:opacity-40 disabled:cursor-not-allowed;
-}
-
-.btn-outline {
-  @apply border border-white/15 bg-transparent hover:bg-white/10;
-}
-
-.card {
-  @apply rounded-xl bg-[var(--card)] border border-white/10 p-4;
-}
-
-.input {
-  @apply rounded-md border border-white/15 bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/20;
-}
-
-.label {
-  @apply text-xs uppercase tracking-wide text-[var(--muted)];
-}
-
-.list {
-  @apply space-y-3;
-}
+/* app skin */
+:root { color-scheme: dark; }
+html, body { height: 100%; background: #0a0a0a; }
