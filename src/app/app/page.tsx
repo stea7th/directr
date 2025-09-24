@@ -1,389 +1,353 @@
-"use client";
+'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { createClient } from '@supabase/supabase-js';
 
-// ---- Supabase browser client (uses your public env keys) ----
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-);
-
-// ---- Types ----
 type Job = {
   id: string;
-  status: "queued" | "processing" | "done" | "error";
-  error?: string | null;
-  input_path?: string | null;
-  output_path?: string | null;
-  created_at?: string;
-  options?: any;
+  status: 'queued' | 'processing' | 'done' | 'error';
+  input_path: string | null;
+  output_path: string | null;
+  error: string | null;
+  created_at?: string | null;
 };
 
-const FONTS = ["Inter", "Anton", "Montserrat", "Poppins", "Bebas Neue"];
-const STYLES = ["Classic White", "Shadow", "Outline", "Glow"];
-const POSITIONS = ["Bottom", "Top", "Center"];
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
+const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
+const supabase = createClient(supabaseUrl, supabaseAnon);
 
-export default function CreatePage() {
+const FONT_OPTIONS = ['Inter', 'Montserrat', 'Anton', 'Poppins', 'Bebas Neue'];
+const STYLE_OPTIONS = ['Classic', 'Shadow', 'Outline', 'Glow'];
+const POSITION_OPTIONS = ['Top', 'Middle', 'Bottom'];
+
+export default function Page() {
   const [file, setFile] = useState<File | null>(null);
-  const [font, setFont] = useState(FONTS[0]);
-  const [size, setSize] = useState(72);
-  const [style, setStyle] = useState(STYLES[0]);
-  const [position, setPosition] = useState(POSITIONS[0]);
-  const [busy, setBusy] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [hovering, setHovering] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
-  // ---- Get user (if you use Supabase Auth) ----
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      setUserId(data.user?.id ?? null);
-    })();
-  }, []);
+  // caption controls
+  const [font, setFont] = useState(FONT_OPTIONS[0]);
+  const [fontSize, setFontSize] = useState<number>(72);
+  const [style, setStyle] = useState(STYLE_OPTIONS[1]);
+  const [position, setPosition] = useState(POSITION_OPTIONS[2]);
 
-  // ---- Load jobs for the current user ----
-  const loadJobs = useCallback(async (uid: string | null) => {
-    const query = supabase.from("jobs").select("*").order("created_at", { ascending: false }).limit(25);
-    const { data, error } = uid ? await query.eq("user_id", uid) : await query;
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  const captionOptions = useMemo(
+    () => ({
+      font,
+      fontSize,
+      style,
+      position: position.toLowerCase(),
+    }),
+    [font, fontSize, style, position],
+  );
+
+  const loadJobs = useCallback(async (userId?: string | null) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const uid = userId ?? user?.id ?? null;
+    if (!uid) {
+      setJobs([]);
+      return;
+    }
+    const { data, error } = await supabase
+      .from('jobs')
+      .select('id,status,input_path,output_path,error,created_at')
+      .order('created_at', { ascending: false })
+      .limit(25);
     if (!error && data) setJobs(data as Job[]);
   }, []);
 
   useEffect(() => {
-    loadJobs(userId);
-  }, [userId, loadJobs]);
+    loadJobs();
+  }, [loadJobs]);
 
-  // ---- Upload + enqueue job ----
-  const handleUpload = useCallback(async () => {
+  const onFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    setFile(f);
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    const f = e.dataTransfer.files?.[0] ?? null;
+    if (f) setFile(f);
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+
+  const handleUpload = async () => {
     if (!file) {
-      alert("Choose a file first");
+      alert('Choose a video first');
       return;
     }
     setBusy(true);
     try {
-      // 1) Upload to storage
-      const ext = file.name.split(".").pop()?.toLowerCase() || "mp4";
-      const objectName = `${crypto.randomUUID()}.${ext}`;
-      const storagePath = `${userId ?? "anon"}/${objectName}`;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert('Sign in first');
+        setBusy(false);
+        return;
+      }
 
-      const { error: upErr } = await supabase.storage.from("videos").upload(storagePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: file.type || "video/mp4",
-      });
-      if (upErr) throw upErr;
+      const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
+      const { data: idData, error: idErr } = await supabase.rpc('gen_random_uuid'); // if you don't have this RPC, fall back below
+      const jobId =
+        (!idErr && idData) ||
+        crypto.randomUUID();
 
-      // 2) Insert job row (worker picks it up)
-      const opts = { font, size, style, position };
-      const { error: insErr } = await supabase.from("jobs").insert({
-        user_id: userId,
-        input_path: storagePath,
-        status: "queued",
-        options: opts,
+      const inputPath = `uploads/${user.id}/${jobId}.${ext}`;
+
+      const up = await supabase.storage.from('videos').upload(inputPath, file, {
+        cacheControl: '3600',
+        upsert: true,
+        contentType: file.type || 'video/mp4',
       });
+      if (up.error) throw up.error;
+
+      // insert job
+      const { error: insErr } = await supabase.from('jobs').insert({
+        id: jobId,
+        status: 'queued',
+        input_path: inputPath,
+        output_path: null,
+        error: null,
+        options: captionOptions, // JSONB column. If you don't have one, remove this line.
+      });
+      if (insErr?.message?.includes("schema cache") || insErr?.message?.includes("options")) {
+        alert("Heads up: your 'jobs' table may not have an 'options' JSONB column. Either add it, or remove the 'options' field in the insert.");
+      }
       if (insErr) throw insErr;
 
       setFile(null);
-      if (inputRef.current) inputRef.current.value = "";
-      await loadJobs(userId);
+      await loadJobs(user.id);
     } catch (e: any) {
-      alert(e?.message ?? "Upload failed");
+      console.error(e);
+      alert(e?.message || 'Upload failed');
     } finally {
       setBusy(false);
     }
-  }, [file, userId, font, size, style, position, loadJobs]);
-
-  // ---- Get a signed download URL for an output path ----
-  const getSigned = useCallback(async (path: string) => {
-    const { data, error } = await supabase.storage.from("videos").createSignedUrl(path, 600);
-    if (error) throw error;
-    return data.signedUrl as string;
-  }, []);
-
-  // ---- Accent helpers ----
-  const Pill = ({ status }: { status: Job["status"] }) => {
-    const map: Record<Job["status"], string> = {
-      done: "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30",
-      processing: "bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30",
-      queued: "bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/30",
-      error: "bg-rose-500/15 text-rose-300 ring-1 ring-rose-500/30",
-    };
-    return (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${map[status]}`}>
-        {status}
-      </span>
-    );
   };
 
-  const onDropAreaClick = () => inputRef.current?.click();
-
-  const humanCreatedAt = (created?: string) =>
-    created ? new Date(created).toLocaleString() : "";
-
-  const dropClasses = useMemo(
-    () =>
-      [
-        "rounded-2xl border border-white/10",
-        "bg-gradient-to-b from-zinc-900/60 to-zinc-900/30",
-        hovering ? "ring-2 ring-sky-500 shadow-[0_0_40px_-10px_rgba(56,189,248,.5)]" : "ring-1 ring-white/5",
-        "transition-all duration-200 cursor-pointer",
-      ].join(" "),
-    [hovering]
-  );
-
   return (
-    <div className="min-h-[calc(100vh-56px)] w-full bg-gradient-to-b from-neutral-950 to-neutral-900">
-      <div className="mx-auto max-w-6xl px-4 py-10">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight text-white">Create</h1>
-          <div className="text-sm text-white/40">Upload a video → get a captioned, social-ready clip back.</div>
+    <div className="min-h-screen bg-neutral-950 text-white">
+      <header className="sticky top-0 z-10 border-b border-white/10 bg-neutral-950/80 backdrop-blur">
+        <div className="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
+          <Link href="/" className="font-semibold tracking-tight text-white text-lg">
+            directr<span className="text-sky-400">.</span>
+          </Link>
+          <nav className="flex items-center gap-6 text-sm">
+            <Link href="/app" className="text-white/80 hover:text-white">Create</Link>
+            <Link href="/campaigns" className="text-white/60 hover:text-white">Campaigns</Link>
+            <Link href="/analytics" className="text-white/60 hover:text-white">Analytics</Link>
+            <Link href="/settings" className="text-white/60 hover:text-white">Settings</Link>
+          </nav>
         </div>
+      </header>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* LEFT: Upload & Options */}
-          <section className={`${dropClasses} p-5`}>
-            {/* Drop area */}
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setHovering(true);
-              }}
-              onDragLeave={() => setHovering(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setHovering(false);
-                const f = e.dataTransfer.files?.[0];
-                if (f) setFile(f);
-              }}
-              onClick={onDropAreaClick}
-              className="flex h-36 items-center justify-center rounded-xl bg-neutral-900/50"
-            >
+      <main className="mx-auto max-w-6xl px-4 py-10 grid grid-cols-1 gap-6 md:grid-cols-2">
+        <section className="rounded-2xl border border-white/10 bg-neutral-900/50 p-6 ring-1 ring-white/5">
+          <h1 className="text-lg font-semibold">Create</h1>
+          <p className="mt-1 text-sm text-white/60">Upload a video → get a captioned, social-ready clip back.</p>
+
+          <div
+            ref={dropRef}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            className={[
+              'mt-6 flex h-44 items-center justify-center rounded-2xl border-2 border-dashed transition',
+              dragOver ? 'border-sky-500 bg-sky-500/10' : 'border-white/10 bg-neutral-900/60',
+            ].join(' ')}
+          >
+            <div className="text-center">
+              <p className="text-white/80">
+                Drag & drop your video or{' '}
+                <label className="cursor-pointer text-sky-400 underline">
+                  browse
+                  <input type="file" accept="video/*" className="hidden" onChange={onFilePick} />
+                </label>
+              </p>
+              <p className="mt-1 text-xs text-white/50">MP4 recommended</p>
+              {file ? <p className="mt-3 text-xs text-white/70">Selected: {file.name}</p> : null}
+            </div>
+          </div>
+
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="text-white/60">Font</span>
+              <select
+                value={font}
+                onChange={(e) => setFont(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-sm text-white/90 outline-none ring-1 ring-white/5 hover:ring-sky-500/30 focus:ring-sky-500/50 transition"
+              >
+                {FONT_OPTIONS.map((f) => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="text-white/60">Size</span>
               <input
-                ref={inputRef}
-                type="file"
-                accept="video/*"
-                className="hidden"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                type="number"
+                min={24}
+                max={120}
+                step={2}
+                value={fontSize}
+                onChange={(e) => setFontSize(Number(e.target.value || 0))}
+                className="w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-sm text-white/90 outline-none ring-1 ring-white/5 hover:ring-sky-500/30 focus:ring-sky-500/50 transition"
               />
-              <div className="text-center">
-                <div className="text-white/90">
-                  {file ? (
-                    <span className="font-medium">{file.name}</span>
-                  ) : (
-                    <span className="font-medium">
-                      Drag & drop your video or{" "}
-                      <span className="text-sky-400 underline underline-offset-4">browse</span>
-                    </span>
-                  )}
-                </div>
-                <div className="text-xs text-white/40 mt-1">MP4 recommended</div>
+            </label>
+
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="text-white/60">Style</span>
+              <select
+                value={style}
+                onChange={(e) => setStyle(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-sm text-white/90 outline-none ring-1 ring-white/5 hover:ring-sky-500/30 focus:ring-sky-500/50 transition"
+              >
+                {STYLE_OPTIONS.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="text-white/60">Position</span>
+              <select
+                value={position}
+                onChange={(e) => setPosition(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-sm text-white/90 outline-none ring-1 ring-white/5 hover:ring-sky-500/30 focus:ring-sky-500/50 transition"
+              >
+                {POSITION_OPTIONS.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              disabled={busy || !file}
+              onClick={handleUpload}
+              className="inline-flex h-9 items-center rounded-xl bg-sky-500 px-4 text-sm font-medium text-white shadow-sm hover:bg-sky-400 disabled:pointer-events-none disabled:opacity-50"
+            >
+              {busy ? 'Uploading…' : 'Upload & Process'}
+            </button>
+            <button
+              onClick={() => loadJobs()}
+              className="inline-flex h-9 items-center rounded-xl border border-white/10 bg-neutral-900/70 px-3 text-sm text-white/90 hover:ring-1 hover:ring-sky-500/30"
+            >
+              Refresh
+            </button>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-white/10 bg-neutral-900/50 p-6 ring-1 ring-white/5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Your recent jobs</h2>
+            <button
+              onClick={() => loadJobs()}
+              className="h-8 rounded-lg border border-white/10 bg-neutral-900/70 px-3 text-xs text-white/80 hover:ring-1 hover:ring-sky-500/30"
+            >
+              Refresh
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {jobs.length === 0 && (
+              <div className="rounded-xl border border-white/10 bg-neutral-900/60 p-4 text-sm text-white/60">
+                No jobs yet.
               </div>
-            </div>
+            )}
 
-            {/* Options */}
-            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-              <Select label="Font" value={font} onChange={setFont} items={FONTS} />
-              <NumberField label="Size" value={size} onChange={setSize} />
-              <Select label="Style" value={style} onChange={setStyle} items={STYLES} />
-              <Select label="Position" value={position} onChange={setPosition} items={POSITIONS} />
-            </div>
+            {jobs.map((job) => (
+              <JobRow key={job.id} job={job} />
+            ))}
+          </div>
+        </section>
+      </main>
 
-            {/* Actions */}
-            <div className="mt-5 flex items-center gap-3">
-              <button
-                onClick={handleUpload}
-                disabled={busy || !file}
-                className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-4 py-2 text-sm font-medium text-black hover:bg-sky-400 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_30px_-12px_rgba(56,189,248,.6)] transition"
-              >
-                {busy ? (
-                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-black/20 border-t-black" />
-                ) : (
-                  <Lightning />
-                )}
-                {busy ? "Uploading…" : "Upload & Process"}
-              </button>
-
-              <button
-                onClick={() => loadJobs(userId)}
-                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition"
-              >
-                Refresh
-              </button>
-            </div>
-          </section>
-
-          {/* RIGHT: Jobs */}
-          <section className="rounded-2xl border border-white/10 bg-neutral-900/50 p-5 ring-1 ring-white/5">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Your recent jobs</h2>
-              <button
-                onClick={() => loadJobs(userId)}
-                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10 transition"
-              >
-                Refresh
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {jobs.length === 0 && (
-                <div className="rounded-xl border border-white/10 bg-neutral-900/60 p-4 text-sm text-white/50">
-                  No jobs yet.
-                </div>
-              )}
-
-              {jobs.map((j) => (
-                <div
-                  key={j.id}
-                  className="rounded-xl border border-white/10 bg-neutral-900/60 p-4 ring-1 ring-white/5 hover:ring-sky-500/40 transition"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-sm text-white/70">Job</div>
-                      <div className="text-white/90 break-all">{j.id}</div>
-                      {j.created_at && (
-                        <div className="mt-1 text-xs text-white/40">{humanCreatedAt(j.created_at)}</div>
-                      )}
-                    </div>
-                    <Pill status={j.status} />
-                  </div>
-
-                  {j.error && (
-                    <div className="mt-2 text-sm text-rose-300">Error: {String(j.error)}</div>
-                  )}
-
-                  <div className="mt-3">
-                    {j.output_path ? (
-                      <DownloadButton getUrl={() => getSigned(j.output_path!)} />
-                    ) : (
-                      <button
-                        disabled
-                        className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/40"
-                      >
-                        No video yet
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        </div>
-
-        {/* Footer */}
-        <footer className="mx-auto mt-10 max-w-6xl border-t border-white/5 pt-6 text-xs text-white/40">
-          © {new Date().getFullYear()} Directr —{" "}
-          <a href="/privacy" className="text-sky-400 hover:underline">
-            Privacy
-          </a>{" "}
-          ·{" "}
-          <a href="/terms" className="text-sky-400 hover:underline">
-            Terms
-          </a>
-        </footer>
-      </div>
+      <footer className="mx-auto max-w-6xl px-4 py-10 text-xs text-white/50">
+        © 2025 directr — <Link href="/privacy" className="hover:text-white">Privacy</Link> ·{' '}
+        <Link href="/terms" className="hover:text-white">Terms</Link>
+      </footer>
     </div>
   );
 }
 
-// ---- Small UI helpers (no external deps) ----
-function Select({
-  label,
-  value,
-  onChange,
-  items,
-}: {
-  label: string;
-  value: string;
-  items: string[];
-  onChange: (v: string) => void;
-}) {
-  return (
-    <label className="block">
-      <div className="mb-1 text-xs text-white/50">{label}</div>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-sm text-white/90 outline-none ring-1 ring-white/5 hover:ring-sky-500/30 focus:ring-sky-500/50 transition"
-      >
-        {items.map((i) => (
-          <option key={i} value={i}>
-            {i}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
+function JobRow({ job }: { job: Job }) {
+  const [url, setUrl] = useState<string>('');
 
-function NumberField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (n: number) => void;
-}) {
-  return (
-    <label className="block">
-      <div className="mb-1 text-xs text-white/50">{label}</div>
-      <input
-        type="number"
-        min={24}
-        max={120}
-        step={2}
-        value={value}
-        onChange={(e) => onChange(globalThis.Number(e.target.value || 0))}
-        className="w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-sm text-white/90 outline-none ring-1 ring-white/5 hover:ring-sky-500/30 focus:ring-sky-500/50 transition"
-      />
-    </label>
-  );
-}
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (job.status === 'done' && job.output_path) {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
+        const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
+        const s = createClient(supabaseUrl, supabaseAnon);
+        const { data } = await s.storage.from('videos').createSignedUrl(job.output_path, 600);
+        if (!cancelled && data?.signedUrl) setUrl(data.signedUrl);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [job.status, job.output_path]);
 
-function DownloadButton({ getUrl }: { getUrl: () => Promise<string> }) {
-  const [downloading, setDownloading] = useState(false);
-
-  const click = async () => {
-    setDownloading(true);
-    try {
-      const url = await getUrl();
-      window.location.href = url;
-    } finally {
-      setDownloading(false);
-    }
-  };
+  const badge =
+    job.status === 'done'
+      ? 'bg-sky-500/20 text-sky-400 border-sky-500/30'
+      : job.status === 'processing'
+      ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+      : job.status === 'error'
+      ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+      : 'bg-white/5 text-white/60 border-white/10';
 
   return (
-    <button
-      onClick={click}
-      disabled={downloading}
-      className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white hover:bg-white/10 transition disabled:opacity-60"
-    >
-      {downloading ? (
-        <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-      ) : (
-        <ArrowDown />
-      )}
-      Download video
-    </button>
-  );
-}
+    <div className="group rounded-xl border border-white/10 bg-neutral-900/60 p-4 ring-1 ring-white/5 transition hover:ring-sky-500/30">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-medium text-white/90">Clip</div>
+          <div className="mt-1 text-xs text-white/50 break-all">{job.id}</div>
+        </div>
+        <span className={`rounded-full border px-2 py-0.5 text-[11px] ${badge}`}>
+          {job.status}
+        </span>
+      </div>
 
-// Tiny inline icons so you don’t need another library
-function Lightning() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-      <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" />
-    </svg>
-  );
-}
-function ArrowDown() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-      <path d="M12 3v14m0 0l-5-5m5 5l5-5M5 21h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+      <div className="mt-3 flex items-center justify-between">
+        {job.status === 'done' ? (
+          <a
+            href={url || '#'}
+            target="_blank"
+            className="inline-flex h-8 items-center rounded-lg border border-white/10 bg-neutral-900/70 px-3 text-xs text-white/90 hover:ring-1 hover:ring-sky-500/30"
+          >
+            Download video
+          </a>
+        ) : (
+          <button
+            disabled
+            className="inline-flex h-8 items-center rounded-lg border border-white/10 bg-neutral-900/50 px-3 text-xs text-white/50"
+          >
+            {job.status === 'processing' ? 'Processing…' : job.status === 'queued' ? 'Queued' : 'No video'}
+          </button>
+        )}
+
+        {job.error ? (
+          <div className="text-[11px] text-rose-400">Error: {job.error}</div>
+        ) : null}
+      </div>
+    </div>
   );
 }
