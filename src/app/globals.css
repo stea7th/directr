@@ -1,13 +1,13 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* src/app/globals.css */
+/* Tailwind v4 single import */
+@import "tailwindcss";
 
-/* basic dark base so you can tell Tailwind is working */
+/* Optional: light theming so you can see Tailwind is working */
 :root { color-scheme: dark; }
 html, body { height: 100%; }
 body { background: #0a0a0a; color: #e5e7eb; }
 
-/* handy UI helpers */
+/* helper classes (valid in v4) */
 .card { @apply rounded-xl border border-neutral-800 bg-neutral-900/60 p-6; }
 .btn { @apply inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed; }
 .btn-outline { @apply inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm font-medium text-neutral-200 hover:bg-white/10; }
