@@ -2,5 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: dark light; }
-html, body { height: 100%; }
+/* Optional: neutral background so you can see Tailwind is applied */
+:root { color-scheme: dark; }
+html, body { @apply bg-neutral-950 text-neutral-100; }
