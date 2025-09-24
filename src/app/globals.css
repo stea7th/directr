@@ -1,7 +1,6 @@
-@t@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* app skin */
-:root { color-scheme: dark; }
-html, body { height: 100%; background: #0a0a0a; }
+:root { color-scheme: dark light; }
+html, body { height: 100%; }
