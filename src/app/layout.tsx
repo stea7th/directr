@@ -1,12 +1,16 @@
-export const metadata = {
-  title: "Directr — Create",
+// src/app/layout.tsx
+import type { Metadata } from "next";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "Directr",
   description: "Upload → get a captioned, social-ready clip back.",
 };
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
+      <body className="min-h-screen bg-[var(--bg)] text-[var(--fg)]">
         <header className="sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur">
           <div className="container flex h-14 items-center justify-between">
             <a href="/" className="text-lg font-semibold">Directr</a>
@@ -18,9 +22,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
         </header>
+
         <main className="container py-8">{children}</main>
+
         <footer className="container py-10 text-xs text-gray-400">
-          © {new Date().getFullYear()} Directr — <a className="underline" href="/privacy">Privacy</a> • <a className="underline" href="/terms">Terms</a>
+          © {new Date().getFullYear()} Directr —{" "}
+          <a className="underline" href="/privacy">Privacy</a> •{" "}
+          <a className="underline" href="/terms">Terms</a>
         </footer>
       </body>
     </html>
