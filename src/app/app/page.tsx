@@ -186,7 +186,7 @@ export default function CreatePage() {
             {/* Options */}
             <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
               <Select label="Font" value={font} onChange={setFont} items={FONTS} />
-              <Number label="Size" value={size} onChange={setSize} />
+              <NumberField label="Size" value={size} onChange={setSize} />
               <Select label="Style" value={style} onChange={setStyle} items={STYLES} />
               <Select label="Position" value={position} onChange={setPosition} items={POSITIONS} />
             </div>
