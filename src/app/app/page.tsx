@@ -318,7 +318,7 @@ function Select({
   );
 }
 
-function Number({
+function NumberField({
   label,
   value,
   onChange,
@@ -336,7 +336,7 @@ function Number({
         max={120}
         step={2}
         value={value}
-        onChange={(e) => onChange(Number(e.target.value || 0))}
+        onChange={(e) => onChange(globalThis.Number(e.target.value || 0))}
         className="w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-sm text-white/90 outline-none ring-1 ring-white/5 hover:ring-sky-500/30 focus:ring-sky-500/50 transition"
       />
     </label>
