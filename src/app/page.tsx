@@ -1,16 +1,18 @@
-export default function HomePage() {
+// src/app/page.tsx
+"use client";
+
+export default function Page() {
   return (
-    <section className="mx-auto max-w-2xl py-20 text-center">
-      <h1 className="text-4xl font-bold tracking-tight">Directr</h1>
-      <p className="mt-4 text-lg text-gray-400">
-        Upload raw video → get a captioned, social-ready clip back.
-      </p>
-      <a
-        href="/app"
-        className="mt-6 inline-block rounded-md bg-white px-6 py-3 text-black font-medium hover:bg-gray-200"
-      >
-        Go to App
-      </a>
-    </section>
+    <div className="grid gap-6 md:grid-cols-2">
+      {/* Left column: keep your upload form + controls here */}
+      <section className="rounded-xl border border-white/10 bg-neutral-900/50 p-6">
+        {/* paste your existing upload form JSX here (inputs, buttons, etc.) */}
+      </section>
+
+      {/* Right column: keep your jobs list here */}
+      <section className="rounded-xl border border-white/10 bg-neutral-900/50 p-6">
+        {/* paste your existing jobs list JSX here */}
+      </section>
+    </div>
   );
 }
