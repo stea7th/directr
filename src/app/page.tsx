@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 
 type Job = {
@@ -94,7 +93,7 @@ export default function Page() {
     }
     setBusy(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user) } } = await supabase.auth.getUser();
       if (!user) {
         alert('Sign in first');
         setBusy(false);
@@ -102,10 +101,8 @@ export default function Page() {
       }
 
       const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
-      const { data: idData, error: idErr } = await supabase.rpc('gen_random_uuid'); // if you don't have this RPC, fall back below
-      const jobId =
-        (!idErr && idData) ||
-        crypto.randomUUID();
+      const { data: idData, error: idErr } = await supabase.rpc('gen_random_uuid');
+      const jobId = (!idErr && idData) || crypto.randomUUID();
 
       const inputPath = `uploads/${user.id}/${jobId}.${ext}`;
 
@@ -116,17 +113,17 @@ export default function Page() {
       });
       if (up.error) throw up.error;
 
-      // insert job
+      // insert job row
       const { error: insErr } = await supabase.from('jobs').insert({
         id: jobId,
         status: 'queued',
         input_path: inputPath,
         output_path: null,
         error: null,
-        options: captionOptions, // JSONB column. If you don't have one, remove this line.
+        options: captionOptions, // if you don't have this JSONB column, remove this field
       });
-      if (insErr?.message?.includes("schema cache") || insErr?.message?.includes("options")) {
-        alert("Heads up: your 'jobs' table may not have an 'options' JSONB column. Either add it, or remove the 'options' field in the insert.");
+      if (insErr?.message?.includes('schema cache') || insErr?.message?.includes('options')) {
+        alert("Heads up: your 'jobs' table may not have an 'options' JSONB column. Either add it or remove the 'options' field in the insert.");
       }
       if (insErr) throw insErr;
 
@@ -141,150 +138,130 @@ export default function Page() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white">
-      <header className="sticky top-0 z-10 border-b border-white/10 bg-neutral-950/80 backdrop-blur">
-        <div className="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
-          <Link href="/" className="font-semibold tracking-tight text-white text-lg">
-            directr<span className="text-sky-400">.</span>
-          </Link>
-          <nav className="flex items-center gap-6 text-sm">
-            <Link href="/app" className="text-white/80 hover:text-white">Create</Link>
-            <Link href="/campaigns" className="text-white/60 hover:text-white">Campaigns</Link>
-            <Link href="/analytics" className="text-white/60 hover:text-white">Analytics</Link>
-            <Link href="/settings" className="text-white/60 hover:text-white">Settings</Link>
-          </nav>
+    <main className="mx-auto max-w-6xl px-4 py-10 grid grid-cols-1 gap-6 md:grid-cols-2">
+      <section className="rounded-2xl border border-white/10 bg-neutral-900/50 p-6 ring-1 ring-white/5">
+        <h1 className="text-lg font-semibold">Create</h1>
+        <p className="mt-1 text-sm text-white/60">
+          Upload a video → get a captioned, social-ready clip back.
+        </p>
+
+        <div
+          ref={dropRef}
+          onDrop={onDrop}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          className={[
+            'mt-6 flex h-44 items-center justify-center rounded-2xl border-2 border-dashed transition',
+            dragOver ? 'border-sky-500 bg-sky-500/10' : 'border-white/10 bg-neutral-900/60',
+          ].join(' ')}
+        >
+          <div className="text-center">
+            <p className="text-white/80">
+              Drag & drop your video or{' '}
+              <label className="cursor-pointer text-sky-400 underline">
+                browse
+                <input type="file" accept="video/*" className="hidden" onChange={onFilePick} />
+              </label>
+            </p>
+            <p className="mt-1 text-xs text-white/50">MP4 recommended</p>
+            {file ? <p className="mt-3 text-xs text-white/70">Selected: {file.name}</p> : null}
+          </div>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-10 grid grid-cols-1 gap-6 md:grid-cols-2">
-        <section className="rounded-2xl border border-white/10 bg-neutral-900/50 p-6 ring-1 ring-white/5">
-          <h1 className="text-lg font-semibold">Create</h1>
-          <p className="mt-1 text-sm text-white/60">Upload a video → get a captioned, social-ready clip back.</p>
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-white/60">Font</span>
+            <select
+              value={font}
+              onChange={(e) => setFont(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-sm text-white/90 outline-none ring-1 ring-white/5 hover:ring-sky-500/30 focus:ring-sky-500/50 transition"
+            >
+              {FONT_OPTIONS.map((f) => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+          </label>
 
-          <div
-            ref={dropRef}
-            onDrop={onDrop}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            className={[
-              'mt-6 flex h-44 items-center justify-center rounded-2xl border-2 border-dashed transition',
-              dragOver ? 'border-sky-500 bg-sky-500/10' : 'border-white/10 bg-neutral-900/60',
-            ].join(' ')}
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-white/60">Size</span>
+            <input
+              type="number"
+              min={24}
+              max={120}
+              step={2}
+              value={fontSize}
+              onChange={(e) => setFontSize(Number(e.target.value || 0))}
+              className="w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-sm text-white/90 outline-none ring-1 ring-white/5 hover:ring-sky-500/30 focus:ring-sky-500/50 transition"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-white/60">Style</span>
+            <select
+              value={style}
+              onChange={(e) => setStyle(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-sm text-white/90 outline-none ring-1 ring-white/5 hover:ring-sky-500/30 focus:ring-sky-500/50 transition"
+            >
+              {STYLE_OPTIONS.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-white/60">Position</span>
+            <select
+              value={position}
+              onChange={(e) => setPosition(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-sm text-white/90 outline-none ring-1 ring-white/5 hover:ring-sky-500/30 focus:ring-sky-500/50 transition"
+            >
+              {POSITION_OPTIONS.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            disabled={busy || !file}
+            onClick={handleUpload}
+            className="inline-flex h-9 items-center rounded-xl bg-sky-500 px-4 text-sm font-medium text-white shadow-sm hover:bg-sky-400 disabled:pointer-events-none disabled:opacity-50"
           >
-            <div className="text-center">
-              <p className="text-white/80">
-                Drag & drop your video or{' '}
-                <label className="cursor-pointer text-sky-400 underline">
-                  browse
-                  <input type="file" accept="video/*" className="hidden" onChange={onFilePick} />
-                </label>
-              </p>
-              <p className="mt-1 text-xs text-white/50">MP4 recommended</p>
-              {file ? <p className="mt-3 text-xs text-white/70">Selected: {file.name}</p> : null}
+            {busy ? 'Uploading…' : 'Upload & Process'}
+          </button>
+          <button
+            onClick={() => loadJobs()}
+            className="inline-flex h-9 items-center rounded-xl border border-white/10 bg-neutral-900/70 px-3 text-sm text-white/90 hover:ring-1 hover:ring-sky-500/30"
+          >
+            Refresh
+          </button>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-white/10 bg-neutral-900/50 p-6 ring-1 ring-white/5">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Your recent jobs</h2>
+          <button
+            onClick={() => loadJobs()}
+            className="h-8 rounded-lg border border-white/10 bg-neutral-900/70 px-3 text-xs text-white/80 hover:ring-1 hover:ring-sky-500/30"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          {jobs.length === 0 && (
+            <div className="rounded-xl border border-white/10 bg-neutral-900/60 p-4 text-sm text-white/60">
+              No jobs yet.
             </div>
-          </div>
-
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <label className="flex flex-col gap-1 text-xs">
-              <span className="text-white/60">Font</span>
-              <select
-                value={font}
-                onChange={(e) => setFont(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-sm text-white/90 outline-none ring-1 ring-white/5 hover:ring-sky-500/30 focus:ring-sky-500/50 transition"
-              >
-                {FONT_OPTIONS.map((f) => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs">
-              <span className="text-white/60">Size</span>
-              <input
-                type="number"
-                min={24}
-                max={120}
-                step={2}
-                value={fontSize}
-                onChange={(e) => setFontSize(Number(e.target.value || 0))}
-                className="w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-sm text-white/90 outline-none ring-1 ring-white/5 hover:ring-sky-500/30 focus:ring-sky-500/50 transition"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs">
-              <span className="text-white/60">Style</span>
-              <select
-                value={style}
-                onChange={(e) => setStyle(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-sm text-white/90 outline-none ring-1 ring-white/5 hover:ring-sky-500/30 focus:ring-sky-500/50 transition"
-              >
-                {STYLE_OPTIONS.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs">
-              <span className="text-white/60">Position</span>
-              <select
-                value={position}
-                onChange={(e) => setPosition(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-sm text-white/90 outline-none ring-1 ring-white/5 hover:ring-sky-500/30 focus:ring-sky-500/50 transition"
-              >
-                {POSITION_OPTIONS.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div className="mt-4 flex items-center gap-3">
-            <button
-              disabled={busy || !file}
-              onClick={handleUpload}
-              className="inline-flex h-9 items-center rounded-xl bg-sky-500 px-4 text-sm font-medium text-white shadow-sm hover:bg-sky-400 disabled:pointer-events-none disabled:opacity-50"
-            >
-              {busy ? 'Uploading…' : 'Upload & Process'}
-            </button>
-            <button
-              onClick={() => loadJobs()}
-              className="inline-flex h-9 items-center rounded-xl border border-white/10 bg-neutral-900/70 px-3 text-sm text-white/90 hover:ring-1 hover:ring-sky-500/30"
-            >
-              Refresh
-            </button>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-white/10 bg-neutral-900/50 p-6 ring-1 ring-white/5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Your recent jobs</h2>
-            <button
-              onClick={() => loadJobs()}
-              className="h-8 rounded-lg border border-white/10 bg-neutral-900/70 px-3 text-xs text-white/80 hover:ring-1 hover:ring-sky-500/30"
-            >
-              Refresh
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            {jobs.length === 0 && (
-              <div className="rounded-xl border border-white/10 bg-neutral-900/60 p-4 text-sm text-white/60">
-                No jobs yet.
-              </div>
-            )}
-
-            {jobs.map((job) => (
-              <JobRow key={job.id} job={job} />
-            ))}
-          </div>
-        </section>
-      </main>
-
-      <footer className="mx-auto max-w-6xl px-4 py-10 text-xs text-white/50">
-        © 2025 directr — <Link href="/privacy" className="hover:text-white">Privacy</Link> ·{' '}
-        <Link href="/terms" className="hover:text-white">Terms</Link>
-      </footer>
-    </div>
+          )}
+          {jobs.map((job) => (
+            <JobRow key={job.id} job={job} />
+          ))}
+        </div>
+      </section>
+    </main>
   );
 }
 
@@ -295,9 +272,10 @@ function JobRow({ job }: { job: Job }) {
     let cancelled = false;
     (async () => {
       if (job.status === 'done' && job.output_path) {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
-        const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
-        const s = createClient(supabaseUrl, supabaseAnon);
+        const s = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+        );
         const { data } = await s.storage.from('videos').createSignedUrl(job.output_path, 600);
         if (!cancelled && data?.signedUrl) setUrl(data.signedUrl);
       }
