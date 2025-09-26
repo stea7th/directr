@@ -1,66 +1,39 @@
-// src/app/layout.tsx
-import type { Metadata } from "next";
-import Link from "next/link";
-import "./globals.css";
+import './globals.css';
+import type { Metadata } from 'next';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: "directr",
-  description: "Upload a video → get a captioned, social-ready clip back.",
+  title: 'directr',
+  description: 'Upload a video → get a captioned, social-ready clip back.',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="min-h-dvh bg-neutral-950 text-white">
-        {/* ---- TOP NAV (the only header) ---- */}
-        <header className="sticky top-0 z-40 border-b border-white/10 bg-neutral-950/80 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3">
-            <Link
-              href="/app"
-              className="font-semibold tracking-tight text-white"
-              aria-label="directr home"
-            >
-              <span className="select-none">directr.</span>
+    <html lang="en" className="h-full">
+      <body className="min-h-screen bg-neutral-950 text-white">
+        {/* HEADER (only here) */}
+        <header className="sticky top-0 z-10 border-b border-white/10 bg-neutral-950/80 backdrop-blur">
+          <div className="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
+            <Link href="/app" className="font-semibold tracking-tight text-white text-lg">
+              directr<span className="text-sky-400">.</span>
             </Link>
-
-            <nav className="flex items-center gap-6 text-sm text-white/70">
-              <Link href="/app" className="hover:text-white">
-                Create
-              </Link>
-              <Link href="/campaigns" className="hover:text-white">
-                Campaigns
-              </Link>
-              <Link href="/analytics" className="hover:text-white">
-                Analytics
-              </Link>
-              <Link href="/settings" className="hover:text-white">
-                Settings
-              </Link>
+            <nav className="flex items-center gap-6 text-sm">
+              <Link href="/app" className="text-white/80 hover:text-white">Create</Link>
+              <Link href="/campaigns" className="text-white/60 hover:text-white">Campaigns</Link>
+              <Link href="/analytics" className="text-white/60 hover:text-white">Analytics</Link>
+              <Link href="/settings" className="text-white/60 hover:text-white">Settings</Link>
             </nav>
           </div>
         </header>
 
-        {/* ---- PAGE CONTENT ---- */}
-        <main className="mx-auto max-w-6xl px-5 py-8">{children}</main>
+        {/* PAGE CONTENT */}
+        {children}
 
-        {/* ---- FOOTER (single) ---- */}
-        <footer className="mt-16 border-t border-white/10">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-6 text-xs text-white/50">
-            <span>© {new Date().getFullYear()} directr</span>
-            <div className="flex items-center gap-4">
-              <Link href="/privacy" className="hover:text-white/80">
-                Privacy
-              </Link>
-              <span>·</span>
-              <Link href="/terms" className="hover:text-white/80">
-                Terms
-              </Link>
-            </div>
-          </div>
+        {/* FOOTER (only here) */}
+        <footer className="mx-auto max-w-6xl px-4 py-10 text-xs text-white/50">
+          © 2025 directr —{' '}
+          <Link href="/privacy" className="hover:text-white">Privacy</Link> ·{' '}
+          <Link href="/terms" className="hover:text-white">Terms</Link>
         </footer>
       </body>
     </html>
