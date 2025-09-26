@@ -1,39 +1,39 @@
-import './globals.css';
-import type { Metadata } from 'next';
-import Link from 'next/link';
+import type { Metadata } from "next";
+import Link from "next/link";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: 'directr',
-  description: 'Upload a video → get a captioned, social-ready clip back.',
+  title: "directr",
+  description: "Upload a video → get a captioned, social-ready clip back.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full">
-      <body className="min-h-screen bg-neutral-950 text-white">
-        {/* HEADER (only here) */}
-        <header className="sticky top-0 z-10 border-b border-white/10 bg-neutral-950/80 backdrop-blur">
-          <div className="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
-            <Link href="/app" className="font-semibold tracking-tight text-white text-lg">
-              directr<span className="text-sky-400">.</span>
-            </Link>
-            <nav className="flex items-center gap-6 text-sm">
-              <Link href="/app" className="text-white/80 hover:text-white">Create</Link>
-              <Link href="/campaigns" className="text-white/60 hover:text-white">Campaigns</Link>
-              <Link href="/analytics" className="text-white/60 hover:text-white">Analytics</Link>
-              <Link href="/settings" className="text-white/60 hover:text-white">Settings</Link>
+    <html lang="en">
+      <body className="root">
+        <header className="site-header">
+          <div className="container nav">
+            <Link href="/app" className="logo">directr<span className="accent">.</span></Link>
+            <nav className="nav-links">
+              <Link href="/app">Create</Link>
+              <Link href="/campaigns">Campaigns</Link>
+              <Link href="/analytics">Analytics</Link>
+              <Link href="/settings">Settings</Link>
             </nav>
           </div>
         </header>
 
-        {/* PAGE CONTENT */}
-        {children}
+        <main className="container main">{children}</main>
 
-        {/* FOOTER (only here) */}
-        <footer className="mx-auto max-w-6xl px-4 py-10 text-xs text-white/50">
-          © 2025 directr —{' '}
-          <Link href="/privacy" className="hover:text-white">Privacy</Link> ·{' '}
-          <Link href="/terms" className="hover:text-white">Terms</Link>
+        <footer className="site-footer">
+          <div className="container foot">
+            <span>© {new Date().getFullYear()} directr</span>
+            <div className="foot-links">
+              <Link href="/privacy">Privacy</Link>
+              <span>·</span>
+              <Link href="/terms">Terms</Link>
+            </div>
+          </div>
         </footer>
       </body>
     </html>
