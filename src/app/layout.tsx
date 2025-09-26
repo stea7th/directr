@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "directr",
   description: "Upload a video → get a captioned, social-ready clip back.",
+  icons: {
+    icon: "/favicon.png?v=3" // lives in /public
+  }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
