@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" rx="56" fill="#000"/>
+  <text x="50%" y="58%" text-anchor="middle"
+        font-family="Inter, system-ui, -apple-system, Segoe UI, Arial, sans-serif"
+        font-size="150" fill="#38bdf8">d.</text>
+</svg>
