@@ -1,11 +1,13 @@
-// src/app/reset/confirm/page.tsx
+// src/app/reset/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
-export default function ResetConfirmPage() {
-  const [stage, setStage] = useState<'checking' | 'ready' | 'saving' | 'done' | 'error'>('checking');
+type Stage = 'checking' | 'ready' | 'saving' | 'done' | 'error';
+
+export default function ResetPage() {
+  const [stage, setStage] = useState<Stage>('checking');
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
   const [err, setErr] = useState<string | null>(null);
@@ -14,18 +16,13 @@ export default function ResetConfirmPage() {
     let cancelled = false;
     (async () => {
       try {
-        const url = typeof window !== 'undefined' ? new URL(window.location.href) : null;
-        const hasCode = !!url?.searchParams.get('code');
-        if (hasCode) {
-          const { error } = await supabase.auth.exchangeCodeForSession(window.location.search);
-          if (error) throw error;
-        }
-        const { data: sessionData, error: sErr } = await supabase.auth.getSession();
-        if (sErr) throw sErr;
-        if (!cancelled) setStage(sessionData.session ? 'ready' : 'error');
+        // If Supabase already set a session from the hash fragment, we’ll have it here.
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (!cancelled) setStage(data.session ? 'ready' : 'error');
       } catch (e: any) {
         if (!cancelled) {
-          setErr(e?.message || 'Unable to verify link.');
+          setErr(e?.message || 'Unable to verify reset session.');
           setStage('error');
         }
       }
@@ -56,22 +53,24 @@ export default function ResetConfirmPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff' }}>
       <div style={{ maxWidth: 420, margin: '0 auto', padding: '64px 16px' }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>
-          Reset your password
-        </h1>
+        <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Reset your password</h1>
+
         {stage === 'checking' && (
           <p style={{ color: '#a3a3a3' }}>Checking your reset link…</p>
         )}
+
         {stage === 'error' && (
           <div style={{ color: '#f87171' }}>
-            {err || 'Invalid or expired link.'}
+            {err || 'Invalid or expired link. Re-request a reset from the login page.'}
           </div>
         )}
+
         {stage === 'done' && (
           <div style={{ color: '#34d399' }}>
             Password updated. You can close this tab and sign in.
           </div>
         )}
+
         {stage === 'ready' && (
           <div style={{ marginTop: 16 }}>
             <label style={{ display: 'block', fontSize: 12, color: '#cfcfcf' }}>New password</label>
@@ -85,6 +84,7 @@ export default function ResetConfirmPage() {
               }}
               placeholder="••••••••"
             />
+
             <label style={{ display: 'block', fontSize: 12, color: '#cfcfcf' }}>Confirm password</label>
             <input
               type="password"
@@ -96,7 +96,9 @@ export default function ResetConfirmPage() {
               }}
               placeholder="••••••••"
             />
+
             {err ? <div style={{ color: '#f87171', marginBottom: 12 }}>{err}</div> : null}
+
             <button
               onClick={save}
               disabled={stage === 'saving'}
