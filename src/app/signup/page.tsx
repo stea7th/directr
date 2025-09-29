@@ -1,148 +1,101 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { supabase } from '@/app/lib/supabase';
+import { Suspense, useState, FormEvent } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { supabase } from '../lib/supabase'; // adjust the path if yours is different
 
-export default function SignupPage() {
+// Make this page purely client-side so hooks don't run at build time
+export const dynamic = 'force-dynamic';
+
+function SignupInner() {
+  const search = useSearchParams();
   const router = useRouter();
-  const params = useSearchParams();
-  const next = params.get('next') || '/app';
+  const next = search.get('next') ?? '/app';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    setBusy(true);
     setErr(null);
-    setOk(null);
+    setInfo(null);
 
-    if (password.length < 8) {
-      setErr('Password must be at least 8 characters.');
-      return;
-    }
-    if (password !== confirm) {
-      setErr('Passwords do not match.');
-      return;
-    }
-
-    setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      // Create the account
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo:
-            typeof window !== 'undefined'
-              ? `${window.location.origin}/login?next=${encodeURIComponent(next)}`
-              : undefined,
+          emailRedirectTo: `${window.location.origin}/auth/callback`, // optional
         },
       });
       if (error) throw error;
 
-      // If email confirmations are ON in Supabase, the user must verify.
-      // If confirmations are OFF, user is signed in already — bounce to /app.
-      const { data } = await supabase.auth.getUser();
-      if (data.user) {
-        router.replace(next);
+      // If your project requires email confirmation, a session won't exist yet.
+      if (!data.session) {
+        setInfo('Check your email to confirm your account. After confirming, come back and sign in.');
         return;
       }
 
-      setOk('Check your inbox to confirm your email, then sign in.');
+      // If confirmation is disabled and we already have a session, go in
+      router.push(next);
     } catch (e: any) {
-      setErr(e?.message ?? 'Failed to sign up');
+      setErr(e?.message ?? 'Sign-up failed');
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white">
-      <div className="mx-auto max-w-md px-4 py-12">
-        <Link href="/" className="text-white/70 hover:text-white text-sm">
-          ← Back
-        </Link>
-        <h1 className="mt-4 text-2xl font-semibold">
-          Create your <span className="tracking-tight">directr</span>
-          <span className="text-sky-400">.</span> account
-        </h1>
-        <p className="mt-1 text-sm text-white/60">
-          Use an email and password you’ll remember.
-        </p>
+    <div className="mx-auto max-w-md px-6 py-12 text-white">
+      <h1 className="mb-6 text-2xl font-semibold">Create your account</h1>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-          <label className="block text-sm">
-            <span className="text-white/70">Email</span>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-white outline-none ring-1 ring-white/5 focus:ring-sky-500/50"
-              placeholder="you@email.com"
-              autoComplete="email"
-            />
-          </label>
+      <form onSubmit={onSubmit} className="space-y-4">
+        <div>
+          <label className="mb-1 block text-sm text-white/70">Email</label>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-lg border border-white/10 bg-neutral-900/70 px-3 py-2 outline-none ring-1 ring-white/5 focus:ring-sky-500/50"
+          />
+        </div>
 
-          <label className="block text-sm">
-            <span className="text-white/70">Password</span>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-white outline-none ring-1 ring-white/5 focus:ring-sky-500/50"
-              placeholder="Minimum 8 characters"
-              autoComplete="new-password"
-            />
-          </label>
+        <div>
+          <label className="mb-1 block text-sm text-white/70">Password</label>
+          <input
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full rounded-lg border border-white/10 bg-neutral-900/70 px-3 py-2 outline-none ring-1 ring-white/5 focus:ring-sky-500/50"
+          />
+        </div>
 
-          <label className="block text-sm">
-            <span className="text-white/70">Confirm password</span>
-            <input
-              type="password"
-              required
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2 text-white outline-none ring-1 ring-white/5 focus:ring-sky-500/50"
-              placeholder="Re-enter password"
-              autoComplete="new-password"
-            />
-          </label>
+        {err && <p className="text-sm text-rose-400">{err}</p>}
+        {info && <p className="text-sm text-sky-400">{info}</p>}
 
-          {err && (
-            <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
-              {err}
-            </div>
-          )}
-          {ok && (
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
-              {ok}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-400 disabled:opacity-50"
-          >
-            {loading ? 'Creating account…' : 'Create account'}
-          </button>
-        </form>
-
-        <p className="mt-4 text-sm text-white/60">
-          Already have an account?{' '}
-          <Link href={`/login?next=${encodeURIComponent(next)}`} className="text-sky-400 hover:underline">
-            Sign in
-          </Link>
-        </p>
-      </div>
+        <button
+          type="submit"
+          disabled={busy}
+          className="inline-flex h-10 items-center justify-center rounded-lg bg-sky-500 px-4 font-medium text-white hover:bg-sky-400 disabled:opacity-50"
+        >
+          {busy ? 'Creating account…' : 'Sign up'}
+        </button>
+      </form>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-white/60">Loading…</div>}>
+      <SignupInner />
+    </Suspense>
   );
 }
