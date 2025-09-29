@@ -17,24 +17,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <header className="site-header">
           <div className="container nav">
             <Link href="/app" className="logo">directr<span className="accent">.</span></Link>
-            <nav className="nav-links">
-              <Link href="/app">Create</Link>
-              <Link
-  href="/login"
-  className="rounded-lg border border-white/10 px-3 py-1.5 text-white/90 hover:bg-white/5"
->
-  Sign in
-</Link>
-              <Link href="/campaigns">Campaigns</Link>
-              <Link
-  href="/logout"
-  className="rounded-lg border border-white/10 px-3 py-1.5 text-white/90 hover:bg-white/5"
->
-  Sign out
-</Link>
-              <Link href="/analytics">Analytics</Link>
-              <Link href="/settings">Settings</Link>
-            </nav>
+            <nav className="flex items-center gap-6 text-sm">
+  <Link href="/app" className="text-white/80 hover:text-white">Create</Link>
+  <Link href="/campaigns" className="text-white/60 hover:text-white">Campaigns</Link>
+  <Link href="/analytics" className="text-white/60 hover:text-white">Analytics</Link>
+  <Link href="/settings" className="text-white/60 hover:text-white">Settings</Link>
+
+  <Link
+    href="/signup"
+    className="rounded-lg border border-white/10 px-3 py-1.5 text-white/90 hover:bg-white/5"
+  >
+    Create account
+  </Link>
+  <Link
+    href="/login"
+    className="rounded-lg border border-white/10 px-3 py-1.5 text-white/90 hover:bg-white/5"
+  >
+    Sign in
+  </Link>
+</nav>
           </div>
         </header>
 
