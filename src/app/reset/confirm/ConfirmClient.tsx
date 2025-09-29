@@ -1,18 +1,22 @@
-// src/app/reset/confirm/ConfirmClient.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { supabase } from "@/app/lib/supabase"; // adjust if your supabase helper lives elsewhere
+import { supabase } from "@/app/lib/supabase"; // adjust if your helper lives elsewhere
+
+type Phase = "checking" | "need-password" | "saving" | "done" | "error";
 
 export default function ConfirmClient() {
   const sp = useSearchParams();
   const router = useRouter();
 
-  const [status, setStatus] = useState<"checking" | "need-password" | "saving" | "done" | "error">("checking");
+  const [status, setStatus] = useState<Phase>("checking");
   const [error, setError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
+
+  // compute outside of any narrowed branch so TS is happy
+  const isSaving = status === "saving";
 
   // 1) Exchange the code from the URL for a session
   useEffect(() => {
@@ -58,7 +62,6 @@ export default function ConfirmClient() {
       return;
     }
     setStatus("done");
-    // send them to your app/dashboard after a beat
     setTimeout(() => router.replace("/app"), 800);
   };
 
@@ -71,7 +74,7 @@ export default function ConfirmClient() {
           <p style={{ marginTop: 8, opacity: 0.8 }}>Validating your reset link…</p>
         )}
 
-        {status === "need-password" && (
+        {(status === "need-password" || status === "saving") && (
           <form onSubmit={onSubmit}>
             <label style={{ display: "block", fontSize: 13, opacity: 0.8, marginBottom: 6 }}>New password</label>
             <input
@@ -112,7 +115,7 @@ export default function ConfirmClient() {
 
             <button
               type="submit"
-              disabled={status === "saving"}
+              disabled={isSaving}
               style={{
                 width: "100%",
                 background: "#0ea5e9",
@@ -121,10 +124,10 @@ export default function ConfirmClient() {
                 borderRadius: 8,
                 padding: "10px 12px",
                 cursor: "pointer",
-                opacity: status === "saving" ? 0.6 : 1,
+                opacity: isSaving ? 0.6 : 1,
               }}
             >
-              {status === "saving" ? "Saving…" : "Save password"}
+              {isSaving ? "Saving…" : "Save password"}
             </button>
           </form>
         )}
