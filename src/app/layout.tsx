@@ -26,6 +26,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   Sign in
 </Link>
               <Link href="/campaigns">Campaigns</Link>
+              <Link
+  href="/logout"
+  className="rounded-lg border border-white/10 px-3 py-1.5 text-white/90 hover:bg-white/5"
+>
+  Sign out
+</Link>
               <Link href="/analytics">Analytics</Link>
               <Link href="/settings">Settings</Link>
             </nav>
