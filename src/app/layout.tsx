@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import AuthNav from '@/components/AuthNav';
 import Link from "next/link";
 import "./globals.css";
 
@@ -22,19 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   <Link href="/campaigns" className="text-white/60 hover:text-white">Campaigns</Link>
   <Link href="/analytics" className="text-white/60 hover:text-white">Analytics</Link>
   <Link href="/settings" className="text-white/60 hover:text-white">Settings</Link>
-
-  <Link
-    href="/signup"
-    className="rounded-lg border border-white/10 px-3 py-1.5 text-white/90 hover:bg-white/5"
-  >
-    Create account
-  </Link>
-  <Link
-    href="/login"
-    className="rounded-lg border border-white/10 px-3 py-1.5 text-white/90 hover:bg-white/5"
-  >
-    Sign in
-  </Link>
+  <AuthNav />
 </nav>
           </div>
         </header>
