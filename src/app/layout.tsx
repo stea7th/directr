@@ -11,37 +11,38 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="h-full">
-      <body className="min-h-screen bg-neutral-950 text-white antialiased">
+      <body className="app-body">
         {/* Header */}
-        <header className="sticky top-0 z-20 border-b border-white/10 bg-neutral-950/80 backdrop-blur">
-          <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-            <Link href="/" className="font-semibold tracking-tight text-white text-lg">
-              directr<span className="text-sky-400">.</span>
+        <header className="site-header">
+          <div className="container header-inner">
+            <Link href="/" className="brand">
+              directr<span className="accent">.</span>
             </Link>
-            <nav className="flex items-center gap-6 text-sm">
-              <Link className="text-white/80 hover:text-white" href="/app">Create</Link>
-              <Link className="text-white/60 hover:text-white" href="/campaigns">Campaigns</Link>
-              <Link className="text-white/60 hover:text-white" href="/analytics">Analytics</Link>
-              <Link className="text-white/60 hover:text-white" href="/settings">Settings</Link>
-              <Link className="ml-2 rounded-lg border border-white/10 px-3 py-1 text-white/80 hover:text-white hover:ring-1 hover:ring-sky-500/30" href="/signup">
-                Create account
-              </Link>
-              <Link className="rounded-lg border border-white/10 px-3 py-1 text-white/80 hover:text-white hover:ring-1 hover:ring-sky-500/30" href="/login">
-                Sign in
-              </Link>
+
+            <nav className="main-nav">
+              <Link href="/app" className="nav-link">Create</Link>
+              <Link href="/campaigns" className="nav-link subdued">Campaigns</Link>
+              <Link href="/analytics" className="nav-link subdued">Analytics</Link>
+              <Link href="/settings" className="nav-link subdued">Settings</Link>
+              <Link href="/signup" className="chip">Create account</Link>
+              <Link href="/login" className="chip">Sign in</Link>
             </nav>
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="mx-auto max-w-6xl px-4 py-10">
-          {children}
-        </main>
+        {/* Content */}
+        <main className="container main-content">{children}</main>
 
         {/* Footer */}
-        <footer className="mx-auto max-w-6xl px-4 py-10 text-xs text-white/50">
-          © 2025 directr — <Link href="/privacy" className="hover:text-white">Privacy</Link> ·{' '}
-          <Link href="/terms" className="hover:text-white">Terms</Link>
+        <footer className="site-footer">
+          <div className="container footer-inner">
+            <span>© 2025 directr</span>
+            <span className="footer-links">
+              <Link href="/privacy">Privacy</Link>
+              <span>·</span>
+              <Link href="/terms">Terms</Link>
+            </span>
+          </div>
         </footer>
       </body>
     </html>
