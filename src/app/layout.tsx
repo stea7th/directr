@@ -2,7 +2,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import './globals.css';
-import AuthNav from '@/components/AuthNav';
 
 export const metadata: Metadata = {
   title: 'directr',
@@ -11,8 +10,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full bg-neutral-950">
-      <body className="min-h-screen text-white antialiased">
+    <html lang="en" className="h-full">
+      <body className="min-h-screen bg-neutral-950 text-white antialiased">
         {/* Header */}
         <header className="sticky top-0 z-20 border-b border-white/10 bg-neutral-950/80 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
@@ -24,15 +23,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link className="text-white/60 hover:text-white" href="/campaigns">Campaigns</Link>
               <Link className="text-white/60 hover:text-white" href="/analytics">Analytics</Link>
               <Link className="text-white/60 hover:text-white" href="/settings">Settings</Link>
-              <div className="ml-2 flex items-center gap-2">
-                <AuthNav />
-              </div>
+              <Link className="ml-2 rounded-lg border border-white/10 px-3 py-1 text-white/80 hover:text-white hover:ring-1 hover:ring-sky-500/30" href="/signup">
+                Create account
+              </Link>
+              <Link className="rounded-lg border border-white/10 px-3 py-1 text-white/80 hover:text-white hover:ring-1 hover:ring-sky-500/30" href="/login">
+                Sign in
+              </Link>
             </nav>
           </div>
         </header>
 
         {/* Page content */}
-        <main className="mx-auto max-w-6xl px-4 py-10">{children}</main>
+        <main className="mx-auto max-w-6xl px-4 py-10">
+          {children}
+        </main>
 
         {/* Footer */}
         <footer className="mx-auto max-w-6xl px-4 py-10 text-xs text-white/50">
