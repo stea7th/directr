@@ -74,7 +74,13 @@ function LoginInner() {
     </div>
   );
 }
+import Link from "next/link";
 
+// ...
+
+<p style={{ marginTop: 10 }}>
+  <Link href="/reset">Forgot your password?</Link>
+</p>
 export default function LoginPage() {
   // Wrap the hook usage in Suspense to satisfy Next’s requirement.
   return (
