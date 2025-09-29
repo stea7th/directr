@@ -19,6 +19,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/app" className="logo">directr<span className="accent">.</span></Link>
             <nav className="nav-links">
               <Link href="/app">Create</Link>
+              <Link
+  href="/login"
+  className="rounded-lg border border-white/10 px-3 py-1.5 text-white/90 hover:bg-white/5"
+>
+  Sign in
+</Link>
               <Link href="/campaigns">Campaigns</Link>
               <Link href="/analytics">Analytics</Link>
               <Link href="/settings">Settings</Link>
