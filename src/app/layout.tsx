@@ -1,47 +1,46 @@
 // src/app/layout.tsx
-import type { Metadata } from 'next';
-import Link from 'next/link';
-import './globals.css';
+import type { Metadata } from "next";
+import Link from "next/link";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: 'directr',
-  description: 'Upload, caption, and publish social-ready clips fast.',
+  title: "directr",
+  description: "Upload a video → get a captioned, social-ready clip back.",
+  metadataBase: new URL("https://directr-beta.vercel.app"),
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full">
-      <body className="app-body">
-        {/* Header */}
-        <header className="site-header">
-          <div className="container header-inner">
-            <Link href="/" className="brand">
-              directr<span className="accent">.</span>
+    <html lang="en">
+      <body className="site">
+        {/* Top nav */}
+        <header className="nav">
+          <div className="nav__inner">
+            <Link href="/app" className="logo">
+              directr<span className="dot">.</span>
             </Link>
-
-            <nav className="main-nav">
-              <Link href="/app" className="nav-link">Create</Link>
-              <Link href="/campaigns" className="nav-link subdued">Campaigns</Link>
-              <Link href="/analytics" className="nav-link subdued">Analytics</Link>
-              <Link href="/settings" className="nav-link subdued">Settings</Link>
-              <Link href="/signup" className="chip">Create account</Link>
-              <Link href="/login" className="chip">Sign in</Link>
+            <nav className="menu">
+              <Link href="/app">Create</Link>
+              <Link href="/campaigns">Campaigns</Link>
+              <Link href="/analytics">Analytics</Link>
+              <Link href="/settings">Settings</Link>
+              <Link href="/signup" className="link--muted">Create account</Link>
+              <Link href="/login" className="link--muted">Sign in</Link>
             </nav>
           </div>
         </header>
 
-        {/* Content */}
-        <main className="container main-content">{children}</main>
+        {/* Page */}
+        <main className="page">{children}</main>
 
         {/* Footer */}
-        <footer className="site-footer">
-          <div className="container footer-inner">
+        <footer className="footer">
+          <div className="footer__inner">
             <span>© 2025 directr</span>
-            <span className="footer-links">
-              <Link href="/privacy">Privacy</Link>
-              <span>·</span>
-              <Link href="/terms">Terms</Link>
-            </span>
+            <span className="spacer">—</span>
+            <Link href="/privacy">Privacy</Link>
+            <span>·</span>
+            <Link href="/terms">Terms</Link>
           </div>
         </footer>
       </body>
