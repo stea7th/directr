@@ -1,44 +1,43 @@
-import type { Metadata } from "next";
-import AuthNav from '../components/AuthNav';
-import Link from "next/link";
-import "./globals.css";
+// src/app/layout.tsx
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import './globals.css';
+import AuthNav from '@/components/AuthNav';
 
-export const metadata = {
-  title: "directr",
-  description: "Upload a video → get a captioned, social-ready clip back.",
-  icons: {
-    icon: "/favicon.png?v=3" // lives in /public
-  }
+export const metadata: Metadata = {
+  title: 'directr',
+  description: 'Upload, caption, and publish social-ready clips fast.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="root">
-        <header className="site-header">
-          <div className="container nav">
-            <Link href="/app" className="logo">directr<span className="accent">.</span></Link>
+    <html lang="en" className="h-full bg-neutral-950">
+      <body className="min-h-screen text-white antialiased">
+        {/* Header */}
+        <header className="sticky top-0 z-20 border-b border-white/10 bg-neutral-950/80 backdrop-blur">
+          <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+            <Link href="/" className="font-semibold tracking-tight text-white text-lg">
+              directr<span className="text-sky-400">.</span>
+            </Link>
             <nav className="flex items-center gap-6 text-sm">
-  <Link href="/app" className="text-white/80 hover:text-white">Create</Link>
-  <Link href="/campaigns" className="text-white/60 hover:text-white">Campaigns</Link>
-  <Link href="/analytics" className="text-white/60 hover:text-white">Analytics</Link>
-  <Link href="/settings" className="text-white/60 hover:text-white">Settings</Link>
-  <AuthNav />
-</nav>
+              <Link className="text-white/80 hover:text-white" href="/app">Create</Link>
+              <Link className="text-white/60 hover:text-white" href="/campaigns">Campaigns</Link>
+              <Link className="text-white/60 hover:text-white" href="/analytics">Analytics</Link>
+              <Link className="text-white/60 hover:text-white" href="/settings">Settings</Link>
+              <div className="ml-2 flex items-center gap-2">
+                <AuthNav />
+              </div>
+            </nav>
           </div>
         </header>
 
-        <main className="container main">{children}</main>
+        {/* Page content */}
+        <main className="mx-auto max-w-6xl px-4 py-10">{children}</main>
 
-        <footer className="site-footer">
-          <div className="container foot">
-            <span>© {new Date().getFullYear()} directr</span>
-            <div className="foot-links">
-              <Link href="/privacy">Privacy</Link>
-              <span>·</span>
-              <Link href="/terms">Terms</Link>
-            </div>
-          </div>
+        {/* Footer */}
+        <footer className="mx-auto max-w-6xl px-4 py-10 text-xs text-white/50">
+          © 2025 directr — <Link href="/privacy" className="hover:text-white">Privacy</Link> ·{' '}
+          <Link href="/terms" className="hover:text-white">Terms</Link>
         </footer>
       </body>
     </html>
