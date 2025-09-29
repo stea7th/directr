@@ -1,117 +1,110 @@
-// src/app/reset/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
-type Stage = 'checking' | 'ready' | 'saving' | 'done' | 'error';
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+);
+
+// Where Supabase should send the user to set a new password.
+// This must be allowed in Supabase Auth → URL Configuration → Redirect URLs.
+const REDIRECT_TO =
+  process.env.NEXT_PUBLIC_SITE_URL
+    ? `${process.env.NEXT_PUBLIC_SITE_URL}/reset/confirm`
+    : (typeof window !== 'undefined'
+        ? `${window.location.origin}/reset/confirm`
+        : 'http://localhost:3000/reset/confirm');
+
+type Stage = 'idle' | 'sending' | 'sent' | 'error';
 
 export default function ResetPage() {
-  const [stage, setStage] = useState<Stage>('checking');
-  const [pw, setPw] = useState('');
-  const [pw2, setPw2] = useState('');
-  const [err, setErr] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [stage, setStage] = useState<Stage>('idle');
+  const [message, setMessage] = useState<string>('');
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        // If Supabase already set a session from the hash fragment, we’ll have it here.
-        const { data, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        if (!cancelled) setStage(data.session ? 'ready' : 'error');
-      } catch (e: any) {
-        if (!cancelled) {
-          setErr(e?.message || 'Unable to verify reset session.');
-          setStage('error');
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const save = async () => {
-    setErr(null);
-    if (!pw || pw.length < 8) {
-      setErr('Password must be at least 8 characters.');
+  const send = async () => {
+    if (!email) {
+      setMessage('Enter your email.');
+      setStage('error');
       return;
     }
-    if (pw !== pw2) {
-      setErr('Passwords do not match.');
-      return;
-    }
-    setStage('saving');
-    const { error } = await supabase.auth.updateUser({ password: pw });
+    setStage('sending');
+    setMessage('');
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: REDIRECT_TO,
+    });
     if (error) {
-      setErr(error.message);
-      setStage('ready');
+      setStage('error');
+      setMessage(error.message || 'Could not send reset email.');
     } else {
-      setStage('done');
+      setStage('sent');
+      setMessage(' Check your inbox for a reset link.');
     }
   };
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff' }}>
-      <div style={{ maxWidth: 420, margin: '0 auto', padding: '64px 16px' }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Reset your password</h1>
+      <div style={{ maxWidth: 420, margin: '0 auto', padding: '48px 16px' }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Reset your password</h1>
+        <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 14, marginBottom: 24 }}>
+          Enter the email for your account and we’ll send a reset link.
+        </p>
 
-        {stage === 'checking' && (
-          <p style={{ color: '#a3a3a3' }}>Checking your reset link…</p>
-        )}
+        <label style={{ display: 'block', fontSize: 13, marginBottom: 6, color: 'rgba(255,255,255,0.8)' }}>
+          Email
+        </label>
+        <input
+          type="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '10px 12px',
+            borderRadius: 10,
+            border: '1px solid rgba(255,255,255,0.12)',
+            background: '#121212',
+            color: '#fff',
+            outline: 'none',
+            marginBottom: 12,
+          }}
+        />
 
-        {stage === 'error' && (
-          <div style={{ color: '#f87171' }}>
-            {err || 'Invalid or expired link. Re-request a reset from the login page.'}
+        <button
+          onClick={send}
+          disabled={stage === 'sending'}
+          style={{
+            width: '100%',
+            padding: '10px 12px',
+            borderRadius: 10,
+            border: '1px solid transparent',
+            background: stage === 'sending' ? '#0891b2' : '#0ea5e9',
+            color: '#fff',
+            fontWeight: 600,
+            cursor: stage === 'sending' ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {stage === 'sending' ? 'Sending…' : 'Send reset link'}
+        </button>
+
+        {message && (
+          <div
+            style={{
+              marginTop: 12,
+              fontSize: 13,
+              color: stage === 'error' ? '#fda4af' : '#a7f3d0',
+              lineHeight: 1.4,
+            }}
+          >
+            {message}
           </div>
         )}
 
-        {stage === 'done' && (
-          <div style={{ color: '#34d399' }}>
-            Password updated. You can close this tab and sign in.
-          </div>
-        )}
-
-        {stage === 'ready' && (
-          <div style={{ marginTop: 16 }}>
-            <label style={{ display: 'block', fontSize: 12, color: '#cfcfcf' }}>New password</label>
-            <input
-              type="password"
-              value={pw}
-              onChange={(e) => setPw(e.target.value)}
-              style={{
-                width: '100%', marginTop: 6, marginBottom: 14, padding: '10px 12px',
-                borderRadius: 10, border: '1px solid #1f2937', background: '#0f1115', color: '#fff'
-              }}
-              placeholder="••••••••"
-            />
-
-            <label style={{ display: 'block', fontSize: 12, color: '#cfcfcf' }}>Confirm password</label>
-            <input
-              type="password"
-              value={pw2}
-              onChange={(e) => setPw2(e.target.value)}
-              style={{
-                width: '100%', marginTop: 6, marginBottom: 20, padding: '10px 12px',
-                borderRadius: 10, border: '1px solid #1f2937', background: '#0f1115', color: '#fff'
-              }}
-              placeholder="••••••••"
-            />
-
-            {err ? <div style={{ color: '#f87171', marginBottom: 12 }}>{err}</div> : null}
-
-            <button
-              onClick={save}
-              disabled={stage === 'saving'}
-              style={{
-                width: '100%', padding: '10px 12px', borderRadius: 10,
-                background: '#0ea5e9', color: '#fff', fontWeight: 600,
-                border: '0', cursor: 'pointer', opacity: stage === 'saving' ? 0.6 : 1
-              }}
-            >
-              {stage === 'saving' ? 'Saving…' : 'Save new password'}
-            </button>
-          </div>
-        )}
+        <div style={{ marginTop: 16, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+          We’ll send the link to: {email || '—'}
+        </div>
       </div>
     </div>
   );
