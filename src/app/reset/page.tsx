@@ -1,110 +1,85 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// Where Supabase should send the user to set a new password.
-// This must be allowed in Supabase Auth → URL Configuration → Redirect URLs.
-const REDIRECT_TO =
-  process.env.NEXT_PUBLIC_SITE_URL
-    ? `${process.env.NEXT_PUBLIC_SITE_URL}/reset/confirm`
-    : (typeof window !== 'undefined'
-        ? `${window.location.origin}/reset/confirm`
-        : 'http://localhost:3000/reset/confirm');
+type Stage = 'checking' | 'need' | 'saving' | 'done' | 'error';
 
-type Stage = 'idle' | 'sending' | 'sent' | 'error';
+export default function ResetConfirm() {
+  const [stage, setStage] = useState<Stage>('checking');
+  const [password, setPassword] = useState('');
+  const [msg, setMsg] = useState('');
 
-export default function ResetPage() {
-  const [email, setEmail] = useState('');
-  const [stage, setStage] = useState<Stage>('idle');
-  const [message, setMessage] = useState<string>('');
+  // Supabase sends tokens in the URL **hash** (#access_token=...)
+  const tokens = useMemo(() => {
+    if (typeof window === 'undefined') return {};
+    const hash = window.location.hash.replace(/^#/, '');
+    const sp = new URLSearchParams(hash);
+    return {
+      access_token: sp.get('access_token'),
+      refresh_token: sp.get('refresh_token'),
+    };
+  }, []);
 
-  const send = async () => {
-    if (!email) {
-      setMessage('Enter your email.');
-      setStage('error');
-      return;
-    }
-    setStage('sending');
-    setMessage('');
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: REDIRECT_TO,
-    });
-    if (error) {
-      setStage('error');
-      setMessage(error.message || 'Could not send reset email.');
-    } else {
-      setStage('sent');
-      setMessage(' Check your inbox for a reset link.');
-    }
+  useEffect(() => {
+    (async () => {
+      if (!tokens.access_token || !tokens.refresh_token) {
+        setStage('error'); setMsg('Invalid or expired link.'); return;
+      }
+      const { error } = await supabase.auth.setSession({
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+      });
+      if (error) { setStage('error'); setMsg(error.message); return; }
+      setStage('need');
+    })();
+  }, [tokens.access_token, tokens.refresh_token]);
+
+  const save = async () => {
+    if (password.length < 8) { setMsg('Min 8 characters.'); return; }
+    setStage('saving');
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) { setStage('error'); setMsg(error.message); return; }
+    setStage('done');
+    setMsg('Password updated. You can sign in now.');
   };
 
+  // simple inline UI (no Tailwind)
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff' }}>
-      <div style={{ maxWidth: 420, margin: '0 auto', padding: '48px 16px' }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Reset your password</h1>
-        <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 14, marginBottom: 24 }}>
-          Enter the email for your account and we’ll send a reset link.
-        </p>
+    <div style={{minHeight:'100vh',display:'grid',placeItems:'center',background:'#0b0b0b',color:'#fff'}}>
+      <div style={{width:380,maxWidth:'90vw',background:'#141414',border:'1px solid #222',borderRadius:12,padding:18}}>
+        <h2 style={{margin:'0 0 10px'}}>Reset your password</h2>
 
-        <label style={{ display: 'block', fontSize: 13, marginBottom: 6, color: 'rgba(255,255,255,0.8)' }}>
-          Email
-        </label>
-        <input
-          type="email"
-          placeholder="you@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '10px 12px',
-            borderRadius: 10,
-            border: '1px solid rgba(255,255,255,0.12)',
-            background: '#121212',
-            color: '#fff',
-            outline: 'none',
-            marginBottom: 12,
-          }}
-        />
+        {stage === 'checking' && <p>Validating link…</p>}
 
-        <button
-          onClick={send}
-          disabled={stage === 'sending'}
-          style={{
-            width: '100%',
-            padding: '10px 12px',
-            borderRadius: 10,
-            border: '1px solid transparent',
-            background: stage === 'sending' ? '#0891b2' : '#0ea5e9',
-            color: '#fff',
-            fontWeight: 600,
-            cursor: stage === 'sending' ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {stage === 'sending' ? 'Sending…' : 'Send reset link'}
-        </button>
-
-        {message && (
-          <div
-            style={{
-              marginTop: 12,
-              fontSize: 13,
-              color: stage === 'error' ? '#fda4af' : '#a7f3d0',
-              lineHeight: 1.4,
-            }}
-          >
-            {message}
-          </div>
+        {stage === 'need' && (
+          <>
+            <label style={{fontSize:12,opacity:.7}}>New password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e=>setPassword(e.target.value)}
+              style={{width:'100%',marginTop:6,marginBottom:12,padding:'10px 12px',borderRadius:10,border:'1px solid #2a2a2a',background:'#0e0e0e',color:'#fff'}}
+              placeholder="••••••••"
+            />
+            <button
+              onClick={save}
+              disabled={stage === 'saving'}
+              style={{width:'100%',padding:'10px 12px',borderRadius:10,border:'1px solid #096aa6',background:'#0ea5e9',color:'#fff',fontWeight:600,opacity:stage==='saving'?0.7:1,cursor:'pointer'}}
+            >
+              {stage === 'saving' ? 'Saving…' : 'Update password'}
+            </button>
+          </>
         )}
 
-        <div style={{ marginTop: 16, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
-          We’ll send the link to: {email || '—'}
-        </div>
+        {stage === 'done' && <p style={{marginTop:8}}>✅ {msg}</p>}
+        {stage === 'error' && <p style={{marginTop:8,color:'#f87171'}}>❌ {msg}</p>}
+        {msg && stage === 'need' && <p style={{marginTop:8,opacity:.8,fontSize:12}}>{msg}</p>}
       </div>
     </div>
   );
