@@ -12,19 +12,22 @@ function getAuthCodeFromUrl(): string | null {
   if (typeof window === 'undefined') return null;
   const url = new URL(window.location.href);
 
-  // Check query param ?code=
+  // ?code=... (query)
   const q = url.searchParams.get('code');
   if (q) return q;
 
-  // Also check hash fragment #access_token=...&code=...
+  // #...&code=... (hash)
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   return hash.get('code') || null;
 }
 
 export default function ConfirmResetPage() {
-  const [status, setStatus] = useState<'checking' | 'ready' | 'saving' | 'done' | 'error'>('checking');
-  const [message, setMessage] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
+  type Phase = 'checking' | 'ready' | 'done' | 'error';
+
+  const [phase, setPhase] = useState<Phase>('checking');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const [password, setPassword] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -32,7 +35,7 @@ export default function ConfirmResetPage() {
       try {
         const code = getAuthCodeFromUrl();
         if (!code) {
-          setStatus('error');
+          setPhase('error');
           setMessage('No reset code found in the URL.');
           return;
         }
@@ -41,15 +44,15 @@ export default function ConfirmResetPage() {
         if (cancelled) return;
 
         if (error) {
-          setStatus('error');
+          setPhase('error');
           setMessage(error.message);
         } else {
-          setStatus('ready');
+          setPhase('ready');
         }
       } catch (err: any) {
         if (!cancelled) {
-          setStatus('error');
-          setMessage(err.message || 'Something went wrong.');
+          setPhase('error');
+          setMessage(err?.message || 'Something went wrong.');
         }
       }
     })();
@@ -60,23 +63,24 @@ export default function ConfirmResetPage() {
 
   const save = async () => {
     if (!password) return;
-    setStatus('saving');
+    setSaving(true);
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
-      setStatus('error');
+      setPhase('error');
       setMessage(error.message);
     } else {
-      setStatus('done');
+      setPhase('done');
     }
+    setSaving(false);
   };
 
   return (
     <div style={{ maxWidth: 400, margin: '4rem auto', padding: 20, background: '#111', color: '#fff', borderRadius: 12 }}>
       <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Reset your password</h1>
 
-      {status === 'checking' && <p>Checking reset link…</p>}
+      {phase === 'checking' && <p>Checking reset link…</p>}
 
-      {status === 'ready' && (
+      {phase === 'ready' && (
         <>
           <input
             type="password"
@@ -95,7 +99,7 @@ export default function ConfirmResetPage() {
           />
           <button
             onClick={save}
-            disabled={status === 'saving'}
+            disabled={saving}
             style={{
               width: '100%',
               padding: '10px 12px',
@@ -104,16 +108,16 @@ export default function ConfirmResetPage() {
               color: '#fff',
               fontWeight: 600,
               cursor: 'pointer',
-              opacity: status === 'saving' ? 0.7 : 1
+              opacity: saving ? 0.7 : 1
             }}
           >
-            {status === 'saving' ? 'Saving…' : 'Update password'}
+            {saving ? 'Saving…' : 'Update password'}
           </button>
         </>
       )}
 
-      {status === 'done' && <p>Password updated successfully. You can now log in.</p>}
-      {status === 'error' && <p style={{ color: 'red' }}>{message}</p>}
+      {phase === 'done' && <p>Password updated successfully. You can now log in.</p>}
+      {phase === 'error' && <p style={{ color: 'red' }}>{message}</p>}
     </div>
   );
 }
