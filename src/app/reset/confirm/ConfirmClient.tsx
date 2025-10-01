@@ -1,149 +1,197 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { supabase } from "@/app/lib/supabase"; // adjust if your helper lives elsewhere
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
-type Phase = "checking" | "need-password" | "saving" | "done" | "error";
+type Status =
+  | 'exchanging'        // exchanging the code in the URL for a session
+  | 'need-password'     // show password inputs
+  | 'saving'            // updating password
+  | 'done'              // all set
+  | 'error';            // something went wrong
 
 export default function ConfirmClient() {
-  const sp = useSearchParams();
-  const router = useRouter();
+  const params = useSearchParams();
+  const [status, setStatus] = useState<Status>('exchanging');
+  const [error, setError] = useState<string>('');
+  const [pw1, setPw1] = useState('');
+  const [pw2, setPw2] = useState('');
 
-  const [status, setStatus] = useState<Phase>("checking");
-  const [error, setError] = useState<string | null>(null);
-  const [password, setPassword] = useState("");
-  const [password2, setPassword2] = useState("");
-
-  // compute outside of any narrowed branch so TS is happy
-  const isSaving = status === "saving";
-
-  // 1) Exchange the code from the URL for a session
+  // Step 1: read the `code` from the URL and exchange for a session
   useEffect(() => {
-    const code = sp.get("code");
-    if (!code) {
-      setError("Missing code in URL.");
-      setStatus("error");
-      return;
-    }
-
+    let cancelled = false;
     (async () => {
       try {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) throw error;
-        setStatus("need-password");
+        const code = params.get('code');
+        const type = params.get('type'); // should be 'recovery' for password reset
+
+        if (!code) {
+          setStatus('error');
+          setError('Missing code in the URL.');
+          return;
+        }
+
+        // Needed so the user is "logged in" for updateUser()
+        const { error } = await supabase.auth.exchangeCodeForSession({ code });
+        if (cancelled) return;
+
+        if (error) {
+          setStatus('error');
+          setError(error.message || 'Could not verify code.');
+          return;
+        }
+
+        // If OK, show the password form
+        setStatus('need-password');
       } catch (e: any) {
-        setError(e?.message ?? "Could not verify the reset code.");
-        setStatus("error");
+        if (!cancelled) {
+          setStatus('error');
+          setError(e?.message || 'Something went wrong.');
+        }
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // run once on mount
 
-  // 2) Submit new password
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+    return () => {
+      cancelled = true;
+    };
+  }, [params]);
 
-    if (!password || password.length < 8) {
-      setError("Please enter a password of at least 8 characters.");
+  async function saveNewPassword() {
+    if (pw1.length < 8) {
+      setError('Password must be at least 8 characters.');
       return;
     }
-    if (password !== password2) {
-      setError("Passwords do not match.");
+    if (pw1 !== pw2) {
+      setError('Passwords do not match.');
       return;
     }
 
-    setStatus("saving");
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) {
-      setError(error.message);
-      setStatus("need-password");
-      return;
+    try {
+      setStatus('saving');
+      setError('');
+
+      const { error } = await supabase.auth.updateUser({ password: pw1 });
+      if (error) {
+        setStatus('error');
+        setError(error.message || 'Failed to update password.');
+        return;
+      }
+      setStatus('done');
+    } catch (e: any) {
+      setStatus('error');
+      setError(e?.message || 'Failed to update password.');
     }
-    setStatus("done");
-    setTimeout(() => router.replace("/app"), 800);
+  }
+
+  const wrap: React.CSSProperties = {
+    maxWidth: 440,
+    margin: '40px auto',
+    padding: 20,
+    borderRadius: 12,
+    border: '1px solid #e5e7eb',
   };
 
-  return (
-    <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#eaeaea", display: "grid", placeItems: "center", padding: 24 }}>
-      <div style={{ width: 360, maxWidth: "100%", background: "#141414", border: "1px solid #2a2a2a", borderRadius: 12, padding: 20, boxShadow: "0 8px 30px rgba(0,0,0,.35)" }}>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, marginBottom: 12 }}>Reset your password</h1>
+  const h1: React.CSSProperties = {
+    fontSize: 20,
+    fontWeight: 700,
+    marginBottom: 10,
+  };
 
-        {status === "checking" && (
-          <p style={{ marginTop: 8, opacity: 0.8 }}>Validating your reset link…</p>
-        )}
+  const label: React.CSSProperties = {
+    display: 'block',
+    fontSize: 13,
+    color: '#555',
+    marginTop: 10,
+    marginBottom: 6,
+  };
 
-        {(status === "need-password" || status === "saving") && (
-          <form onSubmit={onSubmit}>
-            <label style={{ display: "block", fontSize: 13, opacity: 0.8, marginBottom: 6 }}>New password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter a new password"
-              style={{
-                width: "100%",
-                background: "#0f0f0f",
-                color: "#fff",
-                border: "1px solid #2a2a2a",
-                borderRadius: 8,
-                padding: "10px 12px",
-                marginBottom: 10,
-                outline: "none",
-              }}
-            />
-            <label style={{ display: "block", fontSize: 13, opacity: 0.8, marginBottom: 6 }}>Confirm password</label>
-            <input
-              type="password"
-              value={password2}
-              onChange={(e) => setPassword2(e.target.value)}
-              placeholder="Re-enter your new password"
-              style={{
-                width: "100%",
-                background: "#0f0f0f",
-                color: "#fff",
-                border: "1px solid #2a2a2a",
-                borderRadius: 8,
-                padding: "10px 12px",
-                marginBottom: 12,
-                outline: "none",
-              }}
-            />
+  const input: React.CSSProperties = {
+    width: '100%',
+    padding: '10px 12px',
+    borderRadius: 10,
+    border: '1px solid #ddd',
+    outline: 'none',
+    fontSize: 14,
+  };
 
-            {error && <p style={{ color: "#fca5a5", fontSize: 13, marginTop: 4, marginBottom: 10 }}>{error}</p>}
+  const btn: React.CSSProperties = {
+    width: '100%',
+    padding: '10px 12px',
+    marginTop: 14,
+    borderRadius: 10,
+    border: '1px solid #096aa6',
+    background: '#0ea5e9',
+    color: '#fff',
+    fontWeight: 600 as const,
+    cursor: status === 'saving' ? 'not-allowed' : 'pointer',
+    opacity: status === 'saving' ? 0.7 : 1,
+  };
 
-            <button
-              type="submit"
-              disabled={isSaving}
-              style={{
-                width: "100%",
-                background: "#0ea5e9",
-                color: "#fff",
-                border: 0,
-                borderRadius: 8,
-                padding: "10px 12px",
-                cursor: "pointer",
-                opacity: isSaving ? 0.6 : 1,
-              }}
-            >
-              {isSaving ? "Saving…" : "Save password"}
-            </button>
-          </form>
-        )}
+  const note: React.CSSProperties = {
+    marginTop: 10,
+    fontSize: 12,
+    color: status === 'error' ? '#b91c1c' : '#111827',
+    whiteSpace: 'pre-wrap',
+  };
 
-        {status === "done" && <p style={{ marginTop: 8 }}>Password updated ✓ Redirecting…</p>}
+  // UI states
+  if (status === 'exchanging') {
+    return <div style={wrap}>Verifying link…</div>;
+  }
 
-        {status === "error" && (
-          <>
-            <p style={{ marginTop: 8, color: "#fca5a5" }}>{error}</p>
-            <p style={{ marginTop: 8 }}>
-              You can request a new reset link on the{" "}
-              <a href="/reset" style={{ color: "#0ea5e9" }}>reset page</a>.
-            </p>
-          </>
-        )}
+  if (status === 'error') {
+    return (
+      <div style={wrap}>
+        <h1 style={h1}>Reset password</h1>
+        <div style={note}>{error || 'Something went wrong.'}</div>
       </div>
+    );
+  }
+
+  if (status === 'done') {
+    return (
+      <div style={wrap}>
+        <h1 style={h1}>Password updated ✅</h1>
+        <div style={note}>You can close this page and sign in with your new password.</div>
+      </div>
+    );
+  }
+
+  // need-password / saving
+  return (
+    <div style={wrap}>
+      <h1 style={h1}>Choose a new password</h1>
+
+      <label style={label} htmlFor="pw1">New password</label>
+      <input
+        id="pw1"
+        type="password"
+        placeholder="••••••••"
+        value={pw1}
+        onChange={(e) => setPw1(e.target.value)}
+        style={input}
+      />
+
+      <label style={label} htmlFor="pw2">Confirm password</label>
+      <input
+        id="pw2"
+        type="password"
+        placeholder="••••••••"
+        value={pw2}
+        onChange={(e) => setPw2(e.target.value)}
+        style={input}
+      />
+
+      <button
+        onClick={saveNewPassword}
+        disabled={status === 'saving'}
+        style={btn}
+      >
+        {status === 'saving' ? 'Saving…' : 'Update password'}
+      </button>
+
+      {error ? <div style={note}>{error}</div> : null}
     </div>
   );
 }
