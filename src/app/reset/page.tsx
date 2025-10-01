@@ -20,10 +20,9 @@ export default function ResetRequestPage() {
       // we use the current site origin at runtime
       const redirectTo = `${window.location.origin}/reset/confirm`;
 
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo,
-      });
-
+      await supabase.auth.resetPasswordForEmail(email, {
+  redirectTo: `${origin}/reset/confirm`,
+});
       if (error) {
         setStatus('error');
         setMessage(error.message || 'Failed sending reset email.');
