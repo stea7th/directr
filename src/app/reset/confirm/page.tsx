@@ -1,56 +1,58 @@
 'use client';
 
-import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 );
 
-type Status = 'waiting-code' | 'exchanging' | 'need-password' | 'saving' | 'done' | 'error';
+// Keep the phase simple, and use a separate boolean for "saving" to avoid TS narrowing issues
+type Phase = 'exchanging' | 'need-password' | 'done' | 'error';
 
-function ConfirmClient() {
+export default function ConfirmResetPage() {
   const sp = useSearchParams();
   const code = sp.get('code') || '';
-  const [status, setStatus] = useState<Status>(code ? 'exchanging' : 'waiting-code');
-  const [err, setErr] = useState<string>('');
-  const [pw, setPw] = useState('');
-  const [pw2, setPw2] = useState('');
 
-  // Show incoming params for debugging (so we KNOW we’re on the right page)
-  const debugQuery = useMemo(
-    () => Array.from(sp.entries()).map(([k, v]) => `${k}=${v}`).join('&'),
-    [sp]
+  const [phase, setPhase] = useState<Phase>('exchanging');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
+
+  const passwordMismatch = useMemo(
+    () => password.length > 0 && password2.length > 0 && password !== password2,
+    [password, password2]
   );
 
-  // Exchange the one-time code for a session
+  // 1) Exchange the code for a session so we can call updateUser()
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!code) return;
-
       try {
-        setStatus('exchanging');
-        setErr('');
-
-        // Important: Next Auth helper requires a string arg (the code)
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-        if (cancelled) return;
-        if (error) {
-          setErr(error.message || 'Could not verify code.');
-          setStatus('error');
+        if (!code) {
+          setMessage('Missing code in the URL.');
+          setPhase('error');
           return;
         }
-        // We’re now "logged in" (temporary), so we can set a new password.
-        setStatus('need-password');
-      } catch (e: any) {
-        if (!cancelled) {
-          setErr(e?.message || 'Unexpected error while exchanging code.');
-          setStatus('error');
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (cancelled) return;
+
+        if (error) {
+          setMessage(error.message);
+          setPhase('error');
+          return;
         }
+        setPhase('need-password');
+      } catch (e: any) {
+        if (cancelled) return;
+        setMessage(e?.message || 'Could not validate reset link.');
+        setPhase('error');
       }
     })();
     return () => {
@@ -58,113 +60,126 @@ function ConfirmClient() {
     };
   }, [code]);
 
+  // 2) Save new password
   const save = async () => {
-    if (status !== 'need-password') return;
-    if (!pw || pw.length < 8) {
-      setErr('Password must be at least 8 characters.');
-      return;
-    }
-    if (pw !== pw2) {
-      setErr('Passwords do not match.');
-      return;
-    }
+    if (passwordMismatch || !password) return;
+    setSaving(true);
+    setMessage(null);
     try {
-      setStatus('saving');
-      setErr('');
-
-      const { error } = await supabase.auth.updateUser({ password: pw });
+      const { error } = await supabase.auth.updateUser({ password });
       if (error) {
-        setErr(error.message || 'Failed to update password.');
-        setStatus('need-password');
+        setMessage(error.message);
+        setPhase('error');
+        setSaving(false);
         return;
       }
-
-      setStatus('done');
+      setPhase('done');
     } catch (e: any) {
-      setErr(e?.message || 'Unexpected error while updating password.');
-      setStatus('need-password');
+      setMessage(e?.message || 'Could not update password.');
+      setPhase('error');
+      setSaving(false);
     }
   };
 
-  // —— UI (no Tailwind; simple inline styles) ——
   return (
-    <div style={{minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center', background:'#0a0a0a', color:'#fff'}}>
-      <div style={{width:'100%', maxWidth:420, padding:20}}>
-        <h1 style={{margin:0, fontSize:22, fontWeight:700}}>Reset your password</h1>
-        <p style={{margin:'8px 0 16px', color:'#cbd5e1'}}>
-          Query: <code>{debugQuery || '(none)'}</code>
-        </p>
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
+      <div
+        style={{
+          width: 360,
+          padding: 20,
+          borderRadius: 12,
+          border: '1px solid #e5e7eb',
+        }}
+      >
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>
+          Reset password
+        </h1>
 
-        {status === 'waiting-code' && (
-          <div style={{padding:12, border:'1px solid #334155', borderRadius:10, background:'#0f172a'}}>
-            No <code>code</code> in the URL. Open the link from your email so it looks like:
-            <div style={{marginTop:6, fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize:12, color:'#93c5fd'}}>
-              https://your-domain/reset/confirm?<b>code=...</b>
-            </div>
-          </div>
+        {phase === 'exchanging' && (
+          <p style={{ marginTop: 12, color: '#6b7280' }}>Verifying your link…</p>
         )}
 
-        {status === 'exchanging' && (
-          <div style={{padding:12, border:'1px solid #334155', borderRadius:10, background:'#0f172a'}}>Verifying link…</div>
-        )}
+        {phase === 'need-password' && (
+          <>
+            <p style={{ marginTop: 8, color: '#6b7280' }}>
+              Enter a new password for your account.
+            </p>
 
-        {status === 'error' && (
-          <div style={{padding:12, border:'1px solid #7f1d1d', borderRadius:10, background:'#1f2937', color:'#fecaca'}}>
-            {err || 'Something went wrong.'}
-          </div>
-        )}
+            <label style={{ display: 'block', marginTop: 16, fontSize: 12, color: '#6b7280' }}>
+              New password
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{
+                  marginTop: 6,
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid #d1d5db',
+                  outline: 'none',
+                }}
+                placeholder="••••••••"
+              />
+            </label>
 
-        {status === 'need-password' && (
-          <div style={{marginTop:12}}>
-            <label style={{display:'block', fontSize:12, color:'#cbd5e1'}}>New password</label>
-            <input
-              type="password"
-              value={pw}
-              onChange={(e) => setPw(e.target.value)}
-              style={{width:'100%', padding:'10px 12px', borderRadius:10, border:'1px solid #334155', background:'#0b1220', color:'#fff', marginTop:6}}
-              placeholder="••••••••"
-            />
+            <label style={{ display: 'block', marginTop: 12, fontSize: 12, color: '#6b7280' }}>
+              Confirm password
+              <input
+                type="password"
+                value={password2}
+                onChange={(e) => setPassword2(e.target.value)}
+                style={{
+                  marginTop: 6,
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid #d1d5db',
+                  outline: 'none',
+                }}
+                placeholder="••••••••"
+              />
+            </label>
 
-            <label style={{display:'block', fontSize:12, color:'#cbd5e1', marginTop:10}}>Confirm password</label>
-            <input
-              type="password"
-              value={pw2}
-              onChange={(e) => setPw2(e.target.value)}
-              style={{width:'100%', padding:'10px 12px', borderRadius:10, border:'1px solid #334155', background:'#0b1220', color:'#fff', marginTop:6}}
-              placeholder="••••••••"
-            />
-
-            {err && <div style={{marginTop:10, fontSize:12, color:'#fca5a5'}}>{err}</div>}
+            {passwordMismatch && (
+              <p style={{ marginTop: 8, color: '#dc2626', fontSize: 14 }}>
+                Passwords don’t match.
+              </p>
+            )}
 
             <button
               onClick={save}
-              disabled={status === 'saving'}
+              disabled={saving || !password || passwordMismatch}
               style={{
-                width:'100%', padding:'10px 12px', borderRadius:10,
-                background:'#0ea5e9', color:'#fff', fontWeight:600,
-                border:'1px solid #096aa6', marginTop:14, opacity: status === 'saving' ? 0.7 : 1, cursor:'pointer'
+                marginTop: 14,
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: 10,
+                border: '1px solid #096aa6',
+                background: '#0ea5e9',
+                color: '#fff',
+                fontWeight: 600,
+                cursor: saving ? 'not-allowed' : 'pointer',
+                opacity: saving ? 0.7 : 1,
               }}
             >
-              {status === 'saving' ? 'Saving…' : 'Update password'}
+              {saving ? 'Saving…' : 'Update password'}
             </button>
-          </div>
+          </>
         )}
 
-        {status === 'done' && (
-          <div style={{padding:12, border:'1px solid #14532d', borderRadius:10, background:'#052e16', color:'#bbf7d0', marginTop:12}}>
-            Password updated. You can close this tab and sign in.
-          </div>
+        {phase === 'done' && (
+          <p style={{ marginTop: 12, color: '#059669' }}>
+            Password updated! You can close this tab or return to the app.
+          </p>
+        )}
+
+        {phase === 'error' && (
+          <p style={{ marginTop: 12, color: '#dc2626' }}>
+            {message || 'Something went wrong.'}
+          </p>
         )}
       </div>
     </div>
-  );
-}
-
-export default function Page() {
-  // Next requires a Suspense boundary around useSearchParams
-  return (
-    <Suspense fallback={<div style={{padding:20, color:'#fff'}}>Loading…</div>}>
-      <ConfirmClient />
-    </Suspense>
   );
 }
