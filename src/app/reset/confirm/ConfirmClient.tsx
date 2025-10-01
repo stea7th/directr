@@ -33,7 +33,7 @@ export default function ConfirmClient() {
         }
 
         // Needed so the user is "logged in" for updateUser()
-        const { error } = await supabase.auth.exchangeCodeForSession({ code });
+       const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (cancelled) return;
 
         if (error) {
