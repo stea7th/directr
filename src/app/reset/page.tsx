@@ -1,8 +1,17 @@
 'use client';
+import { useEffect } from 'react';
 
-import { useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
+export default function Home() {
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const h = window.location.hash;
+      // if a Supabase auth hash lands at "/", shove it to the reset page
+      if (h && /type=recovery/.test(h)) {
+        window.location.replace('/reset/confirm' + h);
+      }
+    }
+  }, []);
+  
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
