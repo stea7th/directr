@@ -1,63 +1,65 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
+const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
+const supabase = createClient(supabaseUrl, supabaseAnon);
 
 export default function ResetPage() {
   const [email, setEmail] = useState('');
-  const [stage, setStage] = useState<'ready' | 'saving' | 'sent' | 'error'>('ready');
-  const [message, setMessage] = useState('');
+  const [msg, setMsg] = useState<string>('');
+  const [busy, setBusy] = useState(false);
 
-  async function sendReset() {
-    if (!email) {
-      setMessage('Enter your email first.');
-      return;
-    }
-    setStage('saving');
-    setMessage('');
-
-    const redirectTo =
-      typeof window !== 'undefined'
-        ? `${window.location.origin}/reset/confirm`
-        : 'https://directr-beta.vercel.app/reset/confirm';
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-
-    if (error) {
-      setStage('error');
-      setMessage(error.message);
-    } else {
-      setStage('sent');
-      setMessage('Check your email for the reset link.');
+  async function send() {
+    setMsg('');
+    if (!email) { setMsg('Enter your email.'); return; }
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://directr-beta.vercel.app/reset/confirm',
+      });
+      if (error) throw error;
+      setMsg('Check your email for the reset link.');
+    } catch (e: any) {
+      setMsg(e?.message || 'Could not send reset email.');
+    } finally {
+      setBusy(false);
     }
   }
 
-  // styles
-  const wrap: React.CSSProperties = { maxWidth: 420, margin: '40px auto', color: '#e5e7eb', fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial' };
-  const h1: React.CSSProperties = { fontSize: 24, fontWeight: 700, marginBottom: 16 };
-  const label: React.CSSProperties = { display: 'block', fontSize: 13, marginBottom: 6, color: '#a3a3a3' };
-  const input: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #262626', background: '#0a0a0a', color: '#e5e7eb' };
-  const btn: React.CSSProperties = { width: '100%', marginTop: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid #096aa6', background: '#0ea5e9', color: '#fff', fontWeight: 600, cursor: 'pointer', opacity: stage === 'saving' ? 0.7 : 1 };
-  const note: React.CSSProperties = { marginTop: 12, fontSize: 13, color: stage === 'error' ? '#fca5a5' : '#a3e635' };
-
   return (
-    <div style={wrap}>
-      <div style={h1}>Reset your password</div>
+    <div style={{minHeight:'100vh',display:'grid',placeItems:'center',background:'#0a0a0a',color:'#fff',padding:24}}>
+      <div style={{maxWidth:420,width:'100%',background:'#111214',border:'1px solid rgba(255,255,255,.08)',borderRadius:12,padding:20}}>
+        <h1 style={{margin:0,fontSize:20,fontWeight:700}}>Forgot your password?</h1>
+        <p style={{opacity:.7,marginTop:8}}>Enter your email and we’ll send a reset link.</p>
 
-      <label style={label} htmlFor="email">Email</label>
-      <input
-        id="email"
-        type="email"
-        placeholder="you@example.com"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={input}
-      />
+        <label style={{display:'block',fontSize:12,opacity:.8,marginTop:12,marginBottom:6}}>Email</label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e)=>setEmail(e.target.value)}
+          style={{width:'100%',padding:'10px 12px',borderRadius:10,border:'1px solid #262b31',background:'#0f1115',color:'#fff'}}
+        />
 
-      <button onClick={sendReset} disabled={stage === 'saving'} style={btn}>
-        {stage === 'saving' ? 'Sending…' : 'Send reset link'}
-      </button>
+        <button
+          onClick={send}
+          disabled={busy}
+          style={{
+            width:'100%',marginTop:14,padding:'10px 12px',borderRadius:10,fontWeight:600,
+            background:'#0ea5e9',border:'1px solid #096aa6',color:'#fff',
+            cursor: busy ? 'not-allowed':'pointer', opacity: busy ? .75 : 1
+          }}
+        >
+          {busy ? 'Sending…' : 'Send reset link'}
+        </button>
 
+        {msg ? <p style={{marginTop:12,color:'#9ca3af'}}>{msg}</p> : null}
+      </div>
+    </div>
+  );
+}
       {message ? <div style={note}>{message}</div> : null}
     </div>
   );
