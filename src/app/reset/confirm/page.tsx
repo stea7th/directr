@@ -9,41 +9,44 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 );
 
-// Narrow the union so TS is happy when comparing to 'saving'
-type Status = 'loading' | 'need-password' | 'saving' | 'done' | 'error';
+// UI phases (separate from the "saving" flag)
+type Phase = 'loading' | 'need-password' | 'done' | 'error';
 
 export default function ConfirmResetPage() {
   const sp = useSearchParams();
-  const [status, setStatus] = useState<Status>('loading');
+
+  const [phase, setPhase] = useState<Phase>('loading');
+  const [saving, setSaving] = useState(false); // <-- separate boolean
   const [error, setError] = useState<string>('');
   const [password, setPassword] = useState('');
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
-        // Works for email links that arrive with either ?code= or hash tokens
+        // Try query param ?code=
         const code = sp.get('code');
-
         if (code) {
           const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
           if (cancelled) return;
           if (exErr) throw exErr;
-          setStatus('need-password');
+          setPhase('need-password');
           return;
         }
 
-        // Fallback for hash-based links (access_token in URL fragment)
+        // Fallback: access_token in URL hash (if your template uses it)
         const hash = typeof window !== 'undefined' ? window.location.hash : '';
         const m = hash.match(/access_token=([^&]+)/);
         if (m) {
           const access_token = decodeURIComponent(m[1]);
-          const { data, error: setErr } = await supabase.auth.setSession({ access_token, refresh_token: '' });
+          const { data, error: setErr } = await supabase.auth.setSession({
+            access_token,
+            refresh_token: '',
+          });
           if (cancelled) return;
           if (setErr || !data?.session) throw setErr || new Error('No session');
-          setStatus('need-password');
+          setPhase('need-password');
           return;
         }
 
@@ -51,7 +54,7 @@ export default function ConfirmResetPage() {
       } catch (e: any) {
         if (cancelled) return;
         setError(e?.message || 'Could not validate token.');
-        setStatus('error');
+        setPhase('error');
       }
     })();
 
@@ -61,36 +64,36 @@ export default function ConfirmResetPage() {
   }, [sp]);
 
   async function save() {
-    if (status !== 'need-password') return;
+    if (phase !== 'need-password') return;
     if (!password || password.length < 8) {
       setError('Password must be at least 8 characters.');
       return;
     }
-    setBusy(true);
-    setStatus('saving');
+
+    setSaving(true);
     try {
       const { error: upErr } = await supabase.auth.updateUser({ password });
       if (upErr) throw upErr;
-      setStatus('done');
+      setPhase('done');
     } catch (e: any) {
       setError(e?.message || 'Could not update password.');
-      setStatus('error');
+      setPhase('error');
     } finally {
-      setBusy(false);
+      setSaving(false);
     }
   }
 
-  // UI
   return (
     <div style={page}>
       <div style={card}>
         <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Reset password</h1>
 
-        {status === 'loading' && <p style={muted}>Validating your link…</p>}
+        {phase === 'loading' && <p style={muted}>Validating your link…</p>}
 
-        {status === 'need-password' && (
+        {phase === 'need-password' && (
           <>
             <p style={muted}>Enter a new password for your account.</p>
+
             <label style={label}>New password</label>
             <input
               type="password"
@@ -98,19 +101,25 @@ export default function ConfirmResetPage() {
               onChange={(e) => setPassword(e.target.value)}
               style={input}
             />
-            <button onClick={save} disabled={status === 'saving' || busy} style={button(status === 'saving' || busy)}>
-              {status === 'saving' ? 'Saving…' : 'Update password'}
+
+            <button
+              onClick={save}
+              disabled={saving}
+              style={button(saving)}
+            >
+              {saving ? 'Saving…' : 'Update password'}
             </button>
           </>
         )}
 
-        {status === 'done' && (
+        {phase === 'done' && (
           <p style={{ marginTop: 12 }}>
-            ✅ Password updated. You can now <a href="/login" style={link}>log in</a>.
+            ✅ Password updated. You can now{' '}
+            <a href="/login" style={link}>log in</a>.
           </p>
         )}
 
-        {status === 'error' && (
+        {phase === 'error' && (
           <p style={{ marginTop: 12, color: '#f87171' }}>
             {error || 'Something went wrong.'}
           </p>
@@ -120,6 +129,7 @@ export default function ConfirmResetPage() {
   );
 }
 
+/* ---- inline styles (same look as before) ---- */
 const page: React.CSSProperties = {
   minHeight: '100vh',
   display: 'grid',
