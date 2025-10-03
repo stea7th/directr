@@ -2,196 +2,170 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-type Status =
-  | 'exchanging'        // exchanging the code in the URL for a session
-  | 'need-password'     // show password inputs
-  | 'saving'            // updating password
-  | 'done'              // all set
-  | 'error';            // something went wrong
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+);
+
+type Phase = 'loading' | 'need-password' | 'done' | 'error';
 
 export default function ConfirmClient() {
-  const params = useSearchParams();
-  const [status, setStatus] = useState<Status>('exchanging');
-  const [error, setError] = useState<string>('');
-  const [pw1, setPw1] = useState('');
-  const [pw2, setPw2] = useState('');
+  const sp = useSearchParams();
 
-  // Step 1: read the `code` from the URL and exchange for a session
+  const [phase, setPhase] = useState<Phase>('loading');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string>('');
+  const [password, setPassword] = useState('');
+
   useEffect(() => {
     let cancelled = false;
+
     (async () => {
       try {
-        const code = params.get('code');
-        const type = params.get('type'); // should be 'recovery' for password reset
-
-        if (!code) {
-          setStatus('error');
-          setError('Missing code in the URL.');
+        const code = sp.get('code');
+        if (code) {
+          const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
+          if (cancelled) return;
+          if (exErr) throw exErr;
+          setPhase('need-password');
           return;
         }
 
-        // Needed so the user is "logged in" for updateUser()
-       const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (cancelled) return;
-
-        if (error) {
-          setStatus('error');
-          setError(error.message || 'Could not verify code.');
+        // Fallback for access_token in hash (if template uses it)
+        const hash = typeof window !== 'undefined' ? window.location.hash : '';
+        const m = hash.match(/access_token=([^&]+)/);
+        if (m) {
+          const access_token = decodeURIComponent(m[1]);
+          const { data, error: setErr } = await supabase.auth.setSession({
+            access_token,
+            refresh_token: '',
+          });
+          if (cancelled) return;
+          if (setErr || !data?.session) throw setErr || new Error('No session');
+          setPhase('need-password');
           return;
         }
 
-        // If OK, show the password form
-        setStatus('need-password');
+        throw new Error('Missing confirmation token.');
       } catch (e: any) {
-        if (!cancelled) {
-          setStatus('error');
-          setError(e?.message || 'Something went wrong.');
-        }
+        if (cancelled) return;
+        setError(e?.message || 'Could not validate link.');
+        setPhase('error');
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [params]);
+  }, [sp]);
 
-  async function saveNewPassword() {
-    if (pw1.length < 8) {
+  async function save() {
+    if (phase !== 'need-password') return;
+    if (!password || password.length < 8) {
       setError('Password must be at least 8 characters.');
       return;
     }
-    if (pw1 !== pw2) {
-      setError('Passwords do not match.');
-      return;
-    }
 
+    setSaving(true);
     try {
-      setStatus('saving');
-      setError('');
-
-      const { error } = await supabase.auth.updateUser({ password: pw1 });
-      if (error) {
-        setStatus('error');
-        setError(error.message || 'Failed to update password.');
-        return;
-      }
-      setStatus('done');
+      const { error: upErr } = await supabase.auth.updateUser({ password });
+      if (upErr) throw upErr;
+      setPhase('done');
     } catch (e: any) {
-      setStatus('error');
-      setError(e?.message || 'Failed to update password.');
+      setError(e?.message || 'Could not update password.');
+      setPhase('error');
+    } finally {
+      setSaving(false);
     }
   }
 
-  const wrap: React.CSSProperties = {
-    maxWidth: 440,
-    margin: '40px auto',
-    padding: 20,
-    borderRadius: 12,
-    border: '1px solid #e5e7eb',
-  };
-
-  const h1: React.CSSProperties = {
-    fontSize: 20,
-    fontWeight: 700,
-    marginBottom: 10,
-  };
-
-  const label: React.CSSProperties = {
-    display: 'block',
-    fontSize: 13,
-    color: '#555',
-    marginTop: 10,
-    marginBottom: 6,
-  };
-
-  const input: React.CSSProperties = {
-    width: '100%',
-    padding: '10px 12px',
-    borderRadius: 10,
-    border: '1px solid #ddd',
-    outline: 'none',
-    fontSize: 14,
-  };
-
-  const btn: React.CSSProperties = {
-    width: '100%',
-    padding: '10px 12px',
-    marginTop: 14,
-    borderRadius: 10,
-    border: '1px solid #096aa6',
-    background: '#0ea5e9',
-    color: '#fff',
-    fontWeight: 600 as const,
-    cursor: status === 'saving' ? 'not-allowed' : 'pointer',
-    opacity: status === 'saving' ? 0.7 : 1,
-  };
-
-  const note: React.CSSProperties = {
-    marginTop: 10,
-    fontSize: 12,
-    color: status === 'error' ? '#b91c1c' : '#111827',
-    whiteSpace: 'pre-wrap',
-  };
-
-  // UI states
-  if (status === 'exchanging') {
-    return <div style={wrap}>Verifying link…</div>;
-  }
-
-  if (status === 'error') {
-    return (
-      <div style={wrap}>
-        <h1 style={h1}>Reset password</h1>
-        <div style={note}>{error || 'Something went wrong.'}</div>
-      </div>
-    );
-  }
-
-  if (status === 'done') {
-    return (
-      <div style={wrap}>
-        <h1 style={h1}>Password updated ✅</h1>
-        <div style={note}>You can close this page and sign in with your new password.</div>
-      </div>
-    );
-  }
-
-  // need-password / saving
   return (
-    <div style={wrap}>
-      <h1 style={h1}>Choose a new password</h1>
+    <div style={page}>
+      <div style={card}>
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Reset password</h1>
 
-      <label style={label} htmlFor="pw1">New password</label>
-      <input
-        id="pw1"
-        type="password"
-        placeholder="••••••••"
-        value={pw1}
-        onChange={(e) => setPw1(e.target.value)}
-        style={input}
-      />
+        {phase === 'loading' && <p style={muted}>Validating your link…</p>}
 
-      <label style={label} htmlFor="pw2">Confirm password</label>
-      <input
-        id="pw2"
-        type="password"
-        placeholder="••••••••"
-        value={pw2}
-        onChange={(e) => setPw2(e.target.value)}
-        style={input}
-      />
+        {phase === 'need-password' && (
+          <>
+            <p style={muted}>Enter a new password for your account.</p>
 
-      <button
-        onClick={saveNewPassword}
-        disabled={status === 'saving'}
-        style={btn}
-      >
-        {status === 'saving' ? 'Saving…' : 'Update password'}
-      </button>
+            <label style={label}>New password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={input}
+            />
 
-      {error ? <div style={note}>{error}</div> : null}
+            <button onClick={save} disabled={saving} style={button(saving)}>
+              {saving ? 'Saving…' : 'Update password'}
+            </button>
+          </>
+        )}
+
+        {phase === 'done' && (
+          <p style={{ marginTop: 12 }}>
+            ✅ Password updated. You can now{' '}
+            <a href="/login" style={link}>log in</a>.
+          </p>
+        )}
+
+        {phase === 'error' && (
+          <p style={{ marginTop: 12, color: '#f87171' }}>
+            {error || 'Something went wrong.'}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
+
+/* styles */
+const page: React.CSSProperties = {
+  minHeight: '100vh',
+  display: 'grid',
+  placeItems: 'center',
+  background: '#0a0a0a',
+  color: '#fff',
+  padding: 24,
+};
+const card: React.CSSProperties = {
+  maxWidth: 420,
+  width: '100%',
+  background: '#111214',
+  border: '1px solid rgba(255,255,255,.08)',
+  borderRadius: 12,
+  padding: 20,
+};
+const label: React.CSSProperties = {
+  display: 'block',
+  fontSize: 12,
+  opacity: 0.8,
+  marginTop: 12,
+  marginBottom: 6,
+};
+const input: React.CSSProperties = {
+  width: '100%',
+  padding: '10px 12px',
+  borderRadius: 10,
+  border: '1px solid #262b31',
+  background: '#0f1115',
+  color: '#fff',
+} as const;
+const button = (disabled: boolean): React.CSSProperties => ({
+  width: '100%',
+  marginTop: 14,
+  padding: '10px 12px',
+  borderRadius: 10,
+  fontWeight: 600,
+  background: '#0ea5e9',
+  border: '1px solid #096aa6',
+  color: '#fff',
+  cursor: disabled ? 'not-allowed' : 'pointer',
+  opacity: disabled ? 0.75 : 1,
+});
+const muted: React.CSSProperties = { opacity: 0.7, marginTop: 8 };
+const link: React.CSSProperties = { color: '#0ea5e9', textDecoration: 'underline' };
