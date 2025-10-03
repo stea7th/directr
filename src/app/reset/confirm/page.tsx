@@ -1,185 +1,114 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
-
-export const dynamic = 'force-dynamic';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-);
-
-// Keep the phase simple, and use a separate boolean for "saving" to avoid TS narrowing issues
-type Phase = 'exchanging' | 'need-password' | 'done' | 'error';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export default function ConfirmResetPage() {
-  const sp = useSearchParams();
-  const code = sp.get('code') || '';
-
-  const [phase, setPhase] = useState<Phase>('exchanging');
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-
+  const [status, setStatus] = useState<'checking' | 'need-password' | 'saving' | 'done' | 'error'>('checking');
   const [password, setPassword] = useState('');
-  const [password2, setPassword2] = useState('');
+  const [msg, setMsg] = useState<string>('');
 
-  const passwordMismatch = useMemo(
-    () => password.length > 0 && password2.length > 0 && password !== password2,
-    [password, password2]
-  );
-
-  // 1) Exchange the code for a session so we can call updateUser()
+  // When arriving from the email, the URL fragment has access_token & refresh_token.
   useEffect(() => {
     let cancelled = false;
+
     (async () => {
       try {
-        if (!code) {
-          setMessage('Missing code in the URL.');
-          setPhase('error');
-          return;
-        }
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (cancelled) return;
+        const hash = typeof window !== 'undefined' ? window.location.hash : '';
+        const params = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
 
-        if (error) {
-          setMessage(error.message);
-          setPhase('error');
+        const access_token = params.get('access_token');
+        const refresh_token = params.get('refresh_token');
+        const type = params.get('type'); // should be "recovery"
+
+        if (!access_token || !refresh_token || type !== 'recovery') {
+          if (!cancelled) {
+            setStatus('error');
+            setMsg('Invalid or missing recovery token.');
+          }
           return;
         }
-        setPhase('need-password');
+
+        // Establish a session so we can call updateUser()
+        const { error: sessErr } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (sessErr) {
+          if (!cancelled) {
+            setStatus('error');
+            setMsg(sessErr.message);
+          }
+          return;
+        }
+
+        if (!cancelled) setStatus('need-password');
       } catch (e: any) {
-        if (cancelled) return;
-        setMessage(e?.message || 'Could not validate reset link.');
-        setPhase('error');
+        if (!cancelled) {
+          setStatus('error');
+          setMsg(e?.message || 'Unexpected error.');
+        }
       }
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [code]);
+  }, []);
 
-  // 2) Save new password
-  const save = async () => {
-    if (passwordMismatch || !password) return;
-    setSaving(true);
-    setMessage(null);
-    try {
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) {
-        setMessage(error.message);
-        setPhase('error');
-        setSaving(false);
-        return;
-      }
-      setPhase('done');
-    } catch (e: any) {
-      setMessage(e?.message || 'Could not update password.');
-      setPhase('error');
-      setSaving(false);
+  async function save() {
+    if (!password) {
+      setMsg('Enter a new password.');
+      return;
     }
-  };
+    setStatus('saving');
+    setMsg('');
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      setStatus('error');
+      setMsg(error.message);
+      return;
+    }
+    setStatus('done');
+    setMsg('Password updated. You are signed in.');
+  }
+
+  // ---- styles ----
+  const wrap: React.CSSProperties = { maxWidth: 420, margin: '40px auto', color: '#e5e7eb', fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial' };
+  const h1: React.CSSProperties = { fontSize: 24, fontWeight: 700, marginBottom: 16 };
+  const label: React.CSSProperties = { display: 'block', fontSize: 13, marginBottom: 6, color: '#a3a3a3' };
+  const input: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #262626', background: '#0a0a0a', color: '#e5e7eb' };
+  const btn: React.CSSProperties = { width: '100%', marginTop: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid #096aa6', background: '#0ea5e9', color: '#fff', fontWeight: 600, cursor: 'pointer', opacity: status === 'saving' ? 0.7 : 1 };
+  const note: React.CSSProperties = { marginTop: 12, fontSize: 13, color: status === 'error' ? '#fca5a5' : '#a3e635' };
+
+  if (status === 'checking') {
+    return <div style={wrap}><div style={h1}>Verifying reset link…</div></div>;
+  }
+
+  if (status === 'done') {
+    return <div style={wrap}><div style={h1}>Password updated ✅</div><div style={note}>{msg}</div></div>;
+  }
+
+  if (status === 'error') {
+    return <div style={wrap}><div style={h1}>Reset error</div><div style={note}>{msg}</div></div>;
+  }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-      <div
-        style={{
-          width: 360,
-          padding: 20,
-          borderRadius: 12,
-          border: '1px solid #e5e7eb',
-        }}
-      >
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>
-          Reset password
-        </h1>
+    <div style={wrap}>
+      <div style={h1}>Set a new password</div>
 
-        {phase === 'exchanging' && (
-          <p style={{ marginTop: 12, color: '#6b7280' }}>Verifying your link…</p>
-        )}
+      <label style={label} htmlFor="pw">New password</label>
+      <input
+        id="pw"
+        type="password"
+        placeholder="••••••••"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        style={input}
+      />
 
-        {phase === 'need-password' && (
-          <>
-            <p style={{ marginTop: 8, color: '#6b7280' }}>
-              Enter a new password for your account.
-            </p>
+      <button onClick={save} disabled={status === 'saving'} style={btn}>
+        {status === 'saving' ? 'Saving…' : 'Update password'}
+      </button>
 
-            <label style={{ display: 'block', marginTop: 16, fontSize: 12, color: '#6b7280' }}>
-              New password
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{
-                  marginTop: 6,
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: 10,
-                  border: '1px solid #d1d5db',
-                  outline: 'none',
-                }}
-                placeholder="••••••••"
-              />
-            </label>
-
-            <label style={{ display: 'block', marginTop: 12, fontSize: 12, color: '#6b7280' }}>
-              Confirm password
-              <input
-                type="password"
-                value={password2}
-                onChange={(e) => setPassword2(e.target.value)}
-                style={{
-                  marginTop: 6,
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: 10,
-                  border: '1px solid #d1d5db',
-                  outline: 'none',
-                }}
-                placeholder="••••••••"
-              />
-            </label>
-
-            {passwordMismatch && (
-              <p style={{ marginTop: 8, color: '#dc2626', fontSize: 14 }}>
-                Passwords don’t match.
-              </p>
-            )}
-
-            <button
-              onClick={save}
-              disabled={saving || !password || passwordMismatch}
-              style={{
-                marginTop: 14,
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: 10,
-                border: '1px solid #096aa6',
-                background: '#0ea5e9',
-                color: '#fff',
-                fontWeight: 600,
-                cursor: saving ? 'not-allowed' : 'pointer',
-                opacity: saving ? 0.7 : 1,
-              }}
-            >
-              {saving ? 'Saving…' : 'Update password'}
-            </button>
-          </>
-        )}
-
-        {phase === 'done' && (
-          <p style={{ marginTop: 12, color: '#059669' }}>
-            Password updated! You can close this tab or return to the app.
-          </p>
-        )}
-
-        {phase === 'error' && (
-          <p style={{ marginTop: 12, color: '#dc2626' }}>
-            {message || 'Something went wrong.'}
-          </p>
-        )}
-      </div>
+      {msg ? <div style={note}>{msg}</div> : null}
     </div>
   );
 }
