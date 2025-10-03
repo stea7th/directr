@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase'; // your existing client
+import { supabase } from '@/lib/supabase';
 
 export default function ResetPage() {
   const [email, setEmail] = useState('');
   const [stage, setStage] = useState<'ready' | 'saving' | 'sent' | 'error'>('ready');
-  const [message, setMessage] = useState<string>('');
+  const [message, setMessage] = useState('');
 
   async function sendReset() {
     if (!email) {
@@ -32,7 +32,7 @@ export default function ResetPage() {
     }
   }
 
-  // ---- styles (plain CSS-in-JS) ----
+  // styles
   const wrap: React.CSSProperties = { maxWidth: 420, margin: '40px auto', color: '#e5e7eb', fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial' };
   const h1: React.CSSProperties = { fontSize: 24, fontWeight: 700, marginBottom: 16 };
   const label: React.CSSProperties = { display: 'block', fontSize: 13, marginBottom: 6, color: '#a3a3a3' };
@@ -58,10 +58,6 @@ export default function ResetPage() {
         {stage === 'saving' ? 'Sending…' : 'Send reset link'}
       </button>
 
-      {message ? <div style={note}>{message}</div> : null}
-    </div>
-  );
-}
       {message ? <div style={note}>{message}</div> : null}
     </div>
   );
