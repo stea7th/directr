@@ -1,23 +1,28 @@
-// src/middleware.ts
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-// ✅ Only run on protected areas
-export const config = {
-  matcher: ['/app/:path*', '/dashboard/:path*'], // adjust to your protected prefixes
-};
+const PUBLIC_PATHS = new Set([
+  '/', '/login', '/signup',
+  '/reset', '/reset/confirm',
+  '/favicon.ico', '/robots.txt', '/icon.svg'
+]);
 
 export function middleware(req: NextRequest) {
-  // If you don’t have a reliable auth cookie yet, keep this super light:
-  // Let everything through for now, or redirect based on a simple flag you set after login.
-  // Example placeholder:
-  const hasAuthCookie =
-    req.cookies.get('sb-access-token') ||
-    req.cookies.get('supabase-auth-token') || // if you set it
-    req.cookies.get('directr-auth');          // your own cookie
+  const { pathname } = req.nextUrl;
 
-  if (!hasAuthCookie) {
-    return NextResponse.redirect(new URL('/login', req.url));
+  // Always allow Next internals and static assets
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/public') ||
+    pathname.match(/\.(png|jpg|jpeg|gif|webp|svg|ico|txt|xml)$/)
+  ) return NextResponse.next();
+
+  // Always allow these routes (even if user is signed in)
+  if (PUBLIC_PATHS.has(pathname) || pathname.startsWith('/reset')) {
+    return NextResponse.next();
   }
+
+  // If you have logic that pushes signed-in users to /app,
+  // keep it — but make sure it *never* runs for /reset routes.
   return NextResponse.next();
 }
