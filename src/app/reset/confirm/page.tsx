@@ -8,10 +8,11 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 );
 
-type Status = 'loading' | 'need-password' | 'saving' | 'done' | 'error';
+type Status = 'loading' | 'need-password' | 'done' | 'error';
 
 export default function ResetConfirmPage() {
   const [status, setStatus] = useState<Status>('loading');
+  const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string>('');
   const [pw1, setPw1] = useState('');
   const [pw2, setPw2] = useState('');
@@ -28,7 +29,6 @@ export default function ResetConfirmPage() {
           return;
         }
 
-        // Support both signatures across supabase-js versions.
         const fn: unknown = (supabase as any)?.auth?.exchangeCodeForSession;
         if (typeof fn === 'function') {
           // Try function(code)
@@ -39,12 +39,10 @@ export default function ResetConfirmPage() {
             if ((res as any)?.error) throw (res as any).error;
           }
         } else {
-          throw new Error('exchangeCodeForSession not available on this client.');
+          throw new Error('exchangeCodeForSession not available.');
         }
 
-        if (!cancelled) {
-          setStatus('need-password');
-        }
+        if (!cancelled) setStatus('need-password');
       } catch (e: any) {
         if (!cancelled) {
           setMsg(e?.message || 'Could not start password reset.');
@@ -66,7 +64,7 @@ export default function ResetConfirmPage() {
       setMsg('Passwords do not match.');
       return;
     }
-    setStatus('saving');
+    setSaving(true);
     setMsg('');
     try {
       const { error } = await supabase.auth.updateUser({ password: pw1 });
@@ -74,12 +72,14 @@ export default function ResetConfirmPage() {
       setStatus('done');
       setMsg('Password updated. You can close this tab or continue.');
     } catch (e: any) {
-      setStatus('need-password');
       setMsg(e?.message || 'Failed to update password.');
+      setStatus('need-password');
+    } finally {
+      setSaving(false);
     }
   }
 
-  // ---- minimal styles (no Tailwind) ----
+  // --- minimal styles ---
   const page: React.CSSProperties = {
     minHeight: '100vh', background: '#0a0a0a', color: '#e5e7eb',
     display: 'grid', placeItems: 'center', padding: 16,
@@ -129,8 +129,8 @@ export default function ResetConfirmPage() {
               <label style={{ fontSize: 12, color: '#9ca3af' }}>Confirm password</label>
               <input type="password" style={input} value={pw2} onChange={(e) => setPw2(e.target.value)} />
             </div>
-            <button onClick={save} disabled={status === 'saving'} style={button(status === 'saving')}>
-              {status === 'saving' ? 'Saving…' : 'Update password'}
+            <button onClick={save} disabled={saving} style={button(saving)}>
+              {saving ? 'Saving…' : 'Update password'}
             </button>
             {msg ? <div style={note}>{msg}</div> : null}
           </div>
