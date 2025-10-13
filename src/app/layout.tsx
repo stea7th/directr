@@ -23,6 +23,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/app">Create</Link>
               <Link href="/campaigns">Campaigns</Link>
               <Link href="/analytics">Analytics</Link>
+              <Link href="/planner" style={{ color: '#0ea5e9', fontWeight: 600 }}>
+  Planner
+</Link>
               <Link href="/settings">Settings</Link>
               <Link href="/signup" className="link--muted">Create account</Link>
               <Link href="/login" className="link--muted">Sign in</Link>
