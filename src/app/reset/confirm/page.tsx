@@ -16,7 +16,6 @@ export default function ResetConfirmPage() {
   const [pw1, setPw1] = useState('');
   const [pw2, setPw2] = useState('');
 
-  // 1) Read ?code=... from the URL and exchange for a session
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -29,14 +28,18 @@ export default function ResetConfirmPage() {
           return;
         }
 
-        // Work across supabase-js versions: try both signatures.
-        // @ts-expect-error – version-safe call
-        const res = await supabase.auth.exchangeCodeForSession?.(code) as any;
-        // If above didn’t run (older/newer signature), try object form:
-        if (!res || res?.error) {
-          // @ts-expect-error – version-safe call
-          const res2 = await supabase.auth.exchangeCodeForSession?.({ code }) as any;
-          if (res2?.error) throw res2.error;
+        // Support both signatures across supabase-js versions.
+        const fn: unknown = (supabase as any)?.auth?.exchangeCodeForSession;
+        if (typeof fn === 'function') {
+          // Try function(code)
+          let res = await (fn as (c: string) => Promise<{ error?: any } | void>)(code);
+          // If that returned an error or nothing, try function({ code })
+          if (!res || (res as any)?.error) {
+            res = await (fn as (o: { code: string }) => Promise<{ error?: any } | void>)({ code });
+            if ((res as any)?.error) throw (res as any).error;
+          }
+        } else {
+          throw new Error('exchangeCodeForSession not available on this client.');
         }
 
         if (!cancelled) {
@@ -76,47 +79,27 @@ export default function ResetConfirmPage() {
     }
   }
 
-  // ---- styles (inline, no Tailwind) ----
+  // ---- minimal styles (no Tailwind) ----
   const page: React.CSSProperties = {
-    minHeight: '100vh',
-    background: '#0a0a0a',
-    color: '#e5e7eb',
-    display: 'grid',
-    placeItems: 'center',
-    padding: 16,
+    minHeight: '100vh', background: '#0a0a0a', color: '#e5e7eb',
+    display: 'grid', placeItems: 'center', padding: 16,
   };
   const card: React.CSSProperties = {
-    width: 'min(520px, 100%)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'rgba(24,24,27,0.8)',
-    borderRadius: 14,
-    padding: 16,
+    width: 'min(520px, 100%)', border: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(24,24,27,0.8)', borderRadius: 14, padding: 16,
   };
   const input: React.CSSProperties = {
-    width: '100%',
-    padding: '10px 12px',
-    borderRadius: 10,
-    border: '1px solid rgba(255,255,255,0.12)',
-    background: 'rgba(2,6,23,0.3)',
-    color: '#e5e7eb',
-    outline: 'none',
+    width: '100%', padding: '10px 12px', borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(2,6,23,0.3)',
+    color: '#e5e7eb', outline: 'none',
   };
   const button = (disabled = false): React.CSSProperties => ({
-    width: '100%',
-    padding: '10px 12px',
-    borderRadius: 10,
-    border: '1px solid #096aa6',
-    background: '#0ea5e9',
-    color: '#fff',
-    fontWeight: 600,
-    cursor: disabled ? 'not-allowed' : 'pointer',
+    width: '100%', padding: '10px 12px', borderRadius: 10,
+    border: '1px solid #096aa6', background: '#0ea5e9',
+    color: '#fff', fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer',
     opacity: disabled ? 0.6 : 1,
   });
-  const note: React.CSSProperties = {
-    marginTop: 10,
-    fontSize: 13,
-    color: '#a5b4fc',
-  };
+  const note: React.CSSProperties = { marginTop: 10, fontSize: 13, color: '#a5b4fc' };
 
   return (
     <div style={page}>
@@ -140,27 +123,13 @@ export default function ResetConfirmPage() {
           <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
             <div>
               <label style={{ fontSize: 12, color: '#9ca3af' }}>New password</label>
-              <input
-                type="password"
-                style={input}
-                value={pw1}
-                onChange={(e) => setPw1(e.target.value)}
-              />
+              <input type="password" style={input} value={pw1} onChange={(e) => setPw1(e.target.value)} />
             </div>
             <div>
               <label style={{ fontSize: 12, color: '#9ca3af' }}>Confirm password</label>
-              <input
-                type="password"
-                style={input}
-                value={pw2}
-                onChange={(e) => setPw2(e.target.value)}
-              />
+              <input type="password" style={input} value={pw2} onChange={(e) => setPw2(e.target.value)} />
             </div>
-            <button
-              onClick={save}
-              disabled={status === 'saving'}
-              style={button(status === 'saving')}
-            >
+            <button onClick={save} disabled={status === 'saving'} style={button(status === 'saving')}>
               {status === 'saving' ? 'Saving…' : 'Update password'}
             </button>
             {msg ? <div style={note}>{msg}</div> : null}
