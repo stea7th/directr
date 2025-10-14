@@ -1,50 +1,133 @@
-export default function Home() {
+'use client';
+
+import { useState } from 'react';
+
+export default function AppPage() {
+  const [prompt, setPrompt] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function generate() {
+    setBusy(true);
+    try {
+      alert('Generate clicked. (This is your main AI action placeholder)');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <main className="container mx-auto max-w-5xl px-4 md:px-6 py-16">
-      <section className="text-center">
-        <h1 className="text-3xl md:text-4xl font-semibold tracking-[-0.02em] text-white">
-          Directr — create, clip & plan faster
-        </h1>
-        <p className="mt-3 text-neutral-400">
-          Upload a video or type what you want. Get smart clips, posts, and a plan in minutes.
-        </p>
+    <main
+      style={{
+        maxWidth: 960,
+        margin: '0 auto',
+        padding: '60px 20px',
+        color: '#fff',
+      }}
+    >
+      <h1 style={{ fontWeight: 600, fontSize: 22, marginBottom: 20 }}>
+        Type what you want or upload a file
+      </h1>
 
-        <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <a
-            href="/app"
-            className="inline-flex items-center justify-center rounded-lg bg-sky-500 hover:bg-sky-400 px-5 py-2.5 text-sm font-semibold text-black transition"
-          >
-            Get started
-          </a>
-          <a
-            href="/create"
-            className="inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-5 py-2.5 text-sm font-semibold text-white transition"
-          >
-            Go to Create
-          </a>
-        </div>
-      </section>
+      <div
+        style={{
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 14,
+          padding: 20,
+          marginBottom: 40,
+        }}
+      >
+        <textarea
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="Example: 'Turn this podcast into 5 viral TikToks'"
+          style={{
+            width: '100%',
+            height: 120,
+            borderRadius: 10,
+            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'rgba(0,0,0,0.3)',
+            color: '#fff',
+            padding: 10,
+            outline: 'none',
+            marginBottom: 12,
+          }}
+        />
 
-      <section className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <a href="/clipper" className="rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition p-5">
-          <div className="text-white font-semibold">AI Clipper</div>
-          <div className="text-sm text-neutral-400 mt-1">
-            Finds hooks, generates subtitles, and formats for socials.
-          </div>
-        </a>
-        <a href="/planner" className="rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition p-5">
-          <div className="text-white font-semibold">Planner</div>
-          <div className="text-sm text-neutral-400 mt-1">
-            Campaign tasks, due dates, and progress in one place.
-          </div>
-        </a>
-        <a href="/campaigns" className="rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition p-5">
-          <div className="text-white font-semibold">Campaigns</div>
-          <div className="text-sm text-neutral-400 mt-1">
-            Group content by goals and track results.
-          </div>
-        </a>
-      </section>
+        <input
+          type="file"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          style={{
+            display: 'block',
+            color: '#ccc',
+            marginBottom: 12,
+          }}
+        />
+
+        <button
+          onClick={generate}
+          disabled={busy}
+          style={{
+            width: '100%',
+            background: '#0ea5e9',
+            color: '#fff',
+            fontWeight: 600,
+            border: 'none',
+            borderRadius: 10,
+            padding: '10px 0',
+            cursor: busy ? 'not-allowed' : 'pointer',
+            opacity: busy ? 0.6 : 1,
+          }}
+        >
+          {busy ? 'Working…' : 'Generate'}
+        </button>
+      </div>
+
+      {/* Quick navigation */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: 20,
+        }}
+      >
+        <Card
+          title="Create"
+          desc="Upload → get captioned clips"
+          link="/create"
+        />
+        <Card
+          title="Clipper"
+          desc="Auto-find hooks & moments"
+          link="/clipper"
+        />
+        <Card
+          title="Planner"
+          desc="Plan posts & deadlines"
+          link="/planner"
+        />
+      </div>
     </main>
+  );
+}
+
+function Card({ title, desc, link }: { title: string; desc: string; link: string }) {
+  return (
+    <a
+      href={link}
+      style={{
+        textDecoration: 'none',
+        color: '#fff',
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: 14,
+        padding: 20,
+        display: 'block',
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 6 }}>{title}</div>
+      <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14 }}>{desc}</div>
+    </a>
   );
 }
