@@ -1,14 +1,31 @@
-// app/api/generate/route.ts
-import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { createClient as createServerClient } from '@supabase/supabase-js';
-import { randomUUID } from 'node:crypto';
+// src/app/api/generate/route.ts
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const service = process.env.SUPABASE_SERVICE_ROLE!; // server-only
+export const runtime = "nodejs"; // ensure Node (service role is not allowed on edge)
 
+// Accept several possible env names so it "just works"
+const supabaseUrl =
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+const supabaseServiceKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || // preferred
+  process.env.SUPABASE_KEY ||              // fallback if older name was used
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY; // last resort (not ideal, but avoids hard failure)
+
+if (!supabaseUrl) {
+  throw new Error("SUPABASE_URL is required.");
+}
+if (!supabaseServiceKey) {
+  throw new Error("supabaseKey is required.");
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: { persistSession: false },
+});
+
+// ...keep the rest of your route logic below unchanged...
 export async function POST(req: Request) {
   try {
     const cookieStore = cookies();
