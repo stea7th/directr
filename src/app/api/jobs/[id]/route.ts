@@ -3,18 +3,15 @@ import Link from "next/link";
 
 type Params = { id: string };
 
-// If you also use search params, they’re Promise-based too:
-// type SearchParams = { [key: string]: string | string[] | undefined };
-
 export default async function JobPage({
   params,
 }: {
   params: Promise<Params>;
 }) {
-  const { id } = await params; // 👈 Next 15: params is a Promise
+  const { id } = await params; // Next 15: params is a Promise
 
-  // TODO: fetch your job by id here
-  // const job = await getJob(id);
+  // TODO: fetch job details here (e.g., from Supabase or your API)
+  // const job = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/jobs/${id}`).then(r => r.json());
 
   return (
     <main style={{ padding: 24 }}>
@@ -27,14 +24,11 @@ export default async function JobPage({
   );
 }
 
-// (Optional) If you define metadata, also await params here.
 export async function generateMetadata({
   params,
 }: {
   params: Promise<Params>;
 }) {
   const { id } = await params;
-  return {
-    title: `Job ${id} • Directr`,
-  };
+  return { title: `Job ${id} • Directr` };
 }
