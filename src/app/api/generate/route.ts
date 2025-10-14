@@ -1,65 +1,37 @@
+// app/api/generate/route.ts
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { createClient } from '@supabase/supabase-js';
 
-export const runtime = 'nodejs'; // keep it on Node so Buffer is available
+export const dynamic = 'force-dynamic';   // don’t prerender
+export const revalidate = 0;              // never cache at build
 
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get('authorization') || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const { input } = await req.json();
 
-    // Verify user (optional but recommended)
-    let userId: string | null = null;
-    if (token) {
-      const { data, error } = await supabaseAdmin.auth.getUser(token);
-      if (error) return NextResponse.json({ ok: false, error: 'Invalid auth token' }, { status: 401 });
-      userId = data.user?.id ?? null;
+    const url =
+      process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key =
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!url || !key) {
+      // Return a 500 instead of throwing during build
+      return NextResponse.json(
+        { error: 'Supabase env vars missing on server.' },
+        { status: 500 }
+      );
     }
 
-    const form = await req.formData();
-    const prompt = (form.get('prompt') || '').toString().trim();
-    const file = form.get('file') as unknown as File | null;
+    // Create the client *inside* the handler so it’s not evaluated at import time
+    const supabase = createClient(url, key);
 
-    if (!prompt && !file) {
-      return NextResponse.json({ ok: false, error: 'Provide a prompt or a file.' }, { status: 400 });
-    }
-
-    let uploadedPath: string | null = null;
-
-    if (file && file.name && file.size > 0) {
-      const arrayBuf = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuf);
-
-      const safeName = file.name.replace(/[^\w.\-]+/g, '_');
-      const ts = Date.now();
-      const who = userId ?? 'anon';
-      const path = `uploads/${who}/${ts}-${safeName}`;
-
-      const { error: upErr } = await supabaseAdmin
-        .storage
-        .from('assets')
-        .upload(path, buffer, {
-          contentType: file.type || 'application/octet-stream',
-          upsert: false
-        });
-
-      if (upErr) {
-        return NextResponse.json({ ok: false, error: `Upload failed: ${upErr.message}` }, { status: 500 });
-      }
-      uploadedPath = path;
-    }
-
-    // TODO: if you want to queue a background job, insert into your "jobs" table here
-    // const { data: job } = await supabaseAdmin.from('jobs').insert({ ... }).select().single();
-
-    return NextResponse.json({
-      ok: true,
-      userId,
-      prompt,
-      uploadedPath
-      // jobId: job?.id
-    });
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message ?? 'Server error' }, { status: 500 });
+    // TODO: your generate logic here, using `supabase` if needed.
+    // For now return a stubbed payload so the route works.
+    return NextResponse.json({ ok: true, input });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err?.message || 'Unexpected error' },
+      { status: 500 }
+    );
   }
 }
