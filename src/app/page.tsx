@@ -9,22 +9,34 @@ export default function AppHome() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleGenerate() {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const fd = new FormData();
-      if (prompt.trim()) fd.append('prompt', prompt.trim());
-      if (fileInputRef.current?.files?.[0]) {
-        fd.append('file', fileInputRef.current.files[0]);
-      }
-      await fetch('/api/generate', { method: 'POST', body: fd });
-    } catch (e) {
-      console.error(e);
-      alert('Something went wrong starting the job.');
-    } finally {
-      setBusy(false);
-    }
+  if (busy) return;
+
+  const hasPrompt = prompt.trim().length > 0;
+  const hasFile = !!fileInputRef.current?.files?.[0];
+  if (!hasPrompt && !hasFile) {
+    alert('Type something or attach a file.');
+    return;
   }
+
+  setBusy(true);
+  try {
+    const fd = new FormData();
+    if (hasPrompt) fd.append('prompt', prompt.trim());
+    if (hasFile) fd.append('file', fileInputRef.current!.files![0]);
+
+    const res = await fetch('/api/generate', { method: 'POST', body: fd });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json?.error || 'Failed to start');
+
+    // go to a basic status page
+    window.location.href = `/jobs/${json.id}`;
+  } catch (e: any) {
+    console.error(e);
+    alert(e.message || 'Failed to start the job.');
+  } finally {
+    setBusy(false);
+  }
+}
 
   function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
