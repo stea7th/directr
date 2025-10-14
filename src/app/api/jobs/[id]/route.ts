@@ -1,19 +1,22 @@
 import { NextResponse } from "next/server";
 
-// ✅ Keep it simple: don't type the 2nd arg.
-// Next will pass { params: { id: string } } here.
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
-
-  // TODO: look up job by id if you need to
-  // const job = await ...;
-
+/**
+ * GET /api/jobs/[id]
+ * Reads the [id] from the request URL instead of relying on Next's context arg.
+ */
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const id = url.pathname.split("/").pop() || "";
+  // TODO: fetch the job by id from your DB if needed
   return NextResponse.json({ id, ok: true });
 }
 
-// (Optional) other methods:
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
-  // TODO: delete/cancel job id
+/**
+ * DELETE /api/jobs/[id]
+ */
+export async function DELETE(req: Request) {
+  const url = new URL(req.url);
+  const id = url.pathname.split("/").pop() || "";
+  // TODO: delete/cancel job by id
   return NextResponse.json({ id, deleted: true });
 }
