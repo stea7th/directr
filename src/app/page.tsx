@@ -1,299 +1,266 @@
-// src/app/page.tsx
 'use client';
 
-import { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 
-export default function AppPage() {
+export default function AppHome() {
   const [prompt, setPrompt] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState('');
-  const fileInput = useRef<HTMLInputElement>(null);
-
-  const canGenerate = !busy && (prompt.trim().length > 0 || file);
-
-  function pickFile() {
-    fileInput.current?.click();
-  }
-
-  function onDrop(e: React.DragEvent) {
-    e.preventDefault();
-    const f = e.dataTransfer.files?.[0];
-    if (f) setFile(f);
-  }
+  const canSubmit = !!prompt.trim() || !!file;
 
   async function onGenerate() {
-    if (!canGenerate) return;
+    if (!canSubmit || busy) return;
     setBusy(true);
-    setNote('');
     try {
-      const form = new FormData();
-      form.append('prompt', prompt);
-      if (file) form.append('file', file);
-      const res = await fetch('/api/generate', { method: 'POST', body: form });
-      const text = await res.text();
-      let data: any = null;
-      try { data = JSON.parse(text); } catch {}
-      if (!res.ok) return setNote(data?.error || text || 'Something went wrong.');
-      setNote(data?.message || 'Request received. Check your jobs shortly.');
-    } catch (e: any) {
-      setNote(e?.message || 'Network error.');
+      // Hook your /api/generate call here
+      alert('Generate triggered');
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <main className="wrap" onDragOver={(e)=>e.preventDefault()} onDrop={onDrop}>
-      <div className="bg-grid" aria-hidden />
-
-      <section className="card">
+    <main className="page">
+      <div className="glass">
         <h1>Type what you want or upload a file</h1>
 
-        <div className="editor">
-          <textarea
-            placeholder="Example: Turn this podcast into 5 viral TikToks"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-          />
+        <textarea
+          className="prompt"
+          placeholder="Example: Turn this podcast into 5 viral TikToks"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+        />
 
-          <div className="controls">
-            <button className="file" onClick={pickFile}>
-              <span className="icon">⌁</span>
-              <span className="fileLabel">
-                {file ? file.name : 'Choose File / Drop here'}
-              </span>
-              <input
-                ref={fileInput}
-                type="file"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-              />
-            </button>
+        <div className="actions">
+          <label className="upload">
+            <input
+              type="file"
+              hidden
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+            {file ? file.name : 'Choose File / Drop here'}
+          </label>
 
-            <button
-              className="cta"
-              disabled={!canGenerate}
-              aria-disabled={!canGenerate}
-              onClick={onGenerate}
-            >
-              {busy ? 'Generating…' : 'Generate'}
-            </button>
-          </div>
-
-          {note ? <div className="note">{note}</div> : null}
+          <button
+            className={`generate ${!canSubmit ? 'disabled' : ''}`}
+            disabled={!canSubmit}
+            onClick={onGenerate}
+          >
+            {busy ? 'Generating…' : 'Generate'}
+          </button>
         </div>
 
-        <p className="hint">
-          Tip: Drop a video or audio, or just describe what you want. We’ll handle the rest.
+        <p className="tip">
+          Tip: Drop a video/audio, or describe what you want. We’ll handle the rest.
         </p>
-      </section>
+      </div>
 
-      <section className="grid">
-        <Feature title="Create"  desc="Upload → get captioned clips" href="/create" />
-        <Feature title="Clipper" desc="Auto-find hooks & moments"    href="/clipper" />
-        <Feature title="Planner" desc="Plan posts & deadlines"       href="/planner" />
-      </section>
+      <div className="links">
+        <Feature title="Create" desc="Upload → get captioned clips" href="/create" />
+        <Feature title="Clipper" desc="Auto-find hooks & moments" href="/clipper" />
+        <Feature title="Planner" desc="Plan posts & deadlines" href="/planner" />
+      </div>
 
       <style jsx>{`
-        /* Brand knobs */
         :root {
-          --bg: #08090c;
-          --grid: rgba(255,255,255,.04);
-          --text: #eaf0ff;
-          --muted: #a3acc2;
-          --panel: rgba(16,18,24,.72);
-          --panel-border: 1px solid rgba(255,255,255,.10);
-          --panel-blur: blur(8px);
-          --brand-1: #6aa9ff;
-          --brand-2: #3859ff;
-          --brand-3: #00e4ff;
-          --cta-shadow: 0 12px 36px rgba(56, 89, 255, .35);
-          --radius-lg: 18px;
-          --radius-sm: 12px;
+          --blue: #3b82f6;
+          --blue-glow: rgba(59, 130, 246, 0.4);
+          --bg: #0b0c0f;
+          --glass: rgba(255, 255, 255, 0.03);
+          --border: rgba(255, 255, 255, 0.08);
+          --ink: #f1f5f9;
+          --muted: #a1a1aa;
         }
 
-        .wrap {
-          position: relative;
-          max-width: 1100px;
-          margin: 0 auto;
-          padding: 48px 20px 80px;
-          color: var(--text);
-          min-height: 65vh;
+        .page {
+          min-height: 100vh;
+          padding: 80px 24px 100px;
+          background: var(--bg);
+          color: var(--ink);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 40px;
         }
 
-        /* Animated faint grid background */
-        .bg-grid {
-          position: absolute;
-          inset: -200px 0 0 0;
-          background:
-            linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 32px 32px,
-            linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 32px 32px;
-          mask: radial-gradient(1000px 500px at 50% -10%, #000 55%, transparent 70%);
-          animation: float 16s linear infinite;
-          pointer-events: none;
-          z-index: 0;
-        }
-        @keyframes float {
-          from { transform: translateY(0); }
-          to   { transform: translateY(32px); }
-        }
-
-        .card {
-          position: relative;
-          z-index: 1;
-          background: var(--panel);
-          border: var(--panel-border);
-          border-radius: var(--radius-lg);
-          backdrop-filter: var(--panel-blur);
-          padding: 20px;
-          box-shadow: 0 20px 60px rgba(0,0,0,.45);
+        .glass {
+          width: 100%;
+          max-width: 800px;
+          background: var(--glass);
+          border: 1px solid var(--border);
+          border-radius: 36px;
+          padding: 32px 28px;
+          backdrop-filter: blur(16px);
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
         }
 
         h1 {
-          margin: 6px 6px 14px;
           font-size: 22px;
-          letter-spacing: .2px;
           font-weight: 700;
+          text-align: center;
+          margin-bottom: 20px;
         }
 
-        .editor {
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: var(--radius-lg);
-          padding: 14px;
-          background: rgba(10,12,16,.6);
-        }
-
-        textarea {
+        .prompt {
           width: 100%;
-          min-height: 150px;
-          resize: vertical;
-          color: var(--text);
-          background: #0c0f14;
-          border: 1px solid rgba(255,255,255,.10);
-          border-radius: var(--radius-sm);
-          padding: 14px 16px;
-          line-height: 1.45;
-          outline: none;
-          transition: box-shadow .18s ease, border-color .18s ease;
-        }
-        textarea::placeholder { color: #77819b; }
-        textarea:focus {
-          border-color: #2a6dff;
-          box-shadow: 0 0 0 3px rgba(42,109,255,.28);
-        }
-
-        .controls {
-          display: grid;
-          grid-template-columns: 1fr 200px;
-          gap: 12px;
-          margin-top: 12px;
-        }
-        @media (max-width: 720px) {
-          .controls { grid-template-columns: 1fr; }
-        }
-
-        .file {
-          position: relative;
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          height: 50px;
-          border-radius: var(--radius-sm);
-          background: #0b0e13;
-          border: 1px dashed rgba(255,255,255,.18);
-          color: var(--text);
-          padding: 0 16px;
-          text-align: left;
-          cursor: pointer;
-          transition: border-color .2s ease, background .2s ease, transform .06s ease;
-        }
-        .file:hover { border-color: #3b60ff; background: #0d1119; }
-        .file:active { transform: translateY(1px); }
-        .file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-        .icon {
-          width: 22px; height: 22px;
-          display: grid; place-items: center;
-          color: #9bb3ff;
-          filter: drop-shadow(0 0 6px rgba(155,179,255,.34));
-        }
-        .fileLabel { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-        .cta {
-          height: 50px;
+          min-height: 140px;
           border: none;
-          border-radius: var(--radius-sm);
-          background:
-            radial-gradient(120% 120% at 80% -20%, rgba(0,228,255,.55), transparent 40%),
-            linear-gradient(180deg, var(--brand-1), var(--brand-2));
-          color: #ffffff;                    /* ← WHITE TEXT (was dark before) */
-          font-weight: 800;
-          letter-spacing: .3px;
-          box-shadow: var(--cta-shadow);
-          cursor: pointer;
-          transition: transform .08s ease, filter .2s ease, box-shadow .2s ease;
-        }
-        .cta:hover { filter: brightness(1.07); box-shadow: 0 16px 44px rgba(56, 89, 255, .42); }
-        .cta:active { transform: translateY(1px); }
-        .cta[aria-disabled="true"] {
-          opacity: .55; pointer-events: none; box-shadow: none;
+          border-radius: 28px;
+          padding: 18px 20px;
+          background: rgba(255, 255, 255, 0.04);
+          color: var(--ink);
+          resize: none;
+          font-size: 15px;
+          outline: none;
+          transition: box-shadow 0.2s ease, background 0.2s ease;
         }
 
-        .note {
+        .prompt:focus {
+          background: rgba(255, 255, 255, 0.07);
+          box-shadow: 0 0 0 3px var(--blue-glow);
+        }
+
+        .actions {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          margin-top: 18px;
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+
+        .upload {
+          flex: 1;
+          max-width: 380px;
+          height: 52px;
+          border-radius: 28px;
+          border: 1px dashed var(--border);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          font-size: 15px;
+          color: var(--muted);
+          background: rgba(255, 255, 255, 0.03);
+          transition: all 0.2s ease;
+        }
+
+        .upload:hover {
+          border-color: var(--blue);
+          color: var(--ink);
+          background: rgba(255, 255, 255, 0.06);
+        }
+
+        .generate {
+          height: 52px;
+          width: 180px;
+          border: none;
+          border-radius: 28px;
+          background: linear-gradient(135deg, var(--blue), #60a5fa);
+          color: white;
+          font-weight: 700;
+          cursor: pointer;
+          transition: transform 0.1s ease, box-shadow 0.2s ease, filter 0.2s ease;
+          box-shadow: 0 8px 25px var(--blue-glow);
+        }
+
+        .generate:hover {
+          filter: brightness(1.08);
+          box-shadow: 0 10px 30px rgba(59, 130, 246, 0.55);
+        }
+
+        .generate:active {
+          transform: scale(0.98);
+        }
+
+        .generate.disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          box-shadow: none;
+          background: rgba(255, 255, 255, 0.08);
+        }
+
+        .tip {
+          text-align: center;
           margin-top: 12px;
           font-size: 13px;
           color: var(--muted);
-          border-top: 1px dashed rgba(255,255,255,.10);
-          padding-top: 10px;
         }
 
-        .hint {
-          margin: 10px 6px 4px;
-          color: var(--muted);
-          font-size: 13px;
-        }
-
-        .grid {
-          z-index: 1;
-          position: relative;
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+        .links {
+          display: flex;
+          flex-wrap: wrap;
           gap: 18px;
-          margin-top: 26px;
+          justify-content: center;
+          margin-top: 10px;
         }
-        @media (max-width: 900px) {
-          .grid { grid-template-columns: 1fr; }
+
+        @media (max-width: 700px) {
+          .glass {
+            padding: 24px 20px;
+            border-radius: 28px;
+          }
+          .prompt {
+            border-radius: 22px;
+          }
+          .generate {
+            width: 100%;
+          }
         }
       `}</style>
     </main>
   );
 }
 
-function Feature({ title, desc, href }: { title: string; desc: string; href: string }) {
+function Feature({
+  title,
+  desc,
+  href,
+}: {
+  title: string;
+  desc: string;
+  href: string;
+}) {
   return (
-    <Link className="feature" href={href} draggable={false}>
-      <div className="box">
-        <div className="t">{title}</div>
-        <div className="d">{desc}</div>
+    <Link href={href} className="feature">
+      <div className="featureCard">
+        <h3>{title}</h3>
+        <p>{desc}</p>
       </div>
+
       <style jsx>{`
-        .feature { text-decoration: none; }
-        .box {
-          background: linear-gradient(180deg, rgba(18,19,26,.92), rgba(14,16,22,.92));
-          border: 1px solid rgba(255,255,255,.10);
-          border-radius: 16px;
-          padding: 18px;
-          box-shadow: 0 14px 32px rgba(0,0,0,.48);
-          transition: transform .08s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;
+        .feature {
+          text-decoration: none;
         }
-        .box:hover {
-          transform: translateY(-2px);
-          border-color: rgba(108,150,255,.45);
-          box-shadow: 0 18px 40px rgba(0,0,0,.58), 0 0 0 1px rgba(108,150,255,.22) inset;
-          background: linear-gradient(180deg, rgba(20,24,34,.95), rgba(15,18,28,.95));
+
+        .featureCard {
+          width: 220px;
+          border-radius: 28px;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.07);
+          padding: 18px 20px;
+          color: white;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+          transition: transform 0.2s ease, border-color 0.2s ease;
+          text-align: center;
         }
-        .t { font-weight: 800; margin-bottom: 4px; color: #f1f5ff; }
-        .d { color: #a4adc4; font-size: 14px; }
+
+        .featureCard:hover {
+          border-color: rgba(96, 165, 250, 0.4);
+          transform: translateY(-3px);
+        }
+
+        h3 {
+          font-weight: 700;
+          margin: 0 0 6px;
+        }
+
+        p {
+          margin: 0;
+          font-size: 13px;
+          color: #a1a1aa;
+        }
       `}</style>
     </Link>
   );
