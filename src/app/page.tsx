@@ -1,267 +1,319 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import React, { useRef, useState } from 'react';
 
 export default function AppHome() {
   const [prompt, setPrompt] = useState('');
-  const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
-  const canSubmit = !!prompt.trim() || !!file;
+  const [fileName, setFileName] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  async function onGenerate() {
-    if (!canSubmit || busy) return;
+  async function handleGenerate() {
+    if (busy) return;
     setBusy(true);
     try {
-      // Hook your /api/generate call here
-      alert('Generate triggered');
+      // If you already have a working /api/generate route, this will just use it.
+      const fd = new FormData();
+      if (prompt.trim()) fd.append('prompt', prompt.trim());
+      if (fileInputRef.current?.files?.[0]) {
+        fd.append('file', fileInputRef.current.files[0]);
+      }
+
+      await fetch('/api/generate', { method: 'POST', body: fd });
+      // You can stream results or route to a jobs page—left as-is to not change your flow.
+    } catch (e) {
+      console.error(e);
+      alert('Something went wrong starting the job.');
     } finally {
       setBusy(false);
     }
   }
 
+  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    setFileName(f ? f.name : '');
+  }
+
   return (
-    <main className="page">
-      <div className="glass">
-        <h1>Type what you want or upload a file</h1>
+    <main className="wrap">
+      <section className="card" aria-label="Directr command surface">
+        <h1 className="title">Type what you want or upload a file</h1>
 
-        <textarea
-          className="prompt"
-          placeholder="Example: Turn this podcast into 5 viral TikToks"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-        />
+        <div className="inputStack">
+          <textarea
+            className="prompt"
+            placeholder="Example: Turn this podcast into 5 viral TikToks"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+          />
 
-        <div className="actions">
-          <label className="upload">
-            <input
-              type="file"
-              hidden
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-            {file ? file.name : 'Choose File / Drop here'}
-          </label>
+          <div className="row">
+            <button
+              type="button"
+              className="fileBtn"
+              onClick={() => fileInputRef.current?.click()}
+              aria-label="Choose a file or drop here"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+                <path
+                  fill="currentColor"
+                  d="M16.5 6.5a3.5 3.5 0 0 1 0 7H14v-2h2.5a1.5 1.5 0 0 0 0-3H13V7h3.5ZM11 8H9v3H6v2h3v3h2v-3h3v-2h-3V8Z"
+                />
+              </svg>
+              <span>{fileName ? fileName : 'Choose File / Drop here'}</span>
+              <input
+                ref={fileInputRef}
+                className="hiddenFile"
+                type="file"
+                onChange={onPickFile}
+              />
+            </button>
 
-          <button
-            className={`generate ${!canSubmit ? 'disabled' : ''}`}
-            disabled={!canSubmit}
-            onClick={onGenerate}
-          >
-            {busy ? 'Generating…' : 'Generate'}
-          </button>
+            <button
+              type="button"
+              className={`genBtn ${busy ? 'isBusy' : ''}`}
+              onClick={handleGenerate}
+              disabled={busy || (!prompt.trim() && !fileName)}
+            >
+              {busy ? 'Working…' : 'Generate'}
+            </button>
+          </div>
         </div>
 
-        <p className="tip">
-          Tip: Drop a video/audio, or describe what you want. We’ll handle the rest.
+        <p className="hint">
+          Tip: Drop a video/audio, or just describe what you want. We’ll handle the rest.
         </p>
-      </div>
+      </section>
 
-      <div className="links">
-        <Feature title="Create" desc="Upload → get captioned clips" href="/create" />
-        <Feature title="Clipper" desc="Auto-find hooks & moments" href="/clipper" />
-        <Feature title="Planner" desc="Plan posts & deadlines" href="/planner" />
-      </div>
+      <nav className="tiles" aria-label="Quick links">
+        <a className="tile" href="/create">
+          <strong>Create</strong>
+          <span>Upload → get captioned clips</span>
+        </a>
+        <a className="tile" href="/clipper">
+          <strong>Clipper</strong>
+          <span>Auto-find hooks & moments</span>
+        </a>
+        <a className="tile" href="/planner">
+          <strong>Planner</strong>
+          <span>Plan posts & deadlines</span>
+        </a>
+      </nav>
 
       <style jsx>{`
         :root {
-          --blue: #3b82f6;
-          --blue-glow: rgba(59, 130, 246, 0.4);
-          --bg: #0b0c0f;
-          --glass: rgba(255, 255, 255, 0.03);
-          --border: rgba(255, 255, 255, 0.08);
-          --ink: #f1f5f9;
-          --muted: #a1a1aa;
+          --bg: #0c0c0d;
+          --surface: #121214;
+          --ink: #e9eef3;
+          --muted: #9aa4af;
+          --line: #1b1d21;
+          --brand: #66b2ff;      /* icy blue */
+          --brand-2: #7cd3ff;    /* lighter edge for glow */
+          --good: #67e8f9;
         }
 
-        .page {
+        .wrap {
           min-height: 100vh;
-          padding: 80px 24px 100px;
-          background: var(--bg);
-          color: var(--ink);
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 40px;
+          padding: 48px 16px 96px;
+          color: var(--ink);
+          background: transparent; /* your global layout already handles bg */
         }
 
-        .glass {
+        .card {
           width: 100%;
-          max-width: 800px;
-          background: var(--glass);
-          border: 1px solid var(--border);
-          border-radius: 36px;
-          padding: 32px 28px;
-          backdrop-filter: blur(16px);
-          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+          max-width: 980px;
+          margin: 24px auto 12px;
+          background: radial-gradient(1200px 300px at 50% -10%, rgba(102, 178, 255, 0.06), transparent),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.02));
+          border: 1px solid var(--line);
+          border-radius: 24px;
+          padding: 28px;
+          backdrop-filter: blur(6px);
+          box-shadow:
+            0 20px 50px rgba(0, 0, 0, 0.4),
+            0 0 0 1px rgba(255, 255, 255, 0.04);
+          animation: fadeUp 540ms ease-out both, cardGlow 6s ease-in-out infinite;
         }
 
-        h1 {
+        .title {
           font-size: 22px;
           font-weight: 700;
-          text-align: center;
-          margin-bottom: 20px;
+          letter-spacing: 0.2px;
+          margin: 0 0 18px;
+        }
+
+        .inputStack {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
         }
 
         .prompt {
           width: 100%;
           min-height: 140px;
-          border: none;
-          border-radius: 28px;
-          padding: 18px 20px;
-          background: rgba(255, 255, 255, 0.04);
+          max-height: 320px;
+          padding: 16px 18px;
+          border-radius: 16px;
+          border: 1px solid var(--line);
+          background: #0f1113;
           color: var(--ink);
-          resize: none;
-          font-size: 15px;
+          resize: vertical;
           outline: none;
-          transition: box-shadow 0.2s ease, background 0.2s ease;
+          transition: border-color 160ms ease, box-shadow 200ms ease, min-height 250ms ease;
         }
-
         .prompt:focus {
-          background: rgba(255, 255, 255, 0.07);
-          box-shadow: 0 0 0 3px var(--blue-glow);
+          min-height: 180px;
+          border-color: rgba(124, 211, 255, 0.6);
+          box-shadow: 0 0 0 3px rgba(102, 178, 255, 0.18), inset 0 0 0 1px rgba(102, 178, 255, 0.25);
         }
 
-        .actions {
-          display: flex;
+        .row {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 12px;
           align-items: center;
-          gap: 16px;
-          margin-top: 18px;
-          flex-wrap: wrap;
-          justify-content: center;
         }
 
-        .upload {
-          flex: 1;
-          max-width: 380px;
-          height: 52px;
-          border-radius: 28px;
-          border: 1px dashed var(--border);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          font-size: 15px;
+        .fileBtn {
+          position: relative;
+          width: 100%;
+          height: 48px;
+          border-radius: 999px;
+          background: #0f1113;
+          border: 1px dashed #28303a;
           color: var(--muted);
-          background: rgba(255, 255, 255, 0.03);
-          transition: all 0.2s ease;
-        }
-
-        .upload:hover {
-          border-color: var(--blue);
-          color: var(--ink);
-          background: rgba(255, 255, 255, 0.06);
-        }
-
-        .generate {
-          height: 52px;
-          width: 180px;
-          border: none;
-          border-radius: 28px;
-          background: linear-gradient(135deg, var(--blue), #60a5fa);
-          color: white;
-          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 0 16px 0 14px;
           cursor: pointer;
-          transition: transform 0.1s ease, box-shadow 0.2s ease, filter 0.2s ease;
-          box-shadow: 0 8px 25px var(--blue-glow);
+          transition: border-color 160ms ease, color 160ms ease, box-shadow 200ms ease, transform 120ms ease;
         }
-
-        .generate:hover {
-          filter: brightness(1.08);
-          box-shadow: 0 10px 30px rgba(59, 130, 246, 0.55);
+        .fileBtn:hover {
+          color: #c6d3df;
+          border-color: #344254;
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
         }
+        .fileBtn:active { transform: translateY(1px); }
+        .hiddenFile { display: none; }
 
-        .generate:active {
-          transform: scale(0.98);
+        .genBtn {
+          height: 48px;
+          padding: 0 22px;
+          border-radius: 999px;
+          border: 1px solid rgba(124, 211, 255, 0.5);
+          background: linear-gradient(180deg, #1a2430, #161b22);
+          color: white;
+          font-weight: 600;
+          letter-spacing: 0.2px;
+          cursor: pointer;
+          transition: transform 120ms ease, box-shadow 200ms ease, opacity 200ms ease;
+          box-shadow:
+            0 0 0 0 rgba(124, 211, 255, 0.0),
+            inset 0 -8px 24px rgba(124, 211, 255, 0.08);
+          animation: pulse 3.6s ease-in-out infinite;
         }
-
-        .generate.disabled {
-          opacity: 0.5;
+        .genBtn:hover {
+          box-shadow:
+            0 0 24px rgba(124, 211, 255, 0.18),
+            0 0 0 1px rgba(124, 211, 255, 0.25),
+            inset 0 -10px 28px rgba(124, 211, 255, 0.12);
+          transform: translateY(-0.5px);
+        }
+        .genBtn:active { transform: translateY(0.5px); }
+        .genBtn:disabled {
+          opacity: 0.55;
           cursor: not-allowed;
-          box-shadow: none;
-          background: rgba(255, 255, 255, 0.08);
+          animation: none;
+        }
+        .genBtn.isBusy {
+          animation: throb 1.2s ease-in-out infinite;
         }
 
-        .tip {
-          text-align: center;
-          margin-top: 12px;
+        .hint {
+          margin: 10px 2px 0;
           font-size: 13px;
           color: var(--muted);
         }
 
-        .links {
+        .tiles {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 16px;
+          width: 100%;
+          max-width: 980px;
+          margin: 26px auto 0;
+        }
+        .tile {
           display: flex;
-          flex-wrap: wrap;
-          gap: 18px;
-          justify-content: center;
-          margin-top: 10px;
+          flex-direction: column;
+          gap: 4px;
+          padding: 16px 18px;
+          border-radius: 18px;
+          text-decoration: none;
+          color: var(--ink);
+          background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+          border: 1px solid var(--line);
+          box-shadow:
+            0 12px 30px rgba(0, 0, 0, 0.35),
+            0 0 0 1px rgba(255,255,255,0.03);
+          transition: transform 140ms ease, box-shadow 200ms ease, border-color 160ms ease;
+        }
+        .tile:hover {
+          transform: translateY(-1px);
+          border-color: rgba(124, 211, 255, 0.22);
+          box-shadow:
+            0 18px 36px rgba(0, 0, 0, 0.4),
+            0 0 0 1px rgba(124, 211, 255, 0.12);
+        }
+        .tile strong {
+          font-weight: 700;
+          letter-spacing: 0.2px;
+        }
+        .tile span {
+          color: var(--muted);
+          font-size: 13px;
         }
 
-        @media (max-width: 700px) {
-          .glass {
-            padding: 24px 20px;
-            border-radius: 28px;
-          }
-          .prompt {
-            border-radius: 22px;
-          }
-          .generate {
-            width: 100%;
-          }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(10px) scale(0.995); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes cardGlow {
+          0%, 100% { box-shadow:
+            0 20px 50px rgba(0, 0, 0, 0.4),
+            0 0 0 1px rgba(255, 255, 255, 0.04); }
+          50% { box-shadow:
+            0 24px 60px rgba(0, 0, 0, 0.46),
+            0 0 0 1px rgba(124, 211, 255, 0.10); }
+        }
+        @keyframes pulse {
+          0%, 100% { box-shadow:
+            0 0 0 0 rgba(124, 211, 255, 0.0),
+            inset 0 -8px 24px rgba(124, 211, 255, 0.08); }
+          50% { box-shadow:
+            0 0 24px rgba(124, 211, 255, 0.22),
+            inset 0 -10px 30px rgba(124, 211, 255, 0.14); }
+        }
+        @keyframes throb {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-1px); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .card, .genBtn { animation: none !important; }
+          .prompt, .tile, .fileBtn, .genBtn { transition: none !important; }
+        }
+
+        @media (max-width: 720px) {
+          .row { grid-template-columns: 1fr; }
+          .genBtn { width: 100%; }
+          .tiles { grid-template-columns: 1fr; }
         }
       `}</style>
     </main>
-  );
-}
-
-function Feature({
-  title,
-  desc,
-  href,
-}: {
-  title: string;
-  desc: string;
-  href: string;
-}) {
-  return (
-    <Link href={href} className="feature">
-      <div className="featureCard">
-        <h3>{title}</h3>
-        <p>{desc}</p>
-      </div>
-
-      <style jsx>{`
-        .feature {
-          text-decoration: none;
-        }
-
-        .featureCard {
-          width: 220px;
-          border-radius: 28px;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.07);
-          padding: 18px 20px;
-          color: white;
-          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
-          transition: transform 0.2s ease, border-color 0.2s ease;
-          text-align: center;
-        }
-
-        .featureCard:hover {
-          border-color: rgba(96, 165, 250, 0.4);
-          transform: translateY(-3px);
-        }
-
-        h3 {
-          font-weight: 700;
-          margin: 0 0 6px;
-        }
-
-        p {
-          margin: 0;
-          font-size: 13px;
-          color: #a1a1aa;
-        }
-      `}</style>
-    </Link>
   );
 }
