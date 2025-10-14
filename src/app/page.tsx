@@ -12,15 +12,12 @@ export default function AppHome() {
     if (busy) return;
     setBusy(true);
     try {
-      // If you already have a working /api/generate route, this will just use it.
       const fd = new FormData();
       if (prompt.trim()) fd.append('prompt', prompt.trim());
       if (fileInputRef.current?.files?.[0]) {
         fd.append('file', fileInputRef.current.files[0]);
       }
-
       await fetch('/api/generate', { method: 'POST', body: fd });
-      // You can stream results or route to a jobs page—left as-is to not change your flow.
     } catch (e) {
       console.error(e);
       alert('Something went wrong starting the job.');
@@ -69,9 +66,10 @@ export default function AppHome() {
               />
             </button>
 
+            {/* neon + shimmer */}
             <button
               type="button"
-              className={`genBtn ${busy ? 'isBusy' : ''}`}
+              className={`genBtn neon ${busy ? 'isBusy' : ''}`}
               onClick={handleGenerate}
               disabled={busy || (!prompt.trim() && !fileName)}
             >
@@ -107,8 +105,8 @@ export default function AppHome() {
           --ink: #e9eef3;
           --muted: #9aa4af;
           --line: #1b1d21;
-          --brand: #66b2ff;      /* icy blue */
-          --brand-2: #7cd3ff;    /* lighter edge for glow */
+          --brand: #66b2ff;
+          --brand-2: #7cd3ff;
           --good: #67e8f9;
         }
 
@@ -119,7 +117,7 @@ export default function AppHome() {
           align-items: center;
           padding: 48px 16px 96px;
           color: var(--ink);
-          background: transparent; /* your global layout already handles bg */
+          background: transparent;
         }
 
         .card {
@@ -145,11 +143,7 @@ export default function AppHome() {
           margin: 0 0 18px;
         }
 
-        .inputStack {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
+        .inputStack { display: flex; flex-direction: column; gap: 14px; }
 
         .prompt {
           width: 100%;
@@ -200,28 +194,69 @@ export default function AppHome() {
         .fileBtn:active { transform: translateY(1px); }
         .hiddenFile { display: none; }
 
+        /* ----- Generate Button: Neon + Shimmer ----- */
         .genBtn {
+          position: relative;
           height: 48px;
           padding: 0 22px;
           border-radius: 999px;
           border: 1px solid rgba(124, 211, 255, 0.5);
           background: linear-gradient(180deg, #1a2430, #161b22);
-          color: white;
-          font-weight: 600;
+          color: #eaf6ff;
+          font-weight: 700;
           letter-spacing: 0.2px;
           cursor: pointer;
-          transition: transform 120ms ease, box-shadow 200ms ease, opacity 200ms ease;
+          transition: transform 120ms ease, box-shadow 200ms ease, opacity 200ms ease, filter 200ms ease;
+          overflow: hidden;
           box-shadow:
             0 0 0 0 rgba(124, 211, 255, 0.0),
             inset 0 -8px 24px rgba(124, 211, 255, 0.08);
           animation: pulse 3.6s ease-in-out infinite;
         }
+
+        /* Neon ring (subtle idle, stronger on hover) */
+        .genBtn.neon::before {
+          content: "";
+          position: absolute;
+          inset: -3px;
+          border-radius: inherit;
+          pointer-events: none;
+          background:
+            radial-gradient(60% 140% at 50% -20%, rgba(124,211,255,0.24), rgba(124,211,255,0) 70%),
+            radial-gradient(120% 80% at 50% 120%, rgba(102,178,255,0.18), rgba(102,178,255,0) 70%);
+          filter: blur(6px);
+          opacity: 0.65;
+          transition: opacity 180ms ease;
+          z-index: 0;
+        }
+        .genBtn.neon:hover::before { opacity: 0.95; }
+
+        /* Busy shimmer stripes inside */
+        .genBtn.isBusy::after {
+          content: "";
+          position: absolute;
+          inset: 2px;
+          border-radius: inherit;
+          pointer-events: none;
+          background:
+            repeating-linear-gradient(
+              -45deg,
+              rgba(255,255,255,0.10) 0 10px,
+              rgba(255,255,255,0.00) 10px 22px
+            );
+          background-size: 220% 100%;
+          mix-blend-mode: screen;
+          animation: shimmer 1.15s linear infinite;
+          z-index: 1;
+        }
+
         .genBtn:hover {
           box-shadow:
             0 0 24px rgba(124, 211, 255, 0.18),
             0 0 0 1px rgba(124, 211, 255, 0.25),
             inset 0 -10px 28px rgba(124, 211, 255, 0.12);
           transform: translateY(-0.5px);
+          filter: saturate(1.1);
         }
         .genBtn:active { transform: translateY(0.5px); }
         .genBtn:disabled {
@@ -233,11 +268,7 @@ export default function AppHome() {
           animation: throb 1.2s ease-in-out infinite;
         }
 
-        .hint {
-          margin: 10px 2px 0;
-          font-size: 13px;
-          color: var(--muted);
-        }
+        .hint { margin: 10px 2px 0; font-size: 13px; color: var(--muted); }
 
         .tiles {
           display: grid;
@@ -248,66 +279,57 @@ export default function AppHome() {
           margin: 26px auto 0;
         }
         .tile {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
+          display: flex; flex-direction: column; gap: 4px;
           padding: 16px 18px;
           border-radius: 18px;
-          text-decoration: none;
-          color: var(--ink);
+          text-decoration: none; color: var(--ink);
           background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
           border: 1px solid var(--line);
-          box-shadow:
-            0 12px 30px rgba(0, 0, 0, 0.35),
-            0 0 0 1px rgba(255,255,255,0.03);
+          box-shadow: 0 12px 30px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.03);
           transition: transform 140ms ease, box-shadow 200ms ease, border-color 160ms ease;
         }
         .tile:hover {
           transform: translateY(-1px);
           border-color: rgba(124, 211, 255, 0.22);
-          box-shadow:
-            0 18px 36px rgba(0, 0, 0, 0.4),
-            0 0 0 1px rgba(124, 211, 255, 0.12);
+          box-shadow: 0 18px 36px rgba(0,0,0,0.4), 0 0 0 1px rgba(124,211,255,0.12);
         }
-        .tile strong {
-          font-weight: 700;
-          letter-spacing: 0.2px;
-        }
-        .tile span {
-          color: var(--muted);
-          font-size: 13px;
-        }
+        .tile strong { font-weight: 700; letter-spacing: 0.2px; }
+        .tile span { color: var(--muted); font-size: 13px; }
 
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(10px) scale(0.995); }
           to   { opacity: 1; transform: translateY(0) scale(1); }
         }
         @keyframes cardGlow {
-          0%, 100% { box-shadow:
-            0 20px 50px rgba(0, 0, 0, 0.4),
-            0 0 0 1px rgba(255, 255, 255, 0.04); }
-          50% { box-shadow:
-            0 24px 60px rgba(0, 0, 0, 0.46),
-            0 0 0 1px rgba(124, 211, 255, 0.10); }
+          0%, 100% {
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04);
+          }
+          50% {
+            box-shadow: 0 24px 60px rgba(0,0,0,0.46), 0 0 0 1px rgba(124,211,255,0.10);
+          }
         }
         @keyframes pulse {
-          0%, 100% { box-shadow:
-            0 0 0 0 rgba(124, 211, 255, 0.0),
-            inset 0 -8px 24px rgba(124, 211, 255, 0.08); }
-          50% { box-shadow:
-            0 0 24px rgba(124, 211, 255, 0.22),
-            inset 0 -10px 30px rgba(124, 211, 255, 0.14); }
+          0%, 100% {
+            box-shadow: 0 0 0 0 rgba(124,211,255,0.0), inset 0 -8px 24px rgba(124,211,255,0.08);
+          }
+          50% {
+            box-shadow: 0 0 24px rgba(124,211,255,0.22), inset 0 -10px 30px rgba(124,211,255,0.14);
+          }
         }
         @keyframes throb {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-1px); }
         }
+        @keyframes shimmer {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -20% 0; }
+        }
 
         @media (prefers-reduced-motion: reduce) {
           .card, .genBtn { animation: none !important; }
+          .genBtn.isBusy::after { animation: none !important; }
           .prompt, .tile, .fileBtn, .genBtn { transition: none !important; }
         }
-
         @media (max-width: 720px) {
           .row { grid-template-columns: 1fr; }
           .genBtn { width: 100%; }
