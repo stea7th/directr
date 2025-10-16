@@ -1,353 +1,148 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
-export default function AppHome() {
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+export default function Page() {
   const [prompt, setPrompt] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [fileName, setFileName] = useState<string>('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(false);
+  const [response, setResponse] = useState('');
 
-  async function handleGenerate() {
-  if (busy) return;
+  const handleGenerate = async () => {
+    setResponse('');
+    setLoading(true);
 
-  const hasPrompt = prompt.trim().length > 0;
-  const hasFile = !!fileInputRef.current?.files?.[0];
-  if (!hasPrompt && !hasFile) {
-    alert('Type something or attach a file.');
-    return;
-  }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      alert('You must sign in first.');
+      setLoading(false);
+      return;
+    }
 
-  setBusy(true);
-  try {
-    const fd = new FormData();
-    if (hasPrompt) fd.append('prompt', prompt.trim());
-    if (hasFile) fd.append('file', fileInputRef.current!.files![0]);
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ prompt }),
+      });
 
-    const res = await fetch('/api/generate', { method: 'POST', body: fd });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json?.error || 'Failed to start');
-
-    // go to a basic status page
-    window.location.href = `/jobs/${json.id}`;
-  } catch (e: any) {
-    console.error(e);
-    alert(e.message || 'Failed to start the job.');
-  } finally {
-    setBusy(false);
-  }
-}
-
-  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    setFileName(f ? f.name : '');
-  }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Generation failed');
+      setResponse(`✅ Success — Job ID: ${data.id}`);
+    } catch (e: any) {
+      setResponse(`❌ ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <main className="wrap">
-      <section className="card" aria-label="Directr command surface">
-        <h1 className="title">Type what you want or upload a file</h1>
+    <main style={main}>
+      <header style={header}>
+        <img src="/logo.svg" alt="Directr" style={logo} />
+        <a href="/account" style={link}>Account</a>
+      </header>
 
-        <div className="inputStack">
-          <textarea
-            className="prompt"
-            placeholder="Example: Turn this podcast into 5 viral TikToks"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-          />
+      <div style={card}>
+        <h1 style={title}>Directr</h1>
+        <p style={sub}>Type what you want and hit Generate.</p>
 
-          <div className="row">
-            <button
-              type="button"
-              className="fileBtn"
-              onClick={() => fileInputRef.current?.click()}
-              aria-label="Choose a file or drop here"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
-                <path
-                  fill="currentColor"
-                  d="M16.5 6.5a3.5 3.5 0 0 1 0 7H14v-2h2.5a1.5 1.5 0 0 0 0-3H13V7h3.5ZM11 8H9v3H6v2h3v3h2v-3h3v-2h-3V8Z"
-                />
-              </svg>
-              <span>{fileName ? fileName : 'Choose File / Drop here'}</span>
-              <input
-                ref={fileInputRef}
-                className="hiddenFile"
-                type="file"
-                onChange={onPickFile}
-              />
-            </button>
+        <textarea
+          placeholder="e.g. create 10 short hooks from my new video"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          rows={6}
+          style={input}
+        />
 
-            {/* neon + shimmer */}
-            <button
-              type="button"
-              className={`genBtn neon ${busy ? 'isBusy' : ''}`}
-              onClick={handleGenerate}
-              disabled={busy || (!prompt.trim() && !fileName)}
-            >
-              {busy ? 'Working…' : 'Generate'}
-            </button>
-          </div>
-        </div>
+        <button onClick={handleGenerate} disabled={loading} style={button(loading)}>
+          {loading ? 'Generating…' : 'Generate'}
+        </button>
 
-        <p className="hint">
-          Tip: Drop a video/audio, or just describe what you want. We’ll handle the rest.
-        </p>
-      </section>
-
-      <nav className="tiles" aria-label="Quick links">
-        <a className="tile" href="/create">
-          <strong>Create</strong>
-          <span>Upload → get captioned clips</span>
-        </a>
-        <a className="tile" href="/clipper">
-          <strong>Clipper</strong>
-          <span>Auto-find hooks & moments</span>
-        </a>
-        <a className="tile" href="/planner">
-          <strong>Planner</strong>
-          <span>Plan posts & deadlines</span>
-        </a>
-      </nav>
-
-      <style jsx>{`
-        :root {
-          --bg: #0c0c0d;
-          --surface: #121214;
-          --ink: #e9eef3;
-          --muted: #9aa4af;
-          --line: #1b1d21;
-          --brand: #66b2ff;
-          --brand-2: #7cd3ff;
-          --good: #67e8f9;
-        }
-
-        .wrap {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 48px 16px 96px;
-          color: var(--ink);
-          background: transparent;
-        }
-
-        .card {
-          width: 100%;
-          max-width: 980px;
-          margin: 24px auto 12px;
-          background: radial-gradient(1200px 300px at 50% -10%, rgba(102, 178, 255, 0.06), transparent),
-            linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.02));
-          border: 1px solid var(--line);
-          border-radius: 24px;
-          padding: 28px;
-          backdrop-filter: blur(6px);
-          box-shadow:
-            0 20px 50px rgba(0, 0, 0, 0.4),
-            0 0 0 1px rgba(255, 255, 255, 0.04);
-          animation: fadeUp 540ms ease-out both, cardGlow 6s ease-in-out infinite;
-        }
-
-        .title {
-          font-size: 22px;
-          font-weight: 700;
-          letter-spacing: 0.2px;
-          margin: 0 0 18px;
-        }
-
-        .inputStack { display: flex; flex-direction: column; gap: 14px; }
-
-        .prompt {
-          width: 100%;
-          min-height: 140px;
-          max-height: 320px;
-          padding: 16px 18px;
-          border-radius: 16px;
-          border: 1px solid var(--line);
-          background: #0f1113;
-          color: var(--ink);
-          resize: vertical;
-          outline: none;
-          transition: border-color 160ms ease, box-shadow 200ms ease, min-height 250ms ease;
-        }
-        .prompt:focus {
-          min-height: 180px;
-          border-color: rgba(124, 211, 255, 0.6);
-          box-shadow: 0 0 0 3px rgba(102, 178, 255, 0.18), inset 0 0 0 1px rgba(102, 178, 255, 0.25);
-        }
-
-        .row {
-          display: grid;
-          grid-template-columns: 1fr auto;
-          gap: 12px;
-          align-items: center;
-        }
-
-        .fileBtn {
-          position: relative;
-          width: 100%;
-          height: 48px;
-          border-radius: 999px;
-          background: #0f1113;
-          border: 1px dashed #28303a;
-          color: var(--muted);
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          padding: 0 16px 0 14px;
-          cursor: pointer;
-          transition: border-color 160ms ease, color 160ms ease, box-shadow 200ms ease, transform 120ms ease;
-        }
-        .fileBtn:hover {
-          color: #c6d3df;
-          border-color: #344254;
-          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
-        }
-        .fileBtn:active { transform: translateY(1px); }
-        .hiddenFile { display: none; }
-
-        /* ----- Generate Button: Neon + Shimmer ----- */
-        .genBtn {
-          position: relative;
-          height: 48px;
-          padding: 0 22px;
-          border-radius: 999px;
-          border: 1px solid rgba(124, 211, 255, 0.5);
-          background: linear-gradient(180deg, #1a2430, #161b22);
-          color: #eaf6ff;
-          font-weight: 700;
-          letter-spacing: 0.2px;
-          cursor: pointer;
-          transition: transform 120ms ease, box-shadow 200ms ease, opacity 200ms ease, filter 200ms ease;
-          overflow: hidden;
-          box-shadow:
-            0 0 0 0 rgba(124, 211, 255, 0.0),
-            inset 0 -8px 24px rgba(124, 211, 255, 0.08);
-          animation: pulse 3.6s ease-in-out infinite;
-        }
-
-        /* Neon ring (subtle idle, stronger on hover) */
-        .genBtn.neon::before {
-          content: "";
-          position: absolute;
-          inset: -3px;
-          border-radius: inherit;
-          pointer-events: none;
-          background:
-            radial-gradient(60% 140% at 50% -20%, rgba(124,211,255,0.24), rgba(124,211,255,0) 70%),
-            radial-gradient(120% 80% at 50% 120%, rgba(102,178,255,0.18), rgba(102,178,255,0) 70%);
-          filter: blur(6px);
-          opacity: 0.65;
-          transition: opacity 180ms ease;
-          z-index: 0;
-        }
-        .genBtn.neon:hover::before { opacity: 0.95; }
-
-        /* Busy shimmer stripes inside */
-        .genBtn.isBusy::after {
-          content: "";
-          position: absolute;
-          inset: 2px;
-          border-radius: inherit;
-          pointer-events: none;
-          background:
-            repeating-linear-gradient(
-              -45deg,
-              rgba(255,255,255,0.10) 0 10px,
-              rgba(255,255,255,0.00) 10px 22px
-            );
-          background-size: 220% 100%;
-          mix-blend-mode: screen;
-          animation: shimmer 1.15s linear infinite;
-          z-index: 1;
-        }
-
-        .genBtn:hover {
-          box-shadow:
-            0 0 24px rgba(124, 211, 255, 0.18),
-            0 0 0 1px rgba(124, 211, 255, 0.25),
-            inset 0 -10px 28px rgba(124, 211, 255, 0.12);
-          transform: translateY(-0.5px);
-          filter: saturate(1.1);
-        }
-        .genBtn:active { transform: translateY(0.5px); }
-        .genBtn:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
-          animation: none;
-        }
-        .genBtn.isBusy {
-          animation: throb 1.2s ease-in-out infinite;
-        }
-
-        .hint { margin: 10px 2px 0; font-size: 13px; color: var(--muted); }
-
-        .tiles {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 16px;
-          width: 100%;
-          max-width: 980px;
-          margin: 26px auto 0;
-        }
-        .tile {
-          display: flex; flex-direction: column; gap: 4px;
-          padding: 16px 18px;
-          border-radius: 18px;
-          text-decoration: none; color: var(--ink);
-          background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
-          border: 1px solid var(--line);
-          box-shadow: 0 12px 30px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.03);
-          transition: transform 140ms ease, box-shadow 200ms ease, border-color 160ms ease;
-        }
-        .tile:hover {
-          transform: translateY(-1px);
-          border-color: rgba(124, 211, 255, 0.22);
-          box-shadow: 0 18px 36px rgba(0,0,0,0.4), 0 0 0 1px rgba(124,211,255,0.12);
-        }
-        .tile strong { font-weight: 700; letter-spacing: 0.2px; }
-        .tile span { color: var(--muted); font-size: 13px; }
-
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(10px) scale(0.995); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes cardGlow {
-          0%, 100% {
-            box-shadow: 0 20px 50px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04);
-          }
-          50% {
-            box-shadow: 0 24px 60px rgba(0,0,0,0.46), 0 0 0 1px rgba(124,211,255,0.10);
-          }
-        }
-        @keyframes pulse {
-          0%, 100% {
-            box-shadow: 0 0 0 0 rgba(124,211,255,0.0), inset 0 -8px 24px rgba(124,211,255,0.08);
-          }
-          50% {
-            box-shadow: 0 0 24px rgba(124,211,255,0.22), inset 0 -10px 30px rgba(124,211,255,0.14);
-          }
-        }
-        @keyframes throb {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-1px); }
-        }
-        @keyframes shimmer {
-          0%   { background-position: 200% 0; }
-          100% { background-position: -20% 0; }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .card, .genBtn { animation: none !important; }
-          .genBtn.isBusy::after { animation: none !important; }
-          .prompt, .tile, .fileBtn, .genBtn { transition: none !important; }
-        }
-        @media (max-width: 720px) {
-          .row { grid-template-columns: 1fr; }
-          .genBtn { width: 100%; }
-          .tiles { grid-template-columns: 1fr; }
-        }
-      `}</style>
+        {response && <p style={note}>{response}</p>}
+      </div>
     </main>
   );
 }
+
+/* ---------- styles ---------- */
+const main: React.CSSProperties = {
+  minHeight: '100vh',
+  background: '#0a0f1c',
+  color: '#e7ecf8',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+};
+
+const header: React.CSSProperties = {
+  width: '100%',
+  maxWidth: 960,
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: '18px 22px',
+  boxSizing: 'border-box',
+};
+
+const logo: React.CSSProperties = { height: 26 };
+const link: React.CSSProperties = { color: '#94aaff', fontWeight: 600, textDecoration: 'none' };
+
+const card: React.CSSProperties = {
+  width: '100%',
+  maxWidth: 960,
+  marginTop: 40,
+  padding: 28,
+  borderRadius: 16,
+  background: 'linear-gradient(180deg,#111a2f,#0b1224)',
+  border: '1px solid #1d2a4c',
+  boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
+  boxSizing: 'border-box',
+};
+
+const title: React.CSSProperties = { fontSize: 28, marginBottom: 6 };
+const sub: React.CSSProperties = { opacity: 0.75, marginBottom: 20 };
+
+const input: React.CSSProperties = {
+  width: '100%',
+  border: '1px solid #28365e',
+  borderRadius: 10,
+  background: '#0b1020',
+  color: '#fff',
+  padding: '12px 14px',
+  fontSize: 15,
+  outline: 'none',
+  resize: 'vertical',
+  marginBottom: 20,
+};
+
+const button = (loading: boolean): React.CSSProperties => ({
+  width: '100%',
+  padding: '12px',
+  borderRadius: 12,
+  border: 'none',
+  cursor: loading ? 'default' : 'pointer',
+  fontWeight: 700,
+  color: '#fff',
+  background: loading
+    ? 'rgba(80,120,255,0.4)'
+    : 'linear-gradient(180deg,#3f62ff,#2249f7)',
+});
+
+const note: React.CSSProperties = {
+  marginTop: 18,
+  padding: '10px 12px',
+  borderRadius: 10,
+  background: '#0e1424',
+  border: '1px solid #25345d',
+  color: '#b6c5ff',
+  fontSize: 14,
+};
