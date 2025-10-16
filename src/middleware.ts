@@ -1,7 +1,13 @@
 // src/middleware.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+export function middleware(req: NextRequest) {
+  const { pathname, href } = req.nextUrl;
 
+  // ✅ Allow Supabase recovery links to pass through untouched
+  if (href.includes("#access_token") || pathname.startsWith("/reset")) {
+    return NextResponse.next();
+  }
 // Only these paths require a logged-in session cookie.
 const PROTECTED = [/^\/$/, /^\/create/, /^\/clipper/, /^\/planner/, /^\/jobs/];
 
