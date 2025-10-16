@@ -1,20 +1,31 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function ConfirmClient() {
-  const [message, setMessage] = useState('Verifying reset link…');
+  const [message, setMessage] = useState('Verifying your reset link…');
 
   useEffect(() => {
     const hash = window.location.hash.slice(1);
     const params = new URLSearchParams(hash);
     const type = params.get('type');
     const access_token = params.get('access_token');
+    const refresh_token = params.get('refresh_token');
 
-    // ✅ Supabase automatically sets session for recovery links
     if (type === 'recovery' && access_token) {
-      setMessage('Link verified. Redirecting to password reset form…');
-      setTimeout(() => window.location.replace('/reset/new'), 1200);
+      // ✅ save to localStorage for the next page
+      localStorage.setItem('supabase_recovery_access_token', access_token);
+      if (refresh_token)
+        localStorage.setItem('supabase_recovery_refresh_token', refresh_token);
+
+      setMessage('Verified. Redirecting to reset form…');
+      setTimeout(() => window.location.replace('/reset/new'), 1000);
     } else {
       setMessage('Missing or invalid reset link.');
     }
