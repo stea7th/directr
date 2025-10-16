@@ -1,70 +1,40 @@
-// src/app/api/generate/route.ts
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { createClient } from "@supabase/supabase-js";
-
-export const runtime = "nodejs";
-
-type FileMeta = { name: string; type: string; size: number } | null;
+import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(req: Request) {
   try {
-    // Auth via Supabase cookie
-    const cookieStore = cookies();
-    const userClient = createRouteHandlerClient({ cookies: () => cookieStore as any });
-    const { data: { user } = { user: null } } = await userClient.auth.getUser();
+    const authHeader = req.headers.get('authorization') || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
 
-    if (!user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    if (!token) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    // Accept JSON or multipart
-    const contentType = req.headers.get("content-type") || "";
-    let prompt = "";
-    let fileMeta: FileMeta = null;
-
-    if (contentType.includes("multipart/form-data")) {
-      const form = await req.formData();
-      prompt = String(form.get("prompt") ?? "");
-      const file = form.get("file") as unknown as { name: string; type: string; size: number } | null;
-      if (file && typeof file === "object") {
-        fileMeta = { name: file.name, type: file.type, size: file.size };
-        // To upload to Storage later, we can add it back.
-      }
-    } else {
-      const body = (await req.json().catch(() => ({}))) as { prompt?: string };
-      prompt = body?.prompt ?? "";
-    }
-
-    if (!prompt && !fileMeta) {
-      return NextResponse.json({ error: "Provide a prompt or a file." }, { status: 400 });
-    }
-
-    // Service role for DB writes
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-      process.env.SUPABASE_SERVICE_ROLE_KEY as string
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
     );
 
-    const { data, error } = await supabaseAdmin
-      .from("jobs")
-      .insert({
-        user_id: user.id,
-        status: "queued",
-        kind: "generate",
-        prompt,
-        file_meta: fileMeta,
-      })
-      .select("id")
-      .single();
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    return NextResponse.json({ ok: true, jobId: data.id });
+    const { prompt } = await req.json();
+    if (!prompt || prompt.trim() === '') {
+      return NextResponse.json({ error: 'Prompt required' }, { status: 400 });
+    }
+
+    // ——— mock job create (replace with real logic later) ———
+    const jobId = Math.random().toString(36).slice(2, 9);
+    // await supabase.from('jobs').insert({ id: jobId, user_id: user.id, prompt });
+
+    return NextResponse.json({ id: jobId, ok: true });
   } catch (err: any) {
-    return NextResponse.json({ error: err?.message || "Unknown error" }, { status: 500 });
+    return NextResponse.json(
+      { error: err?.message || 'Server error' },
+      { status: 500 }
+    );
   }
 }
