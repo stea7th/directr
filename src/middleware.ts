@@ -1,48 +1,47 @@
 // src/middleware.ts
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
+
+// Paths that never require auth
+const PUBLIC_PATHS = [
+  /^\/reset(\/.*)?$/i,       // password reset flow
+  /^\/auth\/callback/i,
+  /^\/login/i,
+  /^\/signup/i,
+  /^\/api\/.*$/i,
+  /^\/_next\/.*$/i,
+  /^\/favicon\.ico$/i,
+  /^\/robots\.txt$/i,
+];
+
 export function middleware(req: NextRequest) {
   const { pathname, href } = req.nextUrl;
 
-  // ✅ Allow Supabase recovery links to pass through untouched
-  if (href.includes("#access_token") || pathname.startsWith("/reset")) {
-    return NextResponse.next();
-  }
-// Only these paths require a logged-in session cookie.
-const PROTECTED = [/^\/$/, /^\/create/, /^\/clipper/, /^\/planner/, /^\/jobs/];
-
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-
-  // Always allow password reset flow
-  if (pathname.startsWith('/reset')) return NextResponse.next();
-
-  // Allow Next.js internals, static files, and APIs
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/api') ||
-    pathname.startsWith('/favicon') ||
-    pathname.startsWith('/assets')
-  ) {
+  // ✅ Allow Supabase recovery links that come with a hash fragment
+  if (href.includes('#access_token')) {
     return NextResponse.next();
   }
 
-  // Gate protected routes by Supabase auth cookies (adjust names if yours differ)
-  if (PROTECTED.some((re) => re.test(pathname))) {
-    const hasSb =
-      req.cookies.get('sb-access-token') || req.cookies.get('sb-session');
-    if (!hasSb) {
-      const url = req.nextUrl.clone();
-      url.pathname = '/login';
-      url.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(url);
-    }
+  // Public routes are allowed
+  if (PUBLIC_PATHS.some((re) => re.test(pathname))) {
+    return NextResponse.next();
+  }
+
+  // For everything else, require a Supabase session cookie
+  const hasSession =
+    req.cookies.has('sb-access-token') ||
+    req.cookies.has('sb:token') ||
+    req.cookies.has('sb-auth-token');
+
+  if (!hasSession) {
+    const url = new URL('/login', req.url);
+    url.searchParams.set('redirect', pathname || '/');
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
 }
 
-// Match all “pages” (not files with extensions)
+// Run on everything except static assets
 export const config = {
-  matcher: ['/((?!.*\\.[\\w]+$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt).*)'],
 };
