@@ -1,267 +1,350 @@
 'use client';
 
-import React, { useCallback, useRef, useState } from 'react';
-import Link from 'next/link';
+import React, { useRef, useState } from 'react';
 
-export default function HomePage() {
+export default function AppHome() {
   const [prompt, setPrompt] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-  const [status, setStatus] = useState<'idle'|'working'|'success'|'error'>('idle');
-  const [message, setMessage] = useState<string>('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [fileName, setFileName] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const onChooseClick = useCallback(() => inputRef.current?.click(), []);
+  async function handleGenerate() {
+    if (busy) return;
 
-  const onDrop: React.DragEventHandler<HTMLDivElement> = (e) => {
-    e.preventDefault();
-    const f = e.dataTransfer.files?.[0];
-    if (f) setFile(f);
-  };
-
-  const onGenerate = async () => {
-    if (!prompt && !file) {
-      setStatus('error');
-      setMessage('Type something or attach a file.');
+    const hasPrompt = prompt.trim().length > 0;
+    const hasFile = !!fileName;
+    if (!hasPrompt && !hasFile) {
+      alert('Type something or attach a file.');
       return;
     }
 
-    setStatus('working');
-    setMessage('');
-
+    setBusy(true);
     try {
-      // If you later want to send the file, just add it to formData
-      const body: any = { prompt };
-      if (file) {
-        body.fileName = file.name; // placeholder; API currently only expects prompt
-      }
-
+      // JSON payload to match /api/generate
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          fileName: hasFile ? fileName : undefined,
+        }),
+        credentials: 'include',
       });
 
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || 'Request failed');
-      }
+      const json = await res.json().catch(() => ({} as any));
+      if (!res.ok) throw new Error(json?.error || 'Failed to start');
 
-      const data = await res.json().catch(() => ({} as any));
-      const jobId = data?.jobId || data?.id || 'created';
-      setStatus('success');
-      setMessage(`Success — Job ID: ${jobId}`);
-    } catch (err: any) {
-      setStatus('error');
-      setMessage(err?.message || 'Something went wrong');
+      const id = json?.id || json?.jobId || 'new';
+      window.location.href = `/jobs/${id}`;
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || 'Failed to start the job.');
+    } finally {
+      setBusy(false);
     }
-  };
+  }
+
+  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    setFileName(f ? f.name : '');
+  }
+
+  // Drag & drop support for the file button
+  function onDropFile(e: React.DragEvent<HTMLButtonElement>) {
+    e.preventDefault();
+    const f = e.dataTransfer.files?.[0];
+    if (f) {
+      setFileName(f.name);
+      // reflect in the hidden input so form state is consistent
+      if (fileInputRef.current) {
+        const dt = new DataTransfer();
+        dt.items.add(f);
+        fileInputRef.current.files = dt.files;
+      }
+    }
+  }
 
   return (
-    <div className="wrap">
-      <header className="top">
-        <div className="logoRow">
-          <span className="logoDot" />
-          <span className="brand">directr.</span>
-        </div>
-        <nav className="nav">
-          <Link href="/create">Create</Link>
-          <Link href="/campaigns">Campaigns</Link>
-          <Link href="/analytics">Analytics</Link>
-          <Link href="/planner" className="active">Planner</Link>
-          <Link href="/settings">Settings</Link>
-          <Link href="/signup">Create account</Link>
-          <Link href="/signin">Sign in</Link>
-        </nav>
-      </header>
+    <main className="wrap">
+      <section className="card" aria-label="Directr command surface">
+        <h1 className="title">Type what you want or upload a file</h1>
 
-      <main className="container">
-        <section className="card">
-          <h1 className="title">Type what you want or upload a file</h1>
-
+        <div className="inputStack">
           <textarea
+            className="prompt"
+            placeholder="Example: Turn this podcast into 5 viral TikToks"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Example: Turn this podcast into 5 viral TikToks"
-            className="inputArea"
           />
 
           <div className="row">
-            <div
-              className="choose"
-              role="button"
-              onClick={onChooseClick}
+            <button
+              type="button"
+              className="fileBtn"
+              onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
-              onDrop={onDrop}
-              title="Drop a file or click to choose"
+              onDrop={onDropFile}
+              aria-label="Choose a file or drop here"
             >
-              <span className="chooseIcon">⬇︎</span>
-              <span>{file ? file.name : 'Choose File / Drop here'}</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+                <path
+                  fill="currentColor"
+                  d="M16.5 6.5a3.5 3.5 0 0 1 0 7H14v-2h2.5a1.5 1.5 0 0 0 0-3H13V7h3.5ZM11 8H9v3H6v2h3v3h2v-3h3v-2h-3V8Z"
+                />
+              </svg>
+              <span>{fileName ? fileName : 'Choose File / Drop here'}</span>
               <input
-                ref={inputRef}
+                ref={fileInputRef}
+                className="hiddenFile"
                 type="file"
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) setFile(f);
-                }}
+                accept="video/*,audio/*,.mp3,.mp4,.mov,.m4a,.wav,.aac"
+                onChange={onPickFile}
               />
-            </div>
+            </button>
 
             <button
-              className={`genBtn ${status === 'working' ? 'working' : ''}`}
-              onClick={onGenerate}
-              disabled={status === 'working'}
+              type="button"
+              className={`genBtn neon ${busy ? 'isBusy' : ''}`}
+              onClick={handleGenerate}
+              disabled={busy || (!prompt.trim() && !fileName)}
             >
-              {status === 'working' ? 'Working…' : 'Generate'}
+              {busy ? 'Working…' : 'Generate'}
             </button>
           </div>
+        </div>
 
-          <p className="tip">
-            Tip: Drop a video/audio, or just describe what you want. We’ll handle the rest.
-          </p>
+        <p className="hint">
+          Tip: Drop a video/audio, or just describe what you want. We’ll handle the rest.
+        </p>
+      </section>
 
-          {status !== 'idle' && (
-            <div className={`alert ${status}`}>
-              {message}
-            </div>
-          )}
-        </section>
-
-        <section className="grid">
-          <Link href="/create" className="feature">
-            <div className="featureTitle">Create</div>
-            <div className="featureSub">Upload → get captioned clips</div>
-          </Link>
-
-          <Link href="/clipper" className="feature">
-            <div className="featureTitle">Clipper</div>
-            <div className="featureSub">Auto-find hooks & moments</div>
-          </Link>
-
-          <Link href="/planner" className="feature">
-            <div className="featureTitle">Planner</div>
-            <div className="featureSub">Plan posts & deadlines</div>
-          </Link>
-        </section>
-      </main>
-
-      <footer className="foot">
-        <span>© 2025 directr</span>
-        <span>—</span>
-        <Link href="/privacy">Privacy</Link>
-        <span>·</span>
-        <Link href="/terms">Terms</Link>
-      </footer>
+      <nav className="tiles" aria-label="Quick links">
+        <a className="tile" href="/create">
+          <strong>Create</strong>
+          <span>Upload → get captioned clips</span>
+        </a>
+        <a className="tile" href="/clipper">
+          <strong>Clipper</strong>
+          <span>Auto-find hooks & moments</span>
+        </a>
+        <a className="tile" href="/planner">
+          <strong>Planner</strong>
+          <span>Plan posts & deadlines</span>
+        </a>
+      </nav>
 
       <style jsx>{`
-        :global(html, body) { background:#0d121a; color:#e9eef6; }
-        a { color:#a9c8ff; text-decoration:none; }
-        a:hover { text-decoration:underline; }
+        :root {
+          --bg: #0c0c0d;
+          --surface: #121214;
+          --ink: #e9eef3;
+          --muted: #9aa4af;
+          --line: #1b1d21;
+          --brand: #66b2ff;
+          --brand-2: #7cd3ff;
+          --good: #67e8f9;
+        }
 
-        .wrap { min-height:100vh; display:flex; flex-direction:column; }
-        .top { display:flex; align-items:center; justify-content:space-between; padding:20px 28px; }
-        .logoRow { display:flex; align-items:center; gap:10px; }
-        .logoDot { width:10px; height:10px; border-radius:50%; background:#4f8cff; box-shadow:0 0 14px rgba(79,140,255,.7); }
-        .brand { font-weight:700; letter-spacing:.3px; color:#fff; }
-        .nav { display:flex; gap:18px; opacity:.9; }
-        .nav :global(a.active) { color:#fff; font-weight:600; }
-
-        .container { width:100%; max-width:980px; margin:0 auto; padding:30px 20px 80px; flex:1; }
+        .wrap {
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 48px 16px 96px;
+          color: var(--ink);
+          background: transparent;
+        }
 
         .card {
-          background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
-          border:1px solid rgba(255,255,255,.08);
-          border-radius:28px;
-          padding:28px;
-          box-shadow:0 20px 60px rgba(0,0,0,.35);
+          width: 100%;
+          max-width: 980px;
+          margin: 24px auto 12px;
+          background: radial-gradient(1200px 300px at 50% -10%, rgba(102, 178, 255, 0.06), transparent),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.02));
+          border: 1px solid var(--line);
+          border-radius: 24px;
+          padding: 28px;
+          backdrop-filter: blur(6px);
+          box-shadow:
+            0 20px 50px rgba(0, 0, 0, 0.4),
+            0 0 0 1px rgba(255, 255, 255, 0.04);
+          animation: fadeUp 540ms ease-out both, cardGlow 6s ease-in-out infinite;
         }
 
-        .title { margin:0 0 16px; font-size:20px; font-weight:800; letter-spacing:.2px; color:#ffffffde; }
-
-        .inputArea {
-          width:100%;
-          min-height:130px;
-          background:#0f1520;
-          color:#dfe7f5;
-          border:1px solid #2a3550;
-          outline:none;
-          border-radius:12px;
-          padding:16px;
-          resize:vertical;
-          box-shadow: inset 0 0 0 1px rgba(79,140,255,0);
-        }
-        .inputArea:focus {
-          border-color:#3f6be0;
-          box-shadow:0 0 0 3px rgba(63,107,224,.25), inset 0 0 0 1px rgba(79,140,255,.3);
+        .title {
+          font-size: 22px;
+          font-weight: 700;
+          letter-spacing: 0.2px;
+          margin: 0 0 18px;
         }
 
-        .row { display:flex; gap:16px; align-items:center; margin-top:16px; }
+        .inputStack { display: flex; flex-direction: column; gap: 14px; }
 
-        .choose {
-          flex:1;
-          background:rgba(255,255,255,.04);
-          border:1px dashed rgba(255,255,255,.16);
-          border-radius:999px;
-          height:48px;
-          display:flex; align-items:center; justify-content:center; gap:10px;
-          cursor:pointer;
-          transition:.2s ease;
+        .prompt {
+          width: 100%;
+          min-height: 140px;
+          max-height: 320px;
+          padding: 16px 18px;
+          border-radius: 16px;
+          border: 1px solid var(--line);
+          background: #0f1113;
+          color: var(--ink);
+          resize: vertical;
+          outline: none;
+          transition: border-color 160ms ease, box-shadow 200ms ease, min-height 250ms ease;
         }
-        .choose:hover { background:rgba(255,255,255,.06); }
+        .prompt:focus {
+          min-height: 180px;
+          border-color: rgba(124, 211, 255, 0.6);
+          box-shadow: 0 0 0 3px rgba(102, 178, 255, 0.18), inset 0 0 0 1px rgba(102, 178, 255, 0.25);
+        }
 
-        .chooseIcon { opacity:.7; }
+        .row {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 12px;
+          align-items: center;
+        }
+
+        .fileBtn {
+          position: relative;
+          width: 100%;
+          height: 48px;
+          border-radius: 999px;
+          background: #0f1113;
+          border: 1px dashed #28303a;
+          color: var(--muted);
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 0 16px 0 14px;
+          cursor: pointer;
+          transition: border-color 160ms ease, color 160ms ease, box-shadow 200ms ease, transform 120ms ease;
+        }
+        .fileBtn:hover {
+          color: #c6d3df;
+          border-color: #344254;
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+        }
+        .fileBtn:active { transform: translateY(1px); }
+        .hiddenFile { display: none; }
 
         .genBtn {
-          width:220px; height:48px; border:none; border-radius:999px;
-          color:#fff; font-weight:700; letter-spacing:.3px;
-          background:linear-gradient(90deg, #3756ff, #6c8bff);
-          box-shadow:0 10px 22px rgba(76,114,255,.35), inset 0 -4px 10px rgba(0,0,0,.35);
-          cursor:pointer; transition:transform .12s ease, filter .12s ease, opacity .12s ease;
+          position: relative;
+          height: 48px;
+          padding: 0 22px;
+          border-radius: 999px;
+          border: 1px solid rgba(124, 211, 255, 0.5);
+          background: linear-gradient(180deg, #1a2430, #161b22);
+          color: #eaf6ff;
+          font-weight: 700;
+          letter-spacing: 0.2px;
+          cursor: pointer;
+          transition: transform 120ms ease, box-shadow 200ms ease, opacity 200ms ease, filter 200ms ease;
+          overflow: hidden;
+          box-shadow:
+            0 0 0 0 rgba(124, 211, 255, 0.0),
+            inset 0 -8px 24px rgba(124, 211, 255, 0.08);
+          animation: pulse 3.6s ease-in-out infinite;
         }
-        .genBtn:hover { transform:translateY(-1px); filter:brightness(1.07); }
-        .genBtn:disabled, .genBtn.working { opacity:.6; cursor:not-allowed; transform:none; }
-
-        .tip { margin:14px 8px 0; opacity:.72; font-size:13px; }
-
-        .alert {
-          margin-top:14px;
-          border-radius:10px;
-          padding:10px 12px;
-          font-size:14px;
-          border:1px solid transparent;
+        .genBtn.neon::before {
+          content: "";
+          position: absolute;
+          inset: -3px;
+          border-radius: inherit;
+          pointer-events: none;
+          background:
+            radial-gradient(60% 140% at 50% -20%, rgba(124,211,255,0.24), rgba(124,211,255,0) 70%),
+            radial-gradient(120% 80% at 50% 120%, rgba(102,178,255,0.18), rgba(102,178,255,0) 70%);
+          filter: blur(6px);
+          opacity: 0.65;
+          transition: opacity 180ms ease;
+          z-index: 0;
         }
-        .alert.success { background:rgba(42,191,99,.09); border-color:rgba(42,191,99,.35); color:#aef5c9; }
-        .alert.error   { background:rgba(255,69,69,.08); border-color:rgba(255,69,69,.35); color:#ffc7c7; }
-
-        .grid {
-          display:grid; grid-template-columns:repeat(3, 1fr); gap:18px;
-          margin:26px 0 0;
+        .genBtn.neon:hover::before { opacity: 0.95; }
+        .genBtn.isBusy::after {
+          content: "";
+          position: absolute;
+          inset: 2px;
+          border-radius: inherit;
+          pointer-events: none;
+          background:
+            repeating-linear-gradient(
+              -45deg,
+              rgba(255,255,255,0.10) 0 10px,
+              rgba(255,255,255,0.00) 10px 22px
+            );
+          background-size: 220% 100%;
+          mix-blend-mode: screen;
+          animation: shimmer 1.15s linear infinite;
+          z-index: 1;
         }
-
-        .feature {
-          display:block;
-          background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
-          border:1px solid rgba(255,255,255,.09);
-          border-radius:18px;
-          padding:18px 20px;
-          box-shadow:0 12px 28px rgba(0,0,0,.28);
+        .genBtn:hover {
+          box-shadow:
+            0 0 24px rgba(124, 211, 255, 0.18),
+            0 0 0 1px rgba(124, 211, 255, 0.25),
+            inset 0 -10px 28px rgba(124, 211, 255, 0.12);
+          transform: translateY(-0.5px);
+          filter: saturate(1.1);
         }
-        .feature:hover { text-decoration:none; border-color:rgba(255,255,255,.18); }
-        .featureTitle { color:#fff; font-weight:800; margin-bottom:6px; }
-        .featureSub { color:#a9c8ff; opacity:.9; }
+        .genBtn:active { transform: translateY(0.5px); }
+        .genBtn:disabled { opacity: 0.55; cursor: not-allowed; animation: none; }
+        .genBtn.isBusy { animation: throb 1.2s ease-in-out infinite; }
 
-        .foot {
-          display:flex; gap:10px; align-items:center; justify-content:center;
-          padding:26px; opacity:.75; font-size:14px;
-          border-top:1px solid rgba(255,255,255,.06);
+        .hint { margin: 10px 2px 0; font-size: 13px; color: var(--muted); }
+
+        .tiles {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 16px;
+          width: 100%;
+          max-width: 980px;
+          margin: 26px auto 0;
         }
+        .tile {
+          display: flex; flex-direction: column; gap: 4px;
+          padding: 16px 18px;
+          border-radius: 18px;
+          text-decoration: none; color: var(--ink);
+          background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+          border: 1px solid var(--line);
+          box-shadow: 0 12px 30px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.03);
+          transition: transform 140ms ease, box-shadow 200ms ease, border-color 160ms ease;
+        }
+        .tile:hover {
+          transform: translateY(-1px);
+          border-color: rgba(124, 211, 255, 0.22);
+          box-shadow: 0 18px 36px rgba(0,0,0,0.4), 0 0 0 1px rgba(124,211,255,0.12);
+        }
+        .tile strong { font-weight: 700; letter-spacing: 0.2px; }
+        .tile span { color: var(--muted); font-size: 13px; }
 
-        @media (max-width: 840px) {
-          .row { flex-direction:column; }
-          .genBtn, .choose { width:100%; }
-          .grid { grid-template-columns:1fr; }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(10px) scale(0.995); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes cardGlow {
+          0%, 100% { box-shadow: 0 20px 50px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04); }
+          50% { box-shadow: 0 24px 60px rgba(0,0,0,0.46), 0 0 0 1px rgba(124,211,255,0.10); }
+        }
+        @keyframes pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(124,211,255,0.0), inset 0 -8px 24px rgba(124,211,255,0.08); }
+          50% { box-shadow: 0 0 24px rgba(124,211,255,0.22), inset 0 -10px 30px rgba(124,211,255,0.14); }
+        }
+        @keyframes throb { 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-1px) } }
+        @keyframes shimmer { 0%{ background-position:200% 0 } 100%{ background-position:-20% 0 } }
+
+        @media (prefers-reduced-motion: reduce) {
+          .card, .genBtn { animation: none !important; }
+          .genBtn.isBusy::after { animation: none !important; }
+          .prompt, .tile, .fileBtn, .genBtn { transition: none !important; }
+        }
+        @media (max-width: 720px) {
+          .row { grid-template-columns: 1fr; }
+          .genBtn { width: 100%; }
+          .tiles { grid-template-columns: 1fr; }
         }
       `}</style>
-    </div>
+    </main>
   );
 }
