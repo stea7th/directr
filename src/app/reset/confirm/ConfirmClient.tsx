@@ -1,72 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export default function ConfirmClient() {
-  const [message, setMessage] = useState('Checking your reset link…');
+  const [message, setMessage] = useState('Verifying reset link…');
 
   useEffect(() => {
-    async function run() {
-      try {
-        const hash = window.location.hash.slice(1);
-        const search = window.location.search.slice(1);
-        const hashParams = new URLSearchParams(hash);
-        const qsParams = new URLSearchParams(search);
+    const hash = window.location.hash.slice(1);
+    const params = new URLSearchParams(hash);
+    const type = params.get('type');
+    const access_token = params.get('access_token');
 
-        const access_token =
-          hashParams.get('access_token') || qsParams.get('access_token') || '';
-        const refresh_token =
-          hashParams.get('refresh_token') || qsParams.get('refresh_token') || '';
-        const type = hashParams.get('type') || qsParams.get('type') || '';
-        const code = qsParams.get('code');
-
-        // 🔹 Handle password recovery (reset link)
-        if (type === 'recovery' && access_token) {
-          const { error } = await supabase.auth.setSession({
-            access_token,
-            refresh_token,
-          });
-          if (error) throw error;
-
-          setMessage('Verified. Redirecting to password reset form…');
-          window.location.replace('/reset/new');
-          return;
-        }
-
-        // 🔹 Handle magic link login
-        if (access_token && refresh_token) {
-          const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-          if (error) throw error;
-
-          setMessage('Signed in. Redirecting…');
-          window.location.replace('/account');
-          return;
-        }
-
-        // 🔹 Handle OTP-based login/signup
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) throw error;
-
-          setMessage('Signed in. Redirecting…');
-          window.location.replace('/account');
-          return;
-        }
-
-        setMessage('Missing code or tokens in the URL.');
-      } catch (err: any) {
-        console.error(err);
-        setMessage(err?.message || 'Link invalid or expired.');
-      }
+    // ✅ Supabase automatically sets session for recovery links
+    if (type === 'recovery' && access_token) {
+      setMessage('Link verified. Redirecting to password reset form…');
+      setTimeout(() => window.location.replace('/reset/new'), 1200);
+    } else {
+      setMessage('Missing or invalid reset link.');
     }
-
-    run();
   }, []);
 
   return (
