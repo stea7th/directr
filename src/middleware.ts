@@ -17,7 +17,6 @@ const PUBLIC = [
 
 // Routes that do need auth
 const PROTECTED = [
-  /^\/$/i,
   /^\/app(\/.*)?$/i,
   /^\/create(\/.*)?$/i,
   /^\/clipper(\/.*)?$/i,
