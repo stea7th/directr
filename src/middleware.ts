@@ -5,7 +5,8 @@ import { NextResponse, NextRequest } from 'next/server';
 const PUBLIC = [
   /^\/login/i,
   /^\/signup/i,
-  /^\/reset(\/.*)?$/i,     // /reset, /reset/confirm, /reset/new
+  /^\/reset(\/.*)?$/i,
+   /^\/reset\/confirm/,// /reset, /reset/confirm, /reset/new
   /^\/recover(\/.*)?$/i,   // optional bridge route if you use it
   /^\/auth\/callback/i,
   /^\/_next\/.*$/i,
