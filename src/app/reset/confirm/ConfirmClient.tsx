@@ -26,28 +26,34 @@ export default function ConfirmClient() {
         const type = hashParams.get('type') || qsParams.get('type') || '';
         const code = qsParams.get('code');
 
-        // 🔹 Password reset (type = recovery)
+        // 🔹 Handle password recovery (reset link)
         if (type === 'recovery' && access_token) {
-          const { error } = await supabase.auth.exchangeCodeForSession(access_token);
+          const { error } = await supabase.auth.setSession({
+            access_token,
+            refresh_token,
+          });
           if (error) throw error;
-          setMessage('Link verified. Redirecting to password reset form…');
-          window.location.replace('/reset/new'); // page where they choose new password
+
+          setMessage('Verified. Redirecting to password reset form…');
+          window.location.replace('/reset/new');
           return;
         }
 
-        // 🔹 Normal magic link (login/signup)
+        // 🔹 Handle magic link login
         if (access_token && refresh_token) {
           const { error } = await supabase.auth.setSession({ access_token, refresh_token });
           if (error) throw error;
+
           setMessage('Signed in. Redirecting…');
           window.location.replace('/account');
           return;
         }
 
-        // 🔹 OAuth or OTP code-based link
+        // 🔹 Handle OTP-based login/signup
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
+
           setMessage('Signed in. Redirecting…');
           window.location.replace('/account');
           return;
