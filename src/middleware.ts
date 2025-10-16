@@ -2,8 +2,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 // Paths that never require auth
+// src/middleware.ts  (only this line changes)
 const PUBLIC_PATHS = [
-  /^\/reset(\/.*)?$/i,       // password reset flow
+  /^\/reset(\/.*)?$/i,
+  /^\/recover(\/.*)?$/i,     // <-- add this
   /^\/auth\/callback/i,
   /^\/login/i,
   /^\/signup/i,
@@ -12,7 +14,6 @@ const PUBLIC_PATHS = [
   /^\/favicon\.ico$/i,
   /^\/robots\.txt$/i,
 ];
-
 export function middleware(req: NextRequest) {
   const { pathname, href } = req.nextUrl;
 
