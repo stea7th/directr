@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-// Force client render (no prerender)
+// prevent Next from pre-rendering this route
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 
@@ -27,7 +27,7 @@ export default function ConfirmResetPage() {
   const [pw1, setPw1] = useState('');
   const [pw2, setPw2] = useState('');
 
-  // 1) On mount, read tokens from hash and create a session.
+  // 1) create a session from Supabase tokens in the URL hash
   useEffect(() => {
     let cancelled = false;
 
@@ -41,11 +41,11 @@ export default function ConfirmResetPage() {
           return;
         }
 
-        // Create a session so updateUser() is allowed
         const { data, error } = await supabase.auth.setSession({
           access_token,
           refresh_token,
         });
+
         if (cancelled) return;
 
         if (error || !data?.session) {
@@ -68,7 +68,7 @@ export default function ConfirmResetPage() {
     };
   }, []);
 
-  // 2) Save new password
+  // 2) save new password
   async function save() {
     if (status !== 'ready') return;
     if (!pw1 || pw1.length < 8) return setMsg('Password must be at least 8 characters.');
@@ -78,9 +78,8 @@ export default function ConfirmResetPage() {
     try {
       const { error } = await supabase.auth.updateUser({ password: pw1 });
       if (error) throw error;
-      setMsg('Password updated! You can close this tab and sign in.');
-      // Optional: redirect after 1.5s
-      setTimeout(() => { window.location.href = '/login'; }, 1500);
+      setMsg('Password updated! Redirecting to login…');
+      setTimeout(() => (window.location.href = '/login'), 1500);
     } catch (e: any) {
       setStatus('ready');
       setMsg(e.message || 'Failed to update password.');
@@ -107,34 +106,54 @@ export default function ConfirmResetPage() {
             value={pw1}
             onChange={(e) => setPw1(e.target.value)}
             style={{
-              width: '100%', padding: '12px 14px', borderRadius: 10,
-              border: '1px solid #1b1d21', background: '#0f1113', color: '#e9eef3'
+              width: '100%',
+              padding: '12px 14px',
+              borderRadius: 10,
+              border: '1px solid #1b1d21',
+              background: '#0f1113',
+              color: '#e9eef3',
             }}
           />
+
           <label style={{ display: 'block', margin: '12px 0 6px' }}>Confirm password</label>
           <input
             type="password"
             value={pw2}
             onChange={(e) => setPw2(e.target.value)}
             style={{
-              width: '100%', padding: '12px 14px', borderRadius: 10,
-              border: '1px solid #1b1d21', background: '#0f1113', color: '#e9eef3'
+              width: '100%',
+              padding: '12px 14px',
+              borderRadius: 10,
+              border: '1px solid #1b1d21',
+              background: '#0f1113',
+              color: '#e9eef3',
             }}
           />
+
           <button
             type="button"
             onClick={save}
-            disabled={status === 'saving'}
             style={{
-              marginTop: 12, padding: '12px 16px', borderRadius: 10, fontWeight: 700,
-              border: '1px solid #2a3745', background: '#17202a', color: '#e9eef3',
-              opacity: status === 'saving' ? 0.6 : 1
+              marginTop: 12,
+              padding: '12px 16px',
+              borderRadius: 10,
+              fontWeight: 700,
+              border: '1px solid #2a3745',
+              background: '#17202a',
+              color: '#e9eef3',
             }}
           >
-            {status === 'saving' ? 'Saving…' : 'Update password'}
+            Update password
           </button>
-          {msg ? <div style={{ marginTop: 12, color: '#9aa4af' }}>{msg}</div> : null}
+
+          {msg ? (
+            <div style={{ marginTop: 12, color: '#9aa4af' }}>{msg}</div>
+          ) : null}
         </>
+      )}
+
+      {status === 'saving' && (
+        <p style={{ color: '#9aa4af' }}>Saving…</p>
       )}
     </main>
   );
