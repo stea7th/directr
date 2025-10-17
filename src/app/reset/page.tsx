@@ -10,10 +10,12 @@ const supabase = createClient(
   { auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: false } }
 );
 
-export default function ResetNewPage() {
+type Status = 'checking' | 'ready' | 'saving' | 'done' | 'error';
+
+export default function ResetPage() {
   const router = useRouter();
   const [password, setPassword] = useState('');
-  const [status, setStatus] = useState<'checking' | 'ready' | 'saving' | 'done' | 'error'>('checking');
+  const [status, setStatus] = useState<Status>('checking');
   const [msg, setMsg] = useState<string>('Checking session…');
 
   useEffect(() => {
@@ -21,7 +23,7 @@ export default function ResetNewPage() {
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
         setStatus('error');
-        setMsg('We couldn’t find an active recovery session. Please open the latest email link again.');
+        setMsg('We couldn’t find an active recovery session. Open the latest email link again.');
         return;
       }
       setStatus('ready');
@@ -44,7 +46,7 @@ export default function ResetNewPage() {
     }
     setStatus('done');
     setMsg('Password updated. Redirecting…');
-    setTimeout(() => router.replace('/'), 1000);
+    setTimeout(() => router.replace('/'), 900);
   }
 
   return (
