@@ -2,58 +2,61 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-/**
- * IMPORTANT: The password reset link carries the tokens in the URL HASH
- * (/#access_token=...), which the server never sees. If we redirect those
- * requests (e.g., to /login), the hash is lost. So we must allow /reset/*
- * through untouched, and we should NOT protect "/" either.
- */
+// Routes that must ALWAYS be reachable without a session
+const PUBLIC: RegExp[] = [
+  /^\/$/,                         // allow home (optional; keep or remove)
+  /^\/login(?:\/.*)?$/,
+  /^\/signup(?:\/.*)?$/,
+  /^\/auth\/callback(?:\/.*)?$/,
+  /^\/reset(?:\/.*)?$/,           // ⬅️ reset + reset/confirm are public
+  /^\/_next\/static/,
+  /^\/_next\/image/,
+  /^\/favicon\.ico$/,
+  /^\/icons?(?:\/.*)?$/,
+  /^\/images?(?:\/.*)?$/,
+];
 
-// Routes that require an authenticated session cookie.
-const PROTECTED = [/^\/create/, /^\/clipper/, /^\/planner/, /^\/jobs/];
+// Routes that actually require auth
+const PROTECTED: RegExp[] = [
+  /^\/app(?:\/.*)?$/,
+  /^\/create(?:\/.*)?$/,
+  /^\/clipper(?:\/.*)?$/,
+  /^\/planner(?:\/.*)?$/,
+  /^\/jobs(?:\/.*)?$/,
+  /^\/settings(?:\/.*)?$/,
+];
+
+function isMatch(pathname: string, rules: RegExp[]) {
+  return rules.some((r) => r.test(pathname));
+}
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Always allow the entire reset flow: /reset, /reset/confirm, etc.
-  if (pathname.startsWith('/reset')) {
+  // Never guard public assets or auth/reset pages
+  if (isMatch(pathname, PUBLIC)) {
     return NextResponse.next();
   }
 
-  // Public paths that should never be blocked
-  if (
-    pathname === '/' ||
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/signup') ||
-    pathname.startsWith('/auth') || // oauth callbacks if you use them
-    pathname.startsWith('/api')     // your APIs handle auth themselves
-  ) {
-    return NextResponse.next();
-  }
-
-  // Check if this path is protected
-  const needsAuth = PROTECTED.some((re) => re.test(pathname));
-  if (!needsAuth) return NextResponse.next();
-
-  // If protected, require the Supabase session cookie
-  // (sb:token is the default cookie prefix; adapt if you’ve customized)
+  // Detect a Supabase session cookie (covering both helper + js client cases)
   const hasSession =
+    req.cookies.has('sb-access-token') ||
     req.cookies.has('sb:token') ||
-    req.cookies.get('sb-access-token') ||
-    req.cookies.get('sb:access-token');
+    req.cookies.has('supabase-auth-token'); // legacy JSON cookie
 
-  if (hasSession) return NextResponse.next();
+  // Only block if the path is protected AND no session is present
+  if (isMatch(pathname, PROTECTED) && !hasSession) {
+    const url = req.nextUrl.clone();
+    url.pathname = '/login';
+    url.searchParams.set('next', pathname);
+    return NextResponse.redirect(url);
+  }
 
-  // Not authenticated: send to login WITHOUT touching hash-based flows.
-  const url = req.nextUrl.clone();
-  url.pathname = '/login';
-  url.searchParams.set('next', pathname || '/');
-  return NextResponse.redirect(url);
+  return NextResponse.next();
 }
 
-// Only run on app routes (exclude _next/static, images, etc.)
+// Apply to everything except static files we already handled above.
+// (Keeps the matcher simple and prevents double-processing assets.)
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|icons|images).*)'],
 };
