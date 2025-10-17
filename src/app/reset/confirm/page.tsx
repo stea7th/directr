@@ -1,61 +1,88 @@
-// src/app/reset/confirm/page.tsx
 'use client';
-export const dynamic = 'force-dynamic';
 
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  { auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: false } }
 );
 
-function parseHash() {
-  const hash = typeof window !== 'undefined' ? window.location.hash : '';
-  const q = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
-  const out: Record<string, string> = {};
-  q.forEach((v, k) => (out[k] = v));
-  return out;
-}
-
-export default function ConfirmResetPage() {
+export default function ConfirmRecoveryPage() {
   const router = useRouter();
-  const [msg, setMsg] = useState<'working' | 'error' | 'done'>('working');
-  const [detail, setDetail] = useState('');
+  const qp = useSearchParams();
+
+  const [status, setStatus] = useState<'checking' | 'ok' | 'error'>('checking');
+  const [message, setMessage] = useState<string>('Verifying your reset link…');
 
   useEffect(() => {
     (async () => {
       try {
-        const { access_token, refresh_token, type } = parseHash();
-        if (!access_token || !refresh_token) {
-          setMsg('error'); setDetail('Missing tokens in URL.'); return;
+        const type = qp.get('type'); // should be "recovery"
+        const tokenHash = qp.get('token_hash');
+        const code = qp.get('code'); // some projects send ?code= instead
+
+        if (type !== 'recovery') {
+          setStatus('error');
+          setMessage('Invalid recovery link.');
+          return;
         }
-        if (type && type !== 'recovery') {
-          setMsg('error'); setDetail(`Unexpected link type "${type}".`); return;
+
+        // Prefer token_hash; fall back to code
+        if (tokenHash) {
+          const { data, error } = await supabase.auth.verifyOtp({
+            type: 'recovery',
+            token_hash: tokenHash,
+          });
+          if (error) throw error;
+          if (!data?.user) throw new Error('Could not establish a session.');
+        } else if (code) {
+          // If a "code" param is present (PKCE), exchange it for a session
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          if (!data?.session) throw new Error('Could not establish a session.');
+        } else {
+          setStatus('error');
+          setMessage('Missing tokens in URL.');
+          return;
         }
-        const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-        if (error) { setMsg('error'); setDetail(error.message); return; }
-        setMsg('done');
+
+        setStatus('ok');
+        setMessage('Verified. Redirecting…');
         router.replace('/reset/new');
-      } catch (e: any) {
-        setMsg('error'); setDetail(e?.message || 'Unexpected error.');
+      } catch (err: any) {
+        setStatus('error');
+        setMessage(err?.message || 'Verification failed.');
       }
     })();
-  }, [router]);
+  }, [qp, router]);
 
   return (
-    <main style={{ minHeight: '60vh', display: 'grid', placeItems: 'center' }}>
-      <div style={{ background:'#14171a', border:'1px solid #2a3745', borderRadius:12, padding:20, maxWidth:560, width:'92%', color:'#e9eef3', textAlign:'center' }}>
-        <h1 style={{ margin:'0 0 8px', fontSize:22, fontWeight:800 }}>Choose a new password</h1>
-        {msg === 'working' && <p>Checking your link…</p>}
-        {msg === 'done' && <p>Redirecting…</p>}
-        {msg === 'error' && (
-          <>
-            <p style={{ color:'#f19999' }}>Invalid or expired reset link.</p>
-            <p style={{ opacity:0.8 }}>{detail}</p>
-            <p style={{ marginTop:12 }}><a href="/login" style={{ color:'#7cd3ff', fontWeight:700 }}>Back to sign in</a></p>
-          </>
+    <main style={{ minHeight: '70vh', display: 'grid', placeItems: 'center' }}>
+      <div
+        style={{
+          background: '#161a20',
+          border: '1px solid #252c36',
+          padding: 20,
+          borderRadius: 12,
+          width: 420,
+          maxWidth: '90%',
+          color: '#e9eef3',
+          textAlign: 'center',
+        }}
+      >
+        <h1 style={{ margin: 0, marginBottom: 8, fontSize: 22, fontWeight: 800 }}>
+          Choose a new password
+        </h1>
+        <p style={{ margin: 0, opacity: 0.85 }}>{message}</p>
+        {status === 'error' && (
+          <p style={{ marginTop: 16 }}>
+            <a href="/login" style={{ color: '#78b4ff', textDecoration: 'underline' }}>
+              Back to sign in
+            </a>
+          </p>
         )}
       </div>
     </main>
