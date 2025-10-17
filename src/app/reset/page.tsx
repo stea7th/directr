@@ -10,12 +10,14 @@ const supabase = createClient(
   { auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: false } }
 );
 
+// 👇 Explicit union so TS knows all allowed values.
 type Status = 'checking' | 'ready' | 'saving' | 'done' | 'error';
 
 export default function ResetPage() {
   const router = useRouter();
+
   const [password, setPassword] = useState('');
-  const [status, setStatus] = useState<Status>('checking');
+  const [status, setStatus] = useState<Status>('checking'); // 👈 typed
   const [msg, setMsg] = useState<string>('Checking session…');
 
   useEffect(() => {
@@ -23,7 +25,9 @@ export default function ResetPage() {
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
         setStatus('error');
-        setMsg('We couldn’t find an active recovery session. Open the latest email link again.');
+        setMsg(
+          'We couldn’t find an active recovery session. Open the latest password reset email again.'
+        );
         return;
       }
       setStatus('ready');
@@ -38,12 +42,14 @@ export default function ResetPage() {
     }
     setStatus('saving');
     setMsg('Updating password…');
+
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
       setStatus('error');
       setMsg(error.message);
       return;
     }
+
     setStatus('done');
     setMsg('Password updated. Redirecting…');
     setTimeout(() => router.replace('/'), 900);
@@ -83,10 +89,11 @@ export default function ResetPage() {
                 color: '#e9eef3',
               }}
             />
+
             <button
               type="button"
               onClick={save}
-              disabled={status === 'saving'}
+              disabled={status === 'saving'} // 👈 now valid
               style={{
                 width: '100%',
                 marginTop: 12,
