@@ -7,19 +7,26 @@ import { useRouter } from 'next/navigation';
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  { auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: false } }
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+    },
+  }
 );
 
-// 👇 Explicit union so TS knows all allowed values.
+// Explicit union so TS knows all allowed values.
 type Status = 'checking' | 'ready' | 'saving' | 'done' | 'error';
 
 export default function ResetPage() {
   const router = useRouter();
 
   const [password, setPassword] = useState('');
-  const [status, setStatus] = useState<Status>('checking'); // 👈 typed
-  const [msg, setMsg] = useState<string>('Checking session…');
+  const [status, setStatus] = useState<Status>('checking'); // <-- TYPED
+  const [msg, setMsg] = useState<string>('Checking recovery session…');
 
+  // Require an active recovery session before showing the form
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
@@ -40,6 +47,7 @@ export default function ResetPage() {
       setMsg('Password must be at least 8 characters.');
       return;
     }
+
     setStatus('saving');
     setMsg('Updating password…');
 
@@ -93,7 +101,8 @@ export default function ResetPage() {
             <button
               type="button"
               onClick={save}
-              disabled={status === 'saving'} // 👈 now valid
+              // disable while *not* ready (covers 'saving' and 'checking')
+              disabled={status !== 'ready'}
               style={{
                 width: '100%',
                 marginTop: 12,
@@ -103,7 +112,7 @@ export default function ResetPage() {
                 border: '1px solid #2a3745',
                 background: '#1e3a8a',
                 color: '#e9eef3',
-                opacity: status === 'saving' ? 0.7 : 1,
+                opacity: status !== 'ready' ? 0.7 : 1,
               }}
             >
               {status === 'saving' ? 'Saving…' : 'Save password'}
