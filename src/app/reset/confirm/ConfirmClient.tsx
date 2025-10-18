@@ -1,49 +1,166 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+    },
+  }
 );
 
-export default function ConfirmClient() {
-  const [msg, setMsg] = useState('Verifying your reset link…');
+type Status = 'checking' | 'ready' | 'done' | 'error';
+
+export default function ClientConfirm() {
+  const [status, setStatus] = useState<Status>('checking');
+  const [msg, setMsg] = useState('');
+  const [pw1, setPw1] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    // Supabase sends tokens as URL fragment: #access_token=...&refresh_token=...&type=recovery
-    const hash = window.location.hash.startsWith('#')
-      ? window.location.hash.slice(1)
-      : '';
-    const params = new URLSearchParams(hash);
+    (async () => {
+      try {
+        const qs = new URLSearchParams(window.location.search);
+        const code = qs.get('code');
+        if (!code) {
+          setStatus('error');
+          setMsg('Missing recovery code in the URL.');
+          return;
+        }
 
-    const type = params.get('type');
-    const access = params.get('access_token');
-    const refresh = params.get('refresh_token');
+        // version-safe exchange: try string, then object form
+        const res: any =
+          (await (supabase.auth as any).exchangeCodeForSession?.(code)) ??
+          (await (supabase.auth as any).exchangeCodeForSession?.({ code }));
 
-    if (type === 'recovery' && access) {
-      // Store for the next page to restore the session
-      localStorage.setItem('supabase_recovery_access_token', access);
-      if (refresh) {
-        localStorage.setItem('supabase_recovery_refresh_token', refresh);
+        if (res?.error) {
+          setStatus('error');
+          setMsg(res.error.message || 'Could not validate reset link.');
+          return;
+        }
+
+        setStatus('ready');
+      } catch (e: any) {
+        setStatus('error');
+        setMsg(e?.message || 'Unexpected error.');
       }
-      setMsg('Verified. Redirecting to reset form…');
-      // short delay so users see the status
-      setTimeout(() => {
-        // use replace so the hash URL isn’t kept in history
-        window.location.replace('/reset/new');
-      }, 600);
-    } else {
-      setMsg('Missing or invalid reset link.');
-    }
+    })();
   }, []);
 
+  async function save() {
+    if (status !== 'ready' || saving) return;
+
+    if (!pw1 || pw1.length < 8) {
+      setMsg('Password must be at least 8 characters.');
+      return;
+    }
+    if (pw1 !== pw2) {
+      setMsg('Passwords do not match.');
+      return;
+    }
+
+    setSaving(true);
+    setMsg('Saving your new password…');
+
+    const { error } = await supabase.auth.updateUser({ password: pw1 });
+    if (error) {
+      setSaving(false);
+      setStatus('error');
+      setMsg(error.message);
+      return;
+    }
+
+    setSaving(false);
+    setStatus('done');
+    setMsg('Password updated. You can close this tab or go to the app.');
+    // Optional: redirect after success
+    // setTimeout(() => (window.location.href = '/'), 800);
+  }
+
   return (
-    <main style={{ minHeight: '70vh', display: 'grid', placeItems: 'center', color: '#e9eef3' }}>
-      <div style={{ maxWidth: 520, width: '92%', background: '#121214', border: '1px solid #1b1d21', borderRadius: 16, padding: 20 }}>
-        <h1 style={{ margin: '0 0 6px', fontSize: 22, fontWeight: 700 }}>Reset your password</h1>
-        <p style={{ margin: 0, color: '#9aa4af' }}>{msg}</p>
+    <main style={{ minHeight: '70vh', display: 'grid', placeItems: 'center' }}>
+      <div
+        style={{
+          background: '#161a20',
+          border: '1px solid #252c36',
+          padding: 20,
+          borderRadius: 12,
+          width: 420,
+          maxWidth: '90%',
+          color: '#e9eef3',
+        }}
+      >
+        <h1 style={{ margin: 0, marginBottom: 8, fontSize: 22, fontWeight: 800 }}>
+          {status === 'done' ? 'All set' : 'Set a new password'}
+        </h1>
+
+        {status === 'checking' && <p>Validating your reset link…</p>}
+
+        {status === 'ready' && (
+          <>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <input
+                type="password"
+                placeholder="New password"
+                value={pw1}
+                onChange={(e) => setPw1(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  borderRadius: 10,
+                  border: '1px solid #2a3745',
+                  background: '#17202a',
+                  color: '#e9eef3',
+                }}
+              />
+              <input
+                type="password"
+                placeholder="Repeat new password"
+                value={pw2}
+                onChange={(e) => setPw2(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  borderRadius: 10,
+                  border: '1px solid #2a3745',
+                  background: '#17202a',
+                  color: '#e9eef3',
+                }}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              style={{
+                width: '100%',
+                marginTop: 12,
+                padding: '12px 16px',
+                borderRadius: 10,
+                fontWeight: 700,
+                border: '1px solid #2a3745',
+                background: '#1e3a8a',
+                color: '#e9eef3',
+                opacity: saving ? 0.7 : 1,
+                cursor: saving ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {saving ? 'Saving…' : 'Save password'}
+            </button>
+          </>
+        )}
+
+        {(status === 'error' || status === 'done') && (
+          <p style={{ marginTop: 12, opacity: 0.9 }}>{msg}</p>
+        )}
       </div>
     </main>
   );
