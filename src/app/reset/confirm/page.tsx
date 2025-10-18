@@ -2,62 +2,89 @@
 
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { useRouter, useSearchParams } from 'next/navigation';
+
+// prevent any prerender/static optimization
+export const revalidate = 0 as const;
+export const dynamic = 'force-dynamic' as const;
+export const fetchCache = 'force-no-store' as const;
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  { auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: false } }
+  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+    },
+  }
 );
 
-export default function ConfirmRecoveryPage() {
-  const router = useRouter();
-  const qp = useSearchParams();
+type Status = 'checking' | 'ready' | 'saving' | 'done' | 'error';
 
-  const [status, setStatus] = useState<'checking' | 'ok' | 'error'>('checking');
-  const [message, setMessage] = useState<string>('Verifying your reset link…');
+export default function ConfirmResetPage() {
+  const [status, setStatus] = useState<Status>('checking');
+  const [msg, setMsg] = useState('');
+  const [pw1, setPw1] = useState('');
+  const [pw2, setPw2] = useState('');
 
   useEffect(() => {
-    (async () => {
+    async function run() {
       try {
-        const type = qp.get('type'); // should be "recovery"
-        const tokenHash = qp.get('token_hash');
-        const code = qp.get('code'); // some projects send ?code= instead
-
-        if (type !== 'recovery') {
+        const qs = new URLSearchParams(window.location.search);
+        const code = qs.get('code');
+        if (!code) {
           setStatus('error');
-          setMessage('Invalid recovery link.');
+          setMsg('Missing recovery code in the URL.');
           return;
         }
 
-        // Prefer token_hash; fall back to code
-        if (tokenHash) {
-          const { data, error } = await supabase.auth.verifyOtp({
-            type: 'recovery',
-            token_hash: tokenHash,
-          });
-          if (error) throw error;
-          if (!data?.user) throw new Error('Could not establish a session.');
-        } else if (code) {
-          // If a "code" param is present (PKCE), exchange it for a session
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) throw error;
-          if (!data?.session) throw new Error('Could not establish a session.');
-        } else {
+        // Works across supabase-js versions (string or object signature)
+        const res: any =
+          (await (supabase.auth as any).exchangeCodeForSession?.(code)) ??
+          (await (supabase.auth as any).exchangeCodeForSession?.({ code }));
+
+        if (res?.error) {
           setStatus('error');
-          setMessage('Missing tokens in URL.');
+          setMsg(res.error.message || 'Could not validate reset link.');
           return;
         }
 
-        setStatus('ok');
-        setMessage('Verified. Redirecting…');
-        router.replace('/reset/new');
-      } catch (err: any) {
+        setStatus('ready');
+      } catch (e: any) {
         setStatus('error');
-        setMessage(err?.message || 'Verification failed.');
+        setMsg(e?.message || 'Unexpected error.');
       }
-    })();
-  }, [qp, router]);
+    }
+    run();
+  }, []);
+
+  async function save() {
+    if (status !== 'ready') return;
+    if (!pw1 || pw1.length < 8) {
+      setMsg('Password must be at least 8 characters.');
+      return;
+    }
+    if (pw1 !== pw2) {
+      setMsg('Passwords do not match.');
+      return;
+    }
+
+    setStatus('saving');
+    setMsg('Saving your new password…');
+
+    const { error } = await supabase.auth.updateUser({ password: pw1 });
+    if (error) {
+      setStatus('error');
+      setMsg(error.message);
+      return;
+    }
+
+    setStatus('done');
+    setMsg('Password updated. You can close this tab or go to the app.');
+    // Optional redirect:
+    // setTimeout(() => (window.location.href = '/'), 1200);
+  }
 
   return (
     <main style={{ minHeight: '70vh', display: 'grid', placeItems: 'center' }}>
@@ -70,19 +97,71 @@ export default function ConfirmRecoveryPage() {
           width: 420,
           maxWidth: '90%',
           color: '#e9eef3',
-          textAlign: 'center',
         }}
       >
         <h1 style={{ margin: 0, marginBottom: 8, fontSize: 22, fontWeight: 800 }}>
-          Choose a new password
+          {status === 'done' ? 'All set' : 'Set a new password'}
         </h1>
-        <p style={{ margin: 0, opacity: 0.85 }}>{message}</p>
-        {status === 'error' && (
-          <p style={{ marginTop: 16 }}>
-            <a href="/login" style={{ color: '#78b4ff', textDecoration: 'underline' }}>
-              Back to sign in
-            </a>
-          </p>
+
+        {status === 'checking' && <p>Validating your reset link…</p>}
+
+        {status === 'ready' && (
+          <>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <input
+                type="password"
+                placeholder="New password"
+                value={pw1}
+                onChange={(e) => setPw1(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  borderRadius: 10,
+                  border: '1px solid #2a3745',
+                  background: '#17202a',
+                  color: '#e9eef3',
+                }}
+              />
+              <input
+                type="password"
+                placeholder="Repeat new password"
+                value={pw2}
+                onChange={(e) => setPw2(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  borderRadius: 10,
+                  border: '1px solid #2a3745',
+                  background: '#17202a',
+                  color: '#e9eef3',
+                }}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={save}
+              disabled={status === 'saving'}
+              style={{
+                width: '100%',
+                marginTop: 12,
+                padding: '12px 16px',
+                borderRadius: 10,
+                fontWeight: 700,
+                border: '1px solid #2a3745',
+                background: '#1e3a8a',
+                color: '#e9eef3',
+                opacity: status === 'saving' ? 0.7 : 1,
+                cursor: status === 'saving' ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {status === 'saving' ? 'Saving…' : 'Save password'}
+            </button>
+          </>
+        )}
+
+        {(status === 'error' || status === 'done') && (
+          <p style={{ marginTop: 12, opacity: 0.9 }}>{msg}</p>
         )}
       </div>
     </main>
