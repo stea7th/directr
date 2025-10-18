@@ -15,7 +15,7 @@ export default function ResetPage() {
   const [status, setStatus] = useState<Status>('idle');
   const [msg, setMsg] = useState('');
 
-  async function save() {
+  async function sendLink() {
     if (status === 'saving') return;
     if (!email || !email.includes('@')) {
       setMsg('Enter a valid email.');
@@ -72,7 +72,7 @@ export default function ResetPage() {
 
         <button
           type="button"
-          onClick={save}
+          onClick={sendLink}
           disabled={status === 'saving'}
           style={{
             width: '100%',
