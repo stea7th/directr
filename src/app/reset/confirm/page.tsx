@@ -1,20 +1,12 @@
+// src/app/reset/confirm/page.tsx
+export const dynamic = 'force-dynamic';
+
 import { Suspense } from 'react';
 import ClientConfirm from './ClientConfirm';
 
-// ✅ these must be in a server component
-export const revalidate = 0;
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-
-export default function Page() {
+export default function ResetConfirmPage() {
   return (
-    <Suspense
-      fallback={
-        <main style={{ minHeight: '70vh', display: 'grid', placeItems: 'center', color: '#e9eef3' }}>
-          <div style={{ opacity: 0.8 }}>Loading…</div>
-        </main>
-      }
-    >
+    <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
       <ClientConfirm />
     </Suspense>
   );
