@@ -8,35 +8,30 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 );
 
-type Status = 'idle' | 'saving' | 'sent' | 'error';
-
 export default function ResetPage() {
   const [email, setEmail] = useState('');
-  const [status, setStatus] = useState<Status>('idle');
+  const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState('');
 
   async function sendLink() {
-    if (status === 'saving') return;
+    if (sending) return;
     if (!email || !email.includes('@')) {
       setMsg('Enter a valid email.');
-      setStatus('error');
       return;
     }
-    setStatus('saving');
+    setSending(true);
     setMsg('Sending reset email…');
 
     const redirectTo = `${window.location.origin}/reset/confirm`;
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo,
-    });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
 
     if (error) {
-      setStatus('error');
+      setSending(false);
       setMsg(error.message);
       return;
     }
 
-    setStatus('sent');
+    setSending(false);
     setMsg('Check your email for the reset link.');
   }
 
@@ -73,7 +68,7 @@ export default function ResetPage() {
         <button
           type="button"
           onClick={sendLink}
-          disabled={status === 'saving'}
+          disabled={sending}
           style={{
             width: '100%',
             marginTop: 12,
@@ -83,11 +78,11 @@ export default function ResetPage() {
             border: '1px solid #2a3745',
             background: '#1e3a8a',
             color: '#e9eef3',
-            opacity: status === 'saving' ? 0.7 : 1,
-            cursor: status === 'saving' ? 'not-allowed' : 'pointer',
+            opacity: sending ? 0.7 : 1,
+            cursor: sending ? 'not-allowed' : 'pointer',
           }}
         >
-          {status === 'saving' ? 'Sending…' : 'Send reset link'}
+          {sending ? 'Sending…' : 'Send reset link'}
         </button>
 
         {msg && <p style={{ marginTop: 12, opacity: 0.9 }}>{msg}</p>}
