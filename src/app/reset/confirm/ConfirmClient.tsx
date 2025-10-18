@@ -35,7 +35,7 @@ export default function ClientConfirm() {
           return;
         }
 
-        // version-safe exchange: try string, then object form
+        // version-safe: works for all supabase-js versions
         const res: any =
           (await (supabase.auth as any).exchangeCodeForSession?.(code)) ??
           (await (supabase.auth as any).exchangeCodeForSession?.({ code }));
@@ -80,8 +80,8 @@ export default function ClientConfirm() {
     setSaving(false);
     setStatus('done');
     setMsg('Password updated. You can close this tab or go to the app.');
-    // Optional: redirect after success
-    // setTimeout(() => (window.location.href = '/'), 800);
+    // optional: redirect after 2s
+    // setTimeout(() => (window.location.href = '/'), 2000);
   }
 
   return (
