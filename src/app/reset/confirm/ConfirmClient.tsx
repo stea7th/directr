@@ -13,8 +13,10 @@ type Status =
 
 export default function ConfirmClient() {
   const sp = useSearchParams();
-  const token = useMemo(() => sp.get("token") || sp.get("code") || "", [sp]);
-
+  const token = useMemo(
+  () => sp.get("token") || sp.get("token_hash") || sp.get("code") || "",
+  [sp]
+);
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState<string>("");
   const [password, setPassword] = useState<string>("");
