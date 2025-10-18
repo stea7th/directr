@@ -19,6 +19,7 @@ export default function ResetPage() {
       setMsg('Enter a valid email.');
       return;
     }
+
     setSending(true);
     setMsg('Sending reset email…');
 
@@ -48,11 +49,13 @@ export default function ResetPage() {
           color: '#e9eef3',
         }}
       >
-        <h1 style={{ margin: 0, marginBottom: 8, fontSize: 22, fontWeight: 800 }}>Reset password</h1>
+        <h1 style={{ margin: 0, marginBottom: 8, fontSize: 22, fontWeight: 800 }}>
+          Reset password
+        </h1>
 
         <input
           type="email"
-          placeholder="your@email.com"
+          placeholder="you@email.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           style={{
