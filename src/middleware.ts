@@ -2,48 +2,59 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-// Everything here must be allowed WITHOUT a session
-const PUBLIC: RegExp[] = [
-  /^\/reset(\/.*)?$/,          // <-- allow /reset and /reset/confirm/new etc.
-  /^\/auth\/callback(\/.*)?$/,
-  /^\/login$/,
-  /^\/signup$/,
-  /^\/api\/auth\/.*/,
-  /^\/_next\/.*/,
-  /^\/favicon\.ico$/,
-  /^\/robots\.txt$/,
-  /^\/sitemap\.xml$/,
-];
+// --- Helpers ---
+function isPublic(pathname: string) {
+  // Entire password reset flow
+  if (pathname.startsWith('/reset')) return true;
 
-const PROTECTED: RegExp[] = [
-  /^\/$/,               // your landing/dashboard
-  /^\/create/,
-  /^\/clipper/,
-  /^\/planner/,
-  /^\/jobs/,
-  /^\/account/,
-];
+  // Auth callback routes (if you use them)
+  if (pathname.startsWith('/auth/callback')) return true;
 
+  // Public pages
+  if (pathname === '/login' || pathname === '/signup') return true;
+
+  // Static runtime stuff
+  if (pathname.startsWith('/_next')) return true;
+  if (pathname === '/favicon.ico') return true;
+  if (pathname === '/robots.txt') return true;
+  if (pathname === '/sitemap.xml') return true;
+
+  return false;
+}
+
+const PROTECTED_ROOTS = ['/', '/create', '/clipper', '/planner', '/jobs', '/account'];
+
+function isProtected(pathname: string) {
+  return PROTECTED_ROOTS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+function hasSupabaseSession(req: NextRequest) {
+  // Supabase v2 cookies
+  if (req.cookies.has('sb-access-token')) return true;
+  if (req.cookies.has('sb-refresh-token')) return true;
+
+  // Legacy cookie (array json string sometimes)
+  const legacy = req.cookies.get('supabase-auth-token')?.value;
+  if (legacy && legacy.length > 0) return true;
+
+  return false;
+}
+
+// --- Middleware ---
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 1) Public routes go straight through
-  if (PUBLIC.some((re) => re.test(pathname))) {
-    return NextResponse.next();
-  }
+  // Skip API and webhooks entirely (auth handled per-route)
+  if (pathname.startsWith('/api')) return NextResponse.next();
 
-  // 2) Non-protected routes go through as well
-  if (!PROTECTED.some((re) => re.test(pathname))) {
-    return NextResponse.next();
-  }
+  // Always allow public routes
+  if (isPublic(pathname)) return NextResponse.next();
 
-  // 3) Guard protected routes by presence of Supabase cookies
-  const hasSession =
-    req.cookies.has('sb-access-token') ||
-    req.cookies.has('sb:token') ||
-    req.cookies.has('supabase-auth-token');
+  // If not a protected route, allow
+  if (!isProtected(pathname)) return NextResponse.next();
 
-  if (!hasSession) {
+  // Guard protected routes
+  if (!hasSupabaseSession(req)) {
     const url = req.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('next', pathname || '/');
@@ -53,6 +64,9 @@ export function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
+// Only run on app paths, skip static assets and api for speed & safety
 export const config = {
-  matcher: ['/(.*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|images/|fonts/|api/).*)',
+  ],
 };
