@@ -5,42 +5,28 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
-  {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false,
-    },
-  }
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 );
 
-// Explicit union fixes TS comparisons in JSX.
-type Status = 'idle' | 'sending' | 'sent' | 'error';
+type Status = 'idle' | 'saving' | 'sent' | 'error';
 
 export default function ResetPage() {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<Status>('idle');
-  const [msg, setMsg] = useState<string>('');
+  const [msg, setMsg] = useState('');
 
-  async function sendReset() {
-    if (!email.trim()) {
-      setMsg('Enter your email.');
+  async function save() {
+    if (status === 'saving') return;
+    if (!email || !email.includes('@')) {
+      setMsg('Enter a valid email.');
+      setStatus('error');
       return;
     }
-
-    setStatus('sending');
+    setStatus('saving');
     setMsg('Sending reset email…');
 
-    // Build redirect URL to your confirm page
-    const origin =
-      typeof window !== 'undefined'
-        ? window.location.origin
-        : process.env.NEXT_PUBLIC_SITE_URL || '';
-
-    const redirectTo = `${origin}/reset/confirm`;
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    const redirectTo = `${window.location.origin}/reset/confirm`;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo,
     });
 
@@ -51,7 +37,7 @@ export default function ResetPage() {
     }
 
     setStatus('sent');
-    setMsg('Check your inbox for the reset link.');
+    setMsg('Check your email for the reset link.');
   }
 
   return (
@@ -67,17 +53,11 @@ export default function ResetPage() {
           color: '#e9eef3',
         }}
       >
-        <h1 style={{ margin: 0, marginBottom: 8, fontSize: 22, fontWeight: 800 }}>
-          Reset your password
-        </h1>
-
-        <p style={{ marginTop: 4, marginBottom: 12, opacity: 0.9 }}>
-          We’ll email you a link to set a new password.
-        </p>
+        <h1 style={{ margin: 0, marginBottom: 8, fontSize: 22, fontWeight: 800 }}>Reset password</h1>
 
         <input
           type="email"
-          placeholder="you@example.com"
+          placeholder="your@email.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           style={{
@@ -92,8 +72,8 @@ export default function ResetPage() {
 
         <button
           type="button"
-          onClick={sendReset}
-          disabled={status === 'sending' || !email.trim()}
+          onClick={save}
+          disabled={status === 'saving'}
           style={{
             width: '100%',
             marginTop: 12,
@@ -103,20 +83,14 @@ export default function ResetPage() {
             border: '1px solid #2a3745',
             background: '#1e3a8a',
             color: '#e9eef3',
-            opacity: status === 'sending' || !email.trim() ? 0.7 : 1,
-            cursor: status === 'sending' || !email.trim() ? 'not-allowed' : 'pointer',
+            opacity: status === 'saving' ? 0.7 : 1,
+            cursor: status === 'saving' ? 'not-allowed' : 'pointer',
           }}
         >
-          {status === 'sending' ? 'Sending…' : 'Send reset link'}
+          {status === 'saving' ? 'Sending…' : 'Send reset link'}
         </button>
 
         {msg && <p style={{ marginTop: 12, opacity: 0.9 }}>{msg}</p>}
-
-        {status === 'sent' && (
-          <p style={{ marginTop: 10 }}>
-            Didn’t get it? Check spam, or try again after a minute.
-          </p>
-        )}
       </div>
     </main>
   );
