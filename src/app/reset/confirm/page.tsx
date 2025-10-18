@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import ClientConfirm from './ClientConfirm';
 
-// ✅ These must be on a server file, not a client one
+// ✅ these must be in a server component
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
