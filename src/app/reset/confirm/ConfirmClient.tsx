@@ -7,7 +7,6 @@ type Status =
   | "idle"
   | "loading"
   | "need-password"
-  | "saving"
   | "ok"
   | "error"
   | "missing-token";
@@ -19,6 +18,7 @@ export default function ConfirmClient() {
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [saving, setSaving] = useState<boolean>(false);
 
   useEffect(() => {
     let alive = true;
@@ -38,12 +38,11 @@ export default function ConfirmClient() {
           headers: { "Content-Type": "application/json" },
         });
 
-        // try to parse a helpful payload, but don't depend on it
         let data: any = null;
         try {
           data = await res.clone().json();
         } catch {
-          // non-JSON; ignore
+          // ignore non-JSON
         }
 
         if (!alive) return;
@@ -79,8 +78,8 @@ export default function ConfirmClient() {
   }, [token]);
 
   async function save() {
-    if (!token) return;
-    setStatus("saving");
+    if (!token || saving) return;
+    setSaving(true);
     try {
       const res = await fetch(`/api/confirm-client`, {
         method: "POST",
@@ -98,22 +97,22 @@ export default function ConfirmClient() {
       if (res.ok) {
         setStatus("ok");
         setMessage((data?.message as string) || "Password set. You’re confirmed!");
+      } else if (data?.needPassword || res.status === 400 || res.status === 422) {
+        setStatus("need-password");
+        setMessage(
+          (data?.message as string) || "Please provide a valid password and try again."
+        );
       } else {
-        if (data?.needPassword || res.status === 400 || res.status === 422) {
-          setStatus("need-password");
-          setMessage(
-            (data?.message as string) || "Please provide a valid password and try again."
-          );
-        } else {
-          setStatus("error");
-          setMessage(
-            (data?.message as string) || (await res.text()) || "Could not save password."
-          );
-        }
+        setStatus("error");
+        setMessage(
+          (data?.message as string) || (await res.text()) || "Could not save password."
+        );
       }
     } catch (err: any) {
       setStatus("error");
       setMessage(err?.message || "Network error while saving password.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -164,10 +163,10 @@ export default function ConfirmClient() {
           <button
             type="button"
             onClick={save}
-            disabled={status === "saving"}
-            style={buttonStyle(status === "saving")}
+            disabled={saving}
+            style={buttonStyle(saving)}
           >
-            {status === "saving" ? "Saving…" : "Save password"}
+            {saving ? "Saving…" : "Save password"}
           </button>
         </section>
       )}
