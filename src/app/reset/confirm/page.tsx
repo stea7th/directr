@@ -3,10 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-// prevent any prerender/static optimization
-export const revalidate = 0 as const;
-export const dynamic = 'force-dynamic' as const;
-export const fetchCache = 'force-no-store' as const;
+// Stop prerender / caching (no const assertions)
+export const revalidate = 0;
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string,
@@ -20,16 +20,17 @@ const supabase = createClient(
   }
 );
 
-type Status = 'checking' | 'ready' | 'saving' | 'done' | 'error';
+type Status = 'checking' | 'ready' | 'done' | 'error';
 
 export default function ConfirmResetPage() {
   const [status, setStatus] = useState<Status>('checking');
   const [msg, setMsg] = useState('');
   const [pw1, setPw1] = useState('');
   const [pw2, setPw2] = useState('');
+  const [saving, setSaving] = useState(false); // <-- separate flag
 
   useEffect(() => {
-    async function run() {
+    (async () => {
       try {
         const qs = new URLSearchParams(window.location.search);
         const code = qs.get('code');
@@ -39,7 +40,7 @@ export default function ConfirmResetPage() {
           return;
         }
 
-        // Works across supabase-js versions (string or object signature)
+        // version-safe: try string then object
         const res: any =
           (await (supabase.auth as any).exchangeCodeForSession?.(code)) ??
           (await (supabase.auth as any).exchangeCodeForSession?.({ code }));
@@ -55,12 +56,11 @@ export default function ConfirmResetPage() {
         setStatus('error');
         setMsg(e?.message || 'Unexpected error.');
       }
-    }
-    run();
+    })();
   }, []);
 
   async function save() {
-    if (status !== 'ready') return;
+    if (status !== 'ready' || saving) return;
     if (!pw1 || pw1.length < 8) {
       setMsg('Password must be at least 8 characters.');
       return;
@@ -70,20 +70,21 @@ export default function ConfirmResetPage() {
       return;
     }
 
-    setStatus('saving');
+    setSaving(true);
     setMsg('Saving your new password…');
-
     const { error } = await supabase.auth.updateUser({ password: pw1 });
     if (error) {
+      setSaving(false);
       setStatus('error');
       setMsg(error.message);
       return;
     }
 
+    setSaving(false);
     setStatus('done');
     setMsg('Password updated. You can close this tab or go to the app.');
-    // Optional redirect:
-    // setTimeout(() => (window.location.href = '/'), 1200);
+    // Optional: redirect after success
+    // setTimeout(() => (window.location.href = '/'), 800);
   }
 
   return (
@@ -141,7 +142,7 @@ export default function ConfirmResetPage() {
             <button
               type="button"
               onClick={save}
-              disabled={status === 'saving'}
+              disabled={saving} // <-- no narrowing complaint now
               style={{
                 width: '100%',
                 marginTop: 12,
@@ -151,11 +152,11 @@ export default function ConfirmResetPage() {
                 border: '1px solid #2a3745',
                 background: '#1e3a8a',
                 color: '#e9eef3',
-                opacity: status === 'saving' ? 0.7 : 1,
-                cursor: status === 'saving' ? 'not-allowed' : 'pointer',
+                opacity: saving ? 0.7 : 1,
+                cursor: saving ? 'not-allowed' : 'pointer',
               }}
             >
-              {status === 'saving' ? 'Saving…' : 'Save password'}
+              {saving ? 'Saving…' : 'Save password'}
             </button>
           </>
         )}
