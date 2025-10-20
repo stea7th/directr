@@ -1,32 +1,45 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+type Body = {
+  access_token: string;
+  refresh_token: string;
+  // optional, if you pass it from the client
+  expires_in?: number;   // seconds
+  expires_at?: number;   // epoch seconds
+};
 
 export async function POST(req: Request) {
-  const { access_token, refresh_token } = await req.json();
+  const { access_token, refresh_token, expires_in, expires_at } = (await req.json()) as Body;
 
-  // Prepare a response we can attach cookies to
+  if (!access_token || !refresh_token) {
+    return NextResponse.json({ error: "Missing tokens" }, { status: 400 });
+  }
+
+  // Compute a sane cookie lifetime
+  const now = Math.floor(Date.now() / 1000);
+  const exp = typeof expires_at === "number" ? expires_at : now + (expires_in || 60 * 60); // default 1h
+  const maxAge = Math.max(60, exp - now); // at least 1 minute
+
   const res = NextResponse.json({ ok: true });
 
-  const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    cookies: {
-      get(name: string) {
-        // no-op for this exchange
-        return undefined as any;
-      },
-      set(name: string, value: string, options: any) {
-        res.cookies.set(name, value, options);
-      },
-      remove(name: string, options: any) {
-        res.cookies.set(name, "", { ...options, maxAge: 0 });
-      },
-    },
+  // Minimal cookie pair the server can read to validate the session.
+  // (Names are your choice; keep them consistent with whatever your server check reads.)
+  res.cookies.set("sb-access-token", access_token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge,
   });
 
-  // Write the auth cookies on the server
-  await supabase.auth.setSession({ access_token, refresh_token });
+  res.cookies.set("sb-refresh-token", refresh_token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    // refresh token usually lasts longer; give it ~2 weeks if we don't know exact exp
+    maxAge: Math.max(maxAge, 60 * 60 * 24 * 14),
+  });
 
   return res;
 }
