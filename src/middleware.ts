@@ -1,11 +1,13 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+const CANONICAL_HOST = "directr-beta.vercel.app"; // <- set your one true domain
+
 const PUBLIC_PATHS = new Set<string>([
   "/login",
-  "/create",             // allow signup
-  "/reset/confirm",      // recovery link landing
-  "/api/confirm-client", // API used by recovery
+  "/create",
+  "/reset/confirm",
+  "/api/confirm-client",
 ]);
 
 function projectRefFromUrl(url: string | undefined) {
@@ -15,24 +17,32 @@ function projectRefFromUrl(url: string | undefined) {
 }
 
 export function middleware(req: NextRequest) {
+  // 1) Canonical host redirect (prevents split-cookie issues across preview domains)
+  if (req.nextUrl.hostname !== CANONICAL_HOST) {
+    const url = new URL(req.nextUrl.toString());
+    url.hostname = CANONICAL_HOST;
+    return NextResponse.redirect(url, 308);
+  }
+
   const { pathname } = req.nextUrl;
 
-  // allow static files and Next internals
+  // allow assets
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/icons") ||
     pathname.startsWith("/images") ||
-    pathname.startsWith("/public")
+    pathname.includes(".")
   ) {
     return NextResponse.next();
   }
 
-  // public pages that never require auth
+  // allow public routes
   if (PUBLIC_PATHS.has(pathname)) {
     return NextResponse.next();
   }
 
+  // 2) Auth check (accept both cookie name styles)
   const cookies = req.cookies;
   const hasGeneric =
     cookies.has("sb-access-token") || cookies.has("sb-refresh-token");
@@ -56,5 +66,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next|.*\\..*).*)"], // run on all routes except static/assets
+  matcher: ["/((?!_next|.*\\..*).*)"],
 };
