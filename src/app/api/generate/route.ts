@@ -1,40 +1,38 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-export const dynamic = 'force-dynamic';
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { createClient } from "@supabase/supabase-js";
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+function projectRefFromUrl(url: string) {
+  const m = url.match(/^https?:\/\/([a-z0-9-]+)\.supabase\.co/i);
+  return m?.[1] || null;
+}
+
+function supabaseFromCookies() {
+  const jar = cookies();
+  const ref = projectRefFromUrl(SUPABASE_URL);
+  const accessToken =
+    jar.get("sb-access-token")?.value ||
+    (ref ? jar.get(`sb-${ref}-auth-token`)?.value : undefined) ||
+    "";
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false },
+    global: accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : {},
+  });
+}
+
 export async function POST(req: Request) {
-  try {
-    const authHeader = req.headers.get('authorization') || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const supabase = supabaseFromCookies();
+  const { data: userData } = await supabase.auth.getUser();
 
-    if (!token) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { global: { headers: { Authorization: `Bearer ${token}` } } }
-    );
-
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    const { prompt } = await req.json();
-    if (!prompt || prompt.trim() === '') {
-      return NextResponse.json({ error: 'Prompt required' }, { status: 400 });
-    }
-
-    // ——— mock job create (replace with real logic later) ———
-    const jobId = Math.random().toString(36).slice(2, 9);
-    // await supabase.from('jobs').insert({ id: jobId, user_id: user.id, prompt });
-
-    return NextResponse.json({ id: jobId, ok: true });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err?.message || 'Server error' },
-      { status: 500 }
-    );
+  if (!userData?.user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  // Example payload
+  const body = await req.json();
+  // do your logic here using userData.user.id
+  return NextResponse.json({ ok: true, message: "Protected route accessed!" });
 }
