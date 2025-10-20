@@ -25,7 +25,9 @@ async function supabaseFromCookies() {
 
 export default async function JobDetailPage({
   params,
-}: { params: Promise<{ id: string }> }) {
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
 
   const supabase = await supabaseFromCookies();
@@ -34,23 +36,25 @@ export default async function JobDetailPage({
     return (
       <main className="mx-auto max-w-2xl p-6">
         <h1 className="text-2xl font-semibold">Not signed in</h1>
-        <p className="mt-2"><Link href="/login" className="underline">Go to login</Link></p>
+        <p className="mt-2">
+          <Link href="/login" className="underline">Go to login</Link>
+        </p>
       </main>
     );
   }
 
+  // Select all columns to avoid missing-column errors
   const { data, error } = await supabase
     .from("jobs")
-    .select("id,title,status,prompt,created_at")
+    .select("*")
     .eq("id", id)
-    .eq("owner_id", ures.user.id)
-    .single();
+    .maybeSingle();
 
-  if (error) {
+  if (error || !data) {
     return (
       <main className="mx-auto max-w-2xl p-6">
         <h1 className="text-2xl font-semibold">Job not found</h1>
-        <p className="mt-2 text-sm text-red-500">{error.message}</p>
+        {error ? <p className="mt-2 text-sm text-red-500">{error.message}</p> : null}
         <p className="mt-6"><Link href="/jobs" className="underline">← Back to jobs</Link></p>
       </main>
     );
@@ -59,12 +63,13 @@ export default async function JobDetailPage({
   return (
     <main className="mx-auto max-w-2xl p-6">
       <h1 className="text-2xl font-semibold">
-        {data.title} <span className="text-gray-400 text-base">#{data.id}</span>
+        {(data.title as string) || "Job"}{" "}
+        <span className="text-gray-400 text-base">#{data.id}</span>
       </h1>
       <p className="mt-2 text-sm text-gray-400">
-        Status: <span className="font-medium text-white">{data.status}</span>
+        Status: <span className="font-medium text-white">{(data.status as string) || "unknown"}</span>
       </p>
-      {data.prompt ? <pre className="mt-4 whitespace-pre-wrap">{data.prompt}</pre> : null}
+      {data.prompt ? <pre className="mt-4 whitespace-pre-wrap">{data.prompt as string}</pre> : null}
       <p className="mt-6"><Link href="/jobs" className="underline">← Back to jobs</Link></p>
     </main>
   );
