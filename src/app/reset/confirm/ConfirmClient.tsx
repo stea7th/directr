@@ -2,119 +2,89 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 
-type Status =
-  | "idle"
-  | "loading"
-  | "need-password"
-  | "ok"
-  | "error"
-  | "missing-token";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+type Status = "idle" | "verifying" | "need-password" | "saving" | "ok" | "error" | "missing-token";
 
 export default function ConfirmClient() {
   const sp = useSearchParams();
+
   const token = useMemo(
-  () => sp.get("token") || sp.get("token_hash") || sp.get("code") || "",
-  [sp]
-);
+    () => sp.get("token") || sp.get("token_hash") || sp.get("code") || "",
+    [sp]
+  );
+  const type = useMemo(() => sp.get("type") || "recovery", [sp]);
+
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState<string>("");
   const [password, setPassword] = useState<string>("");
-  const [saving, setSaving] = useState<boolean>(false);
+
+  // Create a browser Supabase client (holds session in local storage)
+  const supabase = useMemo(() => {
+    return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true } });
+  }, []);
 
   useEffect(() => {
     let alive = true;
 
-    async function run() {
+    async function verify() {
       if (!token) {
-        if (!alive) return;
         setStatus("missing-token");
         setMessage("Missing confirmation token. Open the link from your email again.");
         return;
       }
-
-      setStatus("loading");
+      setStatus("verifying");
       try {
-        const res = await fetch(`/api/confirm-client?token=${encodeURIComponent(token)}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const { data, error } = await supabase.auth.verifyOtp({
+          type: type as any,       // "recovery" | "signup" | "email_change"
+          token_hash: token,
         });
 
-        let data: any = null;
-        try {
-          data = await res.clone().json();
-        } catch {
-          // ignore non-JSON
-        }
-
         if (!alive) return;
 
-        if (res.ok) {
-          setStatus("ok");
-          setMessage((data?.message as string) || "All set — your account is confirmed.");
-        } else if (data?.needPassword || res.status === 401 || res.status === 409) {
-          setStatus("need-password");
-          setMessage(
-            (data?.message as string) ||
-              "To finish confirmation, set a password for your account."
-          );
-        } else {
+        if (error) {
           setStatus("error");
-          setMessage(
-            (data?.message as string) ||
-              (await res.text()) ||
-              "Confirmation failed. Try the link again."
-          );
+          setMessage(error.message || "Confirmation failed. Try the link again.");
+          return;
         }
-      } catch (err: any) {
+
+        // Token verified — user/session is now set in this browser client.
+        setStatus("need-password");
+        setMessage("Create a new password to finish resetting your account.");
+      } catch (e: any) {
         if (!alive) return;
         setStatus("error");
-        setMessage(err?.message || "Network error. Please try again.");
+        setMessage(e?.message || "Something went wrong during verification.");
       }
     }
 
-    run();
+    verify();
     return () => {
       alive = false;
     };
-  }, [token]);
+  }, [supabase, token, type]);
 
-  async function save() {
-    if (!token || saving) return;
-    setSaving(true);
+  async function savePassword() {
+    if (!password) {
+      setMessage("Please enter a new password.");
+      return;
+    }
+    setStatus("saving");
     try {
-      const res = await fetch(`/api/confirm-client`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password }),
-      });
-
-      let data: any = null;
-      try {
-        data = await res.clone().json();
-      } catch {
-        // ignore
-      }
-
-      if (res.ok) {
-        setStatus("ok");
-        setMessage((data?.message as string) || "Password set. You’re confirmed!");
-      } else if (data?.needPassword || res.status === 400 || res.status === 422) {
+      const { data, error } = await supabase.auth.updateUser({ password });
+      if (error) {
         setStatus("need-password");
-        setMessage(
-          (data?.message as string) || "Please provide a valid password and try again."
-        );
-      } else {
-        setStatus("error");
-        setMessage(
-          (data?.message as string) || (await res.text()) || "Could not save password."
-        );
+        setMessage(error.message || "Please provide a valid password and try again.");
+        return;
       }
-    } catch (err: any) {
-      setStatus("error");
-      setMessage(err?.message || "Network error while saving password.");
-    } finally {
-      setSaving(false);
+      setStatus("ok");
+      setMessage("Password set. You’re confirmed! You can close this tab or head to your dashboard.");
+    } catch (e: any) {
+      setStatus("need-password");
+      setMessage(e?.message || "Could not save password. Try again.");
     }
   }
 
@@ -134,28 +104,19 @@ export default function ConfirmClient() {
     <main className="mx-auto max-w-md p-6">
       <h1 className="text-2xl font-semibold">Confirming…</h1>
 
-      {status === "missing-token" && (
-        <p className="mt-3 text-sm text-gray-600">{message}</p>
-      )}
-
-      {status === "loading" && <p className="mt-4">Working on it…</p>}
-
-      {status === "ok" && (
-        <p className="mt-4 text-green-600">
-          {message} You can close this tab or head to your dashboard.
-        </p>
-      )}
-
-      {status === "error" && <p className="mt-4 text-red-600">{message}</p>}
+      {status === "missing-token" && <p className="mt-3 text-sm text-gray-400">{message}</p>}
+      {status === "verifying" && <p className="mt-4">Verifying link…</p>}
+      {status === "error" && <p className="mt-4 text-red-500">{message}</p>}
+      {status === "ok" && <p className="mt-4 text-green-500">{message}</p>}
 
       {status === "need-password" && (
         <section className="mt-4 space-y-3">
-          <p className="text-sm text-gray-700">{message}</p>
+          <p className="text-sm text-gray-300">{message}</p>
           <label className="block">
-            <span className="text-sm text-gray-700">New password</span>
+            <span className="text-sm text-gray-300">New password</span>
             <input
               type="password"
-              className="mt-1 w-full rounded-lg border border-gray-300 p-2"
+              className="mt-1 w-full rounded-lg border border-gray-600 bg-black p-2 text-white"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Create a password"
@@ -164,11 +125,11 @@ export default function ConfirmClient() {
 
           <button
             type="button"
-            onClick={save}
-            disabled={saving}
-            style={buttonStyle(saving)}
+            onClick={savePassword}
+            disabled={status === "saving"}
+            style={buttonStyle(status === "saving")}
           >
-            {saving ? "Saving…" : "Save password"}
+            {status === "saving" ? "Saving…" : "Save password"}
           </button>
         </section>
       )}
