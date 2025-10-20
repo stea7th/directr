@@ -37,20 +37,16 @@ export default function LoginPage() {
     return;
   }
 
-  // Tell the server to set the Supabase cookie so SSR pages see you're logged in
   if (data.session) {
+    const { access_token, refresh_token, expires_in, expires_at } = data.session;
     await fetch("/api/auth/set-cookie", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-      }),
+      body: JSON.stringify({ access_token, refresh_token, expires_in, expires_at }),
     });
   }
 
-  // Go wherever you want after login
-  setMsg("Signed in! Redirecting…");
+  // Redirect after login
   window.location.href = "/planner"; // or "/"
 }
   async function handleReset() {
