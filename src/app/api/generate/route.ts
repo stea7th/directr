@@ -10,13 +10,15 @@ function projectRefFromUrl(url: string) {
   return m?.[1] || null;
 }
 
-function supabaseFromCookies() {
-  const jar = cookies();
+async function supabaseFromCookies() {
+  const jar = await cookies(); // Next 15: cookies() may be Promise-like here
   const ref = projectRefFromUrl(SUPABASE_URL);
+
   const accessToken =
     jar.get("sb-access-token")?.value ||
     (ref ? jar.get(`sb-${ref}-auth-token`)?.value : undefined) ||
     "";
+
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: false },
     global: accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : {},
@@ -24,15 +26,21 @@ function supabaseFromCookies() {
 }
 
 export async function POST(req: Request) {
-  const supabase = supabaseFromCookies();
-  const { data: userData } = await supabase.auth.getUser();
+  const supabase = await supabaseFromCookies();
 
-  if (!userData?.user) {
+  const { data: ures, error: uerr } = await supabase.auth.getUser();
+  if (uerr || !ures?.user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  // Example payload
-  const body = await req.json();
-  // do your logic here using userData.user.id
-  return NextResponse.json({ ok: true, message: "Protected route accessed!" });
+  // -------- YOUR LOGIC HERE --------
+  // const body = await req.json();
+  // ... do work using ures.user.id ...
+  // e.g.:
+  // const { data, error } = await supabase.from("projects").insert({ owner_id: ures.user.id, ...body }).select().single();
+  // if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  // return NextResponse.json({ ok: true, project: data });
+  // ---------------------------------
+
+  return NextResponse.json({ ok: true, user: { id: ures.user.id } });
 }
