@@ -11,14 +11,12 @@ function projectRefFromUrl(url: string) {
 }
 
 async function supabaseFromCookies() {
-  const jar = await cookies(); // Next 15
+  const jar = await cookies();
   const ref = projectRefFromUrl(SUPABASE_URL);
-
   const accessToken =
     jar.get("sb-access-token")?.value ||
     (ref ? jar.get(`sb-${ref}-auth-token`)?.value : undefined) ||
     "";
-
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: false },
     global: accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : {},
@@ -38,14 +36,29 @@ export async function POST(req: Request) {
     prompt?: string;
   };
 
-  // Insert a new job row. Adjust table/columns to your schema if different.
-  const insert = {
-    owner_id: ures.user.id,
-    title: body.title || "New Job",
-    prompt: body.prompt || null,
-    status: "queued",
-    created_at: new Date().toISOString(),
-  };
+  // Detect available columns on the 'jobs' table
+  const { data: cols, error: colsErr } = await supabase
+    .from("information_schema.columns")
+    .select("column_name")
+    .eq("table_schema", "public")
+    .eq("table_name", "jobs");
+
+  if (colsErr || !cols) {
+    return NextResponse.json(
+      { error: colsErr?.message || "Could not inspect jobs table" },
+      { status: 500 }
+    );
+  }
+
+  const has = (name: string) => cols.some((c: any) => c.column_name === name);
+
+  // Build minimal safe insert
+  const insert: Record<string, any> = {};
+  if (has("title")) insert.title = body.title ?? "New Job";
+  if (has("prompt")) insert.prompt = body.prompt ?? null;
+  if (has("owner_id")) insert.owner_id = ures.user.id;
+  if (has("status")) insert.status = "queued";
+  if (has("created_at")) insert.created_at = new Date().toISOString();
 
   const { data, error } = await supabase
     .from("jobs")
