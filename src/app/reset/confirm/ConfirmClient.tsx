@@ -7,7 +7,13 @@ import { createClient } from "@supabase/supabase-js";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-type Status = "idle" | "verifying" | "need-password" | "saving" | "ok" | "error" | "missing-token";
+type Status =
+  | "idle"
+  | "verifying"
+  | "need-password"
+  | "ok"
+  | "error"
+  | "missing-token";
 
 export default function ConfirmClient() {
   const sp = useSearchParams();
@@ -21,11 +27,13 @@ export default function ConfirmClient() {
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [saving, setSaving] = useState<boolean>(false);
 
-  // Create a browser Supabase client (holds session in local storage)
-  const supabase = useMemo(() => {
-    return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true } });
-  }, []);
+  // Browser Supabase client
+  const supabase = useMemo(
+    () => createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true } }),
+    []
+  );
 
   useEffect(() => {
     let alive = true;
@@ -39,7 +47,7 @@ export default function ConfirmClient() {
       setStatus("verifying");
       try {
         const { data, error } = await supabase.auth.verifyOtp({
-          type: type as any,       // "recovery" | "signup" | "email_change"
+          type: type as any, // "recovery" | "signup" | "email_change"
           token_hash: token,
         });
 
@@ -51,7 +59,7 @@ export default function ConfirmClient() {
           return;
         }
 
-        // Token verified — user/session is now set in this browser client.
+        // Token verified — prompt for new password
         setStatus("need-password");
         setMessage("Create a new password to finish resetting your account.");
       } catch (e: any) {
@@ -72,9 +80,11 @@ export default function ConfirmClient() {
       setMessage("Please enter a new password.");
       return;
     }
-    setStatus("saving");
+    if (saving) return;
+
+    setSaving(true);
     try {
-      const { data, error } = await supabase.auth.updateUser({ password });
+      const { error } = await supabase.auth.updateUser({ password });
       if (error) {
         setStatus("need-password");
         setMessage(error.message || "Please provide a valid password and try again.");
@@ -85,6 +95,8 @@ export default function ConfirmClient() {
     } catch (e: any) {
       setStatus("need-password");
       setMessage(e?.message || "Could not save password. Try again.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -126,10 +138,10 @@ export default function ConfirmClient() {
           <button
             type="button"
             onClick={savePassword}
-            disabled={status === "saving"}
-            style={buttonStyle(status === "saving")}
+            disabled={saving}
+            style={buttonStyle(saving)}
           >
-            {status === "saving" ? "Saving…" : "Save password"}
+            {saving ? "Saving…" : "Save password"}
           </button>
         </section>
       )}
