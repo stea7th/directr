@@ -16,7 +16,7 @@ async function setAuthCookiesFromSession(session: any) {
   "use server";
   if (!session) return;
 
-  const jar = await cookies(); // <-- await in Next 15 Server Actions
+  const jar = await cookies(); // Next 15: cookies() is async in Server Actions
   const { access_token, refresh_token, expires_in, expires_at } = session;
 
   const now = Math.floor(Date.now() / 1000);
@@ -39,7 +39,7 @@ async function setAuthCookiesFromSession(session: any) {
     maxAge: Math.max(maxAge, 60 * 60 * 24 * 14),
   });
 
-  // Project-ref names (many SSR helpers expect these)
+  // Project-ref names (some SSR helpers expect these)
   const ref = projectRefFromUrl(SUPABASE_URL);
   if (ref) {
     jar.set(`sb-${ref}-auth-token`, access_token, {
@@ -59,10 +59,11 @@ async function setAuthCookiesFromSession(session: any) {
   }
 }
 
-export default function LoginPage({
+export default async function LoginPage({
+  // Next 15 may pass searchParams as a Promise — accept & await it
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   async function signInAction(formData: FormData) {
     "use server";
@@ -95,8 +96,9 @@ export default function LoginPage({
     redirect("/login?msg=" + encodeURIComponent("Reset link sent. Check your email."));
   }
 
-  const err = (searchParams?.err as string) || "";
-  const msg = (searchParams?.msg as string) || "";
+  const params = (await searchParams) || {};
+  const err = typeof params.err === "string" ? params.err : "";
+  const msg = typeof params.msg === "string" ? params.msg : "";
 
   return (
     <main className="mx-auto max-w-md p-6">
