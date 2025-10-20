@@ -1,4 +1,4 @@
-// No "use client" – this is a Server Component with a Server Action
+// Server Component with Server Actions (no "use client")
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -16,7 +16,7 @@ async function setAuthCookiesFromSession(session: any) {
   "use server";
   if (!session) return;
 
-  const jar = cookies();
+  const jar = await cookies(); // <-- await in Next 15 Server Actions
   const { access_token, refresh_token, expires_in, expires_at } = session;
 
   const now = Math.floor(Date.now() / 1000);
@@ -39,7 +39,7 @@ async function setAuthCookiesFromSession(session: any) {
     maxAge: Math.max(maxAge, 60 * 60 * 24 * 14),
   });
 
-  // Project-ref names (what many SSR helpers expect)
+  // Project-ref names (many SSR helpers expect these)
   const ref = projectRefFromUrl(SUPABASE_URL);
   if (ref) {
     jar.set(`sb-${ref}-auth-token`, access_token, {
@@ -59,7 +59,11 @@ async function setAuthCookiesFromSession(session: any) {
   }
 }
 
-export default function LoginPage() {
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
   async function signInAction(formData: FormData) {
     "use server";
     const email = String(formData.get("email") || "");
@@ -71,12 +75,10 @@ export default function LoginPage() {
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      // Re-render page with an error by throwing a redirect with a query param
       redirect(`/login?err=${encodeURIComponent(error.message)}`);
     }
 
     await setAuthCookiesFromSession(data.session);
-    // go wherever you want post-login
     redirect("/planner"); // or "/"
   }
 
@@ -93,17 +95,15 @@ export default function LoginPage() {
     redirect("/login?msg=" + encodeURIComponent("Reset link sent. Check your email."));
   }
 
-  // read query params for messages (server-side)
-  const search = new URLSearchParams(typeof window === "undefined" ? "" : window.location.search);
-  const err = search.get("err");
-  const msg = search.get("msg");
+  const err = (searchParams?.err as string) || "";
+  const msg = (searchParams?.msg as string) || "";
 
   return (
     <main className="mx-auto max-w-md p-6">
       <h1 className="text-2xl font-semibold">Sign in</h1>
 
-      {err && <p className="mt-3 text-sm text-red-500">{err}</p>}
-      {msg && <p className="mt-3 text-sm text-green-500">{msg}</p>}
+      {err ? <p className="mt-3 text-sm text-red-500">{err}</p> : null}
+      {msg ? <p className="mt-3 text-sm text-green-500">{msg}</p> : null}
 
       <form action={signInAction} className="mt-4 space-y-3">
         <label className="block">
