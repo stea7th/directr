@@ -24,20 +24,35 @@ export default function LoginPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  async function handleSignIn() {
-    setLoading(true);
-    setMsg(null);
-    setErr(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) {
-      setErr(error.message || "Could not sign in.");
-    } else {
-      setMsg("Signed in! Redirecting…");
-      // optionally push to dashboard: window.location.href = "/planner";
-    }
+ async function handleSignIn() {
+  setLoading(true);
+  setMsg(null);
+  setErr(null);
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  setLoading(false);
+
+  if (error) {
+    setErr(error.message || "Could not sign in.");
+    return;
   }
 
+  // Tell the server to set the Supabase cookie so SSR pages see you're logged in
+  if (data.session) {
+    await fetch("/api/auth/set-cookie", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      }),
+    });
+  }
+
+  // Go wherever you want after login
+  setMsg("Signed in! Redirecting…");
+  window.location.href = "/planner"; // or "/"
+}
   async function handleReset() {
     setLoading(true);
     setMsg(null);
