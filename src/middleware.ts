@@ -1,72 +1,60 @@
-// src/middleware.ts
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
-// --- Helpers ---
-function isPublic(pathname: string) {
-  // Entire password reset flow
-  if (pathname.startsWith('/reset')) return true;
+const PUBLIC_PATHS = new Set<string>([
+  "/login",
+  "/create",             // allow signup
+  "/reset/confirm",      // recovery link landing
+  "/api/confirm-client", // API used by recovery
+]);
 
-  // Auth callback routes (if you use them)
-  if (pathname.startsWith('/auth/callback')) return true;
-
-  // Public pages
-  if (pathname === '/login' || pathname === '/signup') return true;
-
-  // Static runtime stuff
-  if (pathname.startsWith('/_next')) return true;
-  if (pathname === '/favicon.ico') return true;
-  if (pathname === '/robots.txt') return true;
-  if (pathname === '/sitemap.xml') return true;
-
-  return false;
+function projectRefFromUrl(url: string | undefined) {
+  if (!url) return null;
+  const m = url.match(/^https?:\/\/([a-z0-9-]+)\.supabase\.co/i);
+  return m?.[1] || null;
 }
 
-const PROTECTED_ROOTS = ['/', '/create', '/clipper', '/planner', '/jobs', '/account'];
-
-function isProtected(pathname: string) {
-  return PROTECTED_ROOTS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
-}
-
-function hasSupabaseSession(req: NextRequest) {
-  // Supabase v2 cookies
-  if (req.cookies.has('sb-access-token')) return true;
-  if (req.cookies.has('sb-refresh-token')) return true;
-
-  // Legacy cookie (array json string sometimes)
-  const legacy = req.cookies.get('supabase-auth-token')?.value;
-  if (legacy && legacy.length > 0) return true;
-
-  return false;
-}
-
-// --- Middleware ---
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Skip API and webhooks entirely (auth handled per-route)
-  if (pathname.startsWith('/api')) return NextResponse.next();
+  // allow static files and Next internals
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/icons") ||
+    pathname.startsWith("/images") ||
+    pathname.startsWith("/public")
+  ) {
+    return NextResponse.next();
+  }
 
-  // Always allow public routes
-  if (isPublic(pathname)) return NextResponse.next();
+  // public pages that never require auth
+  if (PUBLIC_PATHS.has(pathname)) {
+    return NextResponse.next();
+  }
 
-  // If not a protected route, allow
-  if (!isProtected(pathname)) return NextResponse.next();
+  const cookies = req.cookies;
+  const hasGeneric =
+    cookies.has("sb-access-token") || cookies.has("sb-refresh-token");
 
-  // Guard protected routes
-  if (!hasSupabaseSession(req)) {
+  const ref = projectRefFromUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const hasRef =
+    !!ref &&
+    (cookies.has(`sb-${ref}-auth-token`) ||
+      cookies.has(`sb-${ref}-refresh-token`));
+
+  const isAuthed = hasGeneric || hasRef;
+
+  if (!isAuthed) {
     const url = req.nextUrl.clone();
-    url.pathname = '/login';
-    url.searchParams.set('next', pathname || '/');
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname + (req.nextUrl.search || ""));
     return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
 }
 
-// Only run on app paths, skip static assets and api for speed & safety
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|images/|fonts/|api/).*)',
-  ],
+  matcher: ["/((?!_next|.*\\..*).*)"], // run on all routes except static/assets
 };
