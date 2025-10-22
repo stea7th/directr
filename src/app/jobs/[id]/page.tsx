@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
+import ClientJob from "./ClientJob";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -25,32 +26,17 @@ async function supabaseFromCookies() {
 
 export default async function JobDetailPage({
   params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+}: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   const supabase = await supabaseFromCookies();
-  const { data: ures } = await supabase.auth.getUser();
-  if (!ures?.user) {
-    return (
-      <main className="mx-auto max-w-2xl p-6">
-        <h1 className="text-2xl font-semibold">Not signed in</h1>
-        <p className="mt-2">
-          <Link href="/login" className="underline">Go to login</Link>
-        </p>
-      </main>
-    );
-  }
-
-  // Select all columns to avoid missing-column errors
-  const { data, error } = await supabase
+  const { data: row, error } = await supabase
     .from("jobs")
     .select("*")
     .eq("id", id)
     .maybeSingle();
 
-  if (error || !data) {
+  if (error || !row) {
     return (
       <main className="mx-auto max-w-2xl p-6">
         <h1 className="text-2xl font-semibold">Job not found</h1>
@@ -63,14 +49,16 @@ export default async function JobDetailPage({
   return (
     <main className="mx-auto max-w-2xl p-6">
       <h1 className="text-2xl font-semibold">
-        {(data.title as string) || "Job"}{" "}
-        <span className="text-gray-400 text-base">#{data.id}</span>
+        {(row.title as string) || "Untitled Job"}{" "}
+        <span className="text-gray-400 text-base">#{row.id}</span>
       </h1>
-      <p className="mt-2 text-sm text-gray-400">
-        Status: <span className="font-medium text-white">{(data.status as string) || "unknown"}</span>
+
+      {/* live status / retry */}
+      <ClientJob id={id} initialStatus={row.status || "unknown"} />
+
+      <p className="mt-6">
+        <Link href="/jobs" className="underline">← Back to jobs</Link>
       </p>
-      {data.prompt ? <pre className="mt-4 whitespace-pre-wrap">{data.prompt as string}</pre> : null}
-      <p className="mt-6"><Link href="/jobs" className="underline">← Back to jobs</Link></p>
     </main>
   );
 }
