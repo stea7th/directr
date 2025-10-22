@@ -10,7 +10,6 @@ export default function ClientNew() {
 
   useEffect(() => {
     let alive = true;
-
     (async () => {
       try {
         const payload = {
@@ -18,13 +17,13 @@ export default function ClientNew() {
           prompt: sp.get("prompt") || undefined,
         };
 
+        // create the job
         const res = await fetch("/api/jobs", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
           cache: "no-store",
         });
-
         if (!alive) return;
 
         if (!res.ok) {
@@ -34,26 +33,25 @@ export default function ClientNew() {
         }
 
         const { id } = await res.json();
-        if (id) router.replace(`/jobs/${id}`);
-        else setMsg("Job created but missing ID.");
+
+        // fire the processor
+        await fetch(`/api/jobs/${id}`, { method: "POST", cache: "no-store" });
+
+        // go to details
+        router.replace(`/jobs/${id}`);
       } catch (e: any) {
         if (!alive) return;
         setMsg(e?.message || "Network error while creating job.");
       }
     })();
-
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [router, sp]);
 
   return (
     <main className="mx-auto max-w-2xl p-6">
       <h1 className="text-2xl font-semibold">Job #new</h1>
       <p className="mt-2">{msg}</p>
-      <p className="mt-6">
-        <a href="/jobs" className="underline">← Back to jobs</a>
-      </p>
+      <p className="mt-6"><a href="/jobs" className="underline">← Back to jobs</a></p>
     </main>
   );
 }
