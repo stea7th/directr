@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import ClientNew from "./ClientNew";
 
-// Tell Next.js not to prerender this route. It runs entirely client-side.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "default-no-store";
