@@ -1,75 +1,49 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseFromCookies } from "@/lib/supabase/server";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-function projectRefFromUrl(url: string) {
-  const m = url.match(/^https?:\/\/([a-z0-9-]+)\.supabase\.co/i);
-  return m?.[1] || null;
-}
-
-async function supabaseFromCookies() {
-  const jar = await cookies();
-  const ref = projectRefFromUrl(SUPABASE_URL);
-  const accessToken =
-    jar.get("sb-access-token")?.value ||
-    (ref ? jar.get(`sb-${ref}-auth-token`)?.value : undefined) ||
-    "";
-  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: false },
-    global: accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : {},
-  });
-}
-
-// GET /api/jobs/:id  -> return the row
+// GET /api/jobs/:id — returns a job row
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await supabaseFromCookies();
-
-  const { data: ures } = await supabase.auth.getUser();
-  if (!ures?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
   const { data, error } = await supabase.from("jobs").select("*").eq("id", id).maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json(data);
 }
 
-// POST /api/jobs/:id
+// POST /api/jobs/:id — process the job
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await supabaseFromCookies();
 
-  const { data: ures } = await supabase.auth.getUser();
-  if (!ures?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const { data: userRes } = await supabase.auth.getUser();
+  if (!userRes?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  // Mark processing
+  // Mark as processing
   await supabase.from("jobs").update({ status: "processing" }).eq("id", id);
 
-  // Simulate a result being generated
+  // --- Simulate generation result ---
   const resultText = `
 ✅ Generation Complete!
 
 Job ID: ${id}
-Prompt: (demo placeholder)
 Timestamp: ${new Date().toLocaleString()}
+Prompt: (example placeholder)
 
-Replace this with your AI-generated output.
+→ This text was written to the database automatically.
 `;
 
-  // Write it into the job row
-  const { error: e2 } = await supabase
+  // Write result_text + status=done
+  const { data, error } = await supabase
     .from("jobs")
     .update({
-      status: "done",
       result_text: resultText,
+      status: "done",
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select()
+    .maybeSingle();
 
-  if (e2) return NextResponse.json({ error: e2.message }, { status: 400 });
-
-  return NextResponse.json({ ok: true });
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return NextResponse.json(data);
 }
