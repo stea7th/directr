@@ -15,9 +15,10 @@ export default function ClientNew() {
         const payload = {
           title: sp.get("title") || undefined,
           prompt: sp.get("prompt") || undefined,
+          type: sp.get("type") || undefined,
+          input_url: sp.get("input_url") || undefined,
         };
 
-        // create the job
         const res = await fetch("/api/jobs", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -34,16 +35,16 @@ export default function ClientNew() {
 
         const { id } = await res.json();
 
-        // fire the processor
+        // kick off processing
         await fetch(`/api/jobs/${id}`, { method: "POST", cache: "no-store" });
 
-        // go to details
         router.replace(`/jobs/${id}`);
       } catch (e: any) {
         if (!alive) return;
-        setMsg(e?.message || "Network error while creating job.");
+        setMsg(e?.message || "Network error.");
       }
     })();
+
     return () => { alive = false; };
   }, [router, sp]);
 
