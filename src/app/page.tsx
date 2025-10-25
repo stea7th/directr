@@ -3,11 +3,11 @@
 
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 type NewJobPayload = {
   title: string;
-  type: string;          // e.g., "hooks" | "clip" | "caption" | "resize" | "auto"
+  type: string;          // "auto" | "hooks" | "clip" | "caption" | "resize"
   input_url?: string | null;
   prompt?: string | null;
 };
@@ -19,40 +19,44 @@ const uid = () =>
 
 export default function HomePage() {
   const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Build a browser client here; no dependency on "@/lib/supabase/client"
+  const supabase = useMemo(
+    () =>
+      createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
+        { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
+      ),
+    []
+  );
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [prompt, setPrompt] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // --- Drag & drop handlers ---
   const onDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     const f = e.dataTransfer.files?.[0];
     if (f) setFile(f);
   }, []);
-
   const onPick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (f) setFile(f);
   }, []);
-
   const clearError = () => setErr(null);
 
-  // --- Storage upload ---
+  // Upload to Supabase storage and return a public URL
   const uploadToSupabase = useCallback(
     async (f: File): Promise<string> => {
-      // Try to use the signed-in user id for namespacing; fall back to "anon"
       const { data: auth } = await supabase.auth.getUser();
       const userId = auth?.user?.id ?? "anon";
       const ext = f.name.includes(".") ? f.name.split(".").pop()!.toLowerCase() : "bin";
       const key = `${userId}/${uid()}.${ext}`;
-
-      // Use your PUBLIC bucket name here (must exist & be public)
-      const bucket = "uploads";
+      const bucket = "uploads"; // <-- change if your bucket name differs
 
       const { error: upErr } = await supabase.storage.from(bucket).upload(key, f, {
         cacheControl: "3600",
@@ -62,17 +66,15 @@ export default function HomePage() {
 
       const { data: pub } = supabase.storage.from(bucket).getPublicUrl(key);
       if (!pub?.publicUrl) throw new Error("Could not get public URL for upload.");
-
       return pub.publicUrl;
     },
     [supabase]
   );
 
-  // --- Create job via API then navigate to job page ---
   const generate = useCallback(
     async (e?: React.FormEvent) => {
       e?.preventDefault?.();
-      clearError();
+      setErr(null);
 
       if (!prompt.trim() && !file) {
         setErr("Type what you want or add a file.");
@@ -81,17 +83,10 @@ export default function HomePage() {
 
       setBusy(true);
       try {
-        // Upload file (if present) to storage and get URL
         let inputUrl: string | undefined;
-        if (file) {
-          inputUrl = await uploadToSupabase(file);
-        }
+        if (file) inputUrl = await uploadToSupabase(file);
 
-        // Infer a simple type. Adjust if you have a selector later.
-        // If there's a file: default to "auto" (server decides what to do).
-        // If no file: assume "hooks" so you get text output.
-        const inferredType = file ? "auto" : "hooks";
-
+        const inferredType = file ? "auto" : "hooks"; // server can branch on "auto"
         const payload: NewJobPayload = {
           title: "Untitled Job",
           type: inferredType,
@@ -104,14 +99,9 @@ export default function HomePage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(text || `Job create failed (${res.status})`);
-        }
+        if (!res.ok) throw new Error((await res.text()) || `Job create failed (${res.status})`);
 
         const data = (await res.json()) as { id: string };
-        // Send user to the live job page to watch progress & get download link when done
         router.push(`/jobs/${data.id}`);
       } catch (e: any) {
         setErr(e?.message || "Something went wrong creating the job.");
@@ -122,7 +112,6 @@ export default function HomePage() {
     [file, prompt, router, uploadToSupabase]
   );
 
-  // --- UI ---
   return (
     <main className="min-h-[calc(100vh-72px)] w-full">
       <section className="mx-auto max-w-4xl px-4 pt-12">
@@ -189,13 +178,12 @@ export default function HomePage() {
               </div>
             )}
           </form>
-        </div>
 
-        {/* optional quick cards – purely visual, keep or remove */}
-        <div className="mt-8 grid gap-4 md:grid-cols-3">
-          <Card title="Create" desc="Upload → get captioned clips" />
-          <Card title="Clipper" desc="Auto-find hooks & moments" />
-          <Card title="Planner" desc="Plan posts & deadlines" />
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <Card title="Create" desc="Upload → get captioned clips" />
+            <Card title="Clipper" desc="Auto-find hooks & moments" />
+            <Card title="Planner" desc="Plan posts & deadlines" />
+          </div>
         </div>
       </section>
     </main>
