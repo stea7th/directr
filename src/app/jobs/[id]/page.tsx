@@ -53,8 +53,12 @@ export default async function JobDetailPage({
         <span className="text-gray-400 text-base">#{row.id}</span>
       </h1>
 
-      {/* live status / retry */}
-      <ClientJob id={id} initialStatus={row.status || "unknown"} />
+      <ClientJob
+        id={id}
+        initialStatus={row.status || "unknown"}
+        initialResultText={row.result_text || null}
+        initialResultUrl={row.result_url || null}
+      />
 
       <p className="mt-6">
         <Link href="/jobs" className="underline">← Back to jobs</Link>
