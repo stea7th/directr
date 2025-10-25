@@ -1,16 +1,8 @@
-// src/app/page.tsx
 "use client";
 
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-
-type NewJobPayload = {
-  title: string;
-  type: string;          // "auto" | "hooks" | "clip" | "caption" | "resize"
-  input_url?: string | null;
-  prompt?: string | null;
-};
 
 const uid = () =>
   typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -19,182 +11,142 @@ const uid = () =>
 
 export default function HomePage() {
   const router = useRouter();
-
-  // Build a browser client here; no dependency on "@/lib/supabase/client"
   const supabase = useMemo(
     () =>
       createSupabaseClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
-        { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
       ),
     []
   );
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [prompt, setPrompt] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const onDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+  const uploadToSupabase = async (f: File): Promise<string> => {
+    const { data: auth } = await supabase.auth.getUser();
+    const userId = auth?.user?.id ?? "anon";
+    const ext = f.name.split(".").pop() || "bin";
+    const key = `${userId}/${uid()}.${ext}`;
+    const bucket = "uploads";
+
+    const { error: upErr } = await supabase.storage.from(bucket).upload(key, f);
+    if (upErr) throw new Error(upErr.message);
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(key);
+    return data.publicUrl;
+  };
+
+  const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    e.stopPropagation();
-    const f = e.dataTransfer.files?.[0];
-    if (f) setFile(f);
-  }, []);
-  const onPick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (f) setFile(f);
-  }, []);
-  const clearError = () => setErr(null);
+    setError(null);
+    if (!prompt && !file) return setError("Type what you want or upload a file.");
 
-  // Upload to Supabase storage and return a public URL
-  const uploadToSupabase = useCallback(
-    async (f: File): Promise<string> => {
-      const { data: auth } = await supabase.auth.getUser();
-      const userId = auth?.user?.id ?? "anon";
-      const ext = f.name.includes(".") ? f.name.split(".").pop()!.toLowerCase() : "bin";
-      const key = `${userId}/${uid()}.${ext}`;
-      const bucket = "uploads"; // <-- change if your bucket name differs
+    try {
+      setLoading(true);
+      let inputUrl: string | undefined;
+      if (file) inputUrl = await uploadToSupabase(file);
 
-      const { error: upErr } = await supabase.storage.from(bucket).upload(key, f, {
-        cacheControl: "3600",
-        upsert: false,
-      });
-      if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
-
-      const { data: pub } = supabase.storage.from(bucket).getPublicUrl(key);
-      if (!pub?.publicUrl) throw new Error("Could not get public URL for upload.");
-      return pub.publicUrl;
-    },
-    [supabase]
-  );
-
-  const generate = useCallback(
-    async (e?: React.FormEvent) => {
-      e?.preventDefault?.();
-      setErr(null);
-
-      if (!prompt.trim() && !file) {
-        setErr("Type what you want or add a file.");
-        return;
-      }
-
-      setBusy(true);
-      try {
-        let inputUrl: string | undefined;
-        if (file) inputUrl = await uploadToSupabase(file);
-
-        const inferredType = file ? "auto" : "hooks"; // server can branch on "auto"
-        const payload: NewJobPayload = {
+      const res = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           title: "Untitled Job",
-          type: inferredType,
+          type: file ? "auto" : "hooks",
           input_url: inputUrl ?? null,
-          prompt: prompt.trim() || null,
-        };
+          prompt: prompt || null,
+        }),
+      });
 
-        const res = await fetch("/api/jobs", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error((await res.text()) || `Job create failed (${res.status})`);
-
-        const data = (await res.json()) as { id: string };
-        router.push(`/jobs/${data.id}`);
-      } catch (e: any) {
-        setErr(e?.message || "Something went wrong creating the job.");
-      } finally {
-        setBusy(false);
-      }
-    },
-    [file, prompt, router, uploadToSupabase]
-  );
+      if (!res.ok) throw new Error(await res.text());
+      const { id } = await res.json();
+      router.push(`/jobs/${id}`);
+    } catch (err: any) {
+      setError(err.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <main className="min-h-[calc(100vh-72px)] w-full">
-      <section className="mx-auto max-w-4xl px-4 pt-12">
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-950/60 p-6 md:p-8 shadow-lg">
-          <h1 className="text-2xl md:text-3xl font-semibold mb-6">
-            Type what you want or upload a file
-          </h1>
+    <main className="min-h-screen w-full bg-neutral-950 text-white flex flex-col items-center justify-center px-6">
+      <div className="w-full max-w-3xl bg-neutral-900/70 border border-neutral-800 rounded-2xl p-8 shadow-lg">
+        <h1 className="text-2xl md:text-3xl font-semibold mb-6 text-center">
+          Type what you want or upload a file
+        </h1>
 
-          <form onSubmit={generate} className="space-y-4">
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-3">
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onFocus={clearError}
-                placeholder="Example: Turn this podcast into 5 viral TikToks"
-                className="w-full resize-y rounded-md bg-transparent outline-none p-3 text-sm md:text-base placeholder:text-neutral-500"
-                rows={4}
-              />
-            </div>
+        <form onSubmit={handleGenerate} className="flex flex-col gap-5">
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Example: Turn this podcast into 5 viral TikToks"
+            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-4 text-sm placeholder:text-neutral-400 resize-none outline-none focus:border-blue-600"
+            rows={4}
+          />
 
-            <div
-              onDrop={onDrop}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              className="flex items-center gap-3 rounded-xl border border-dashed border-neutral-800 bg-neutral-900/40 px-3 py-2"
+          <div
+            onDrop={(e) => {
+              e.preventDefault();
+              const f = e.dataTransfer.files?.[0];
+              if (f) setFile(f);
+            }}
+            onDragOver={(e) => e.preventDefault()}
+            className="w-full flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-neutral-700 bg-neutral-800/40 p-6 text-sm text-neutral-400 hover:border-blue-600 transition"
+          >
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="rounded-lg bg-neutral-700 px-4 py-2 text-white font-medium hover:bg-blue-600 transition"
             >
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="rounded-lg border border-neutral-700 px-3 py-2 text-sm hover:bg-neutral-800"
-              >
-                Choose File / Drop here
-              </button>
-              <span className="text-sm text-neutral-400">
-                {file ? file.name : "Video or audio for caption/clip/resize"}
-              </span>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="video/*,audio/*"
-                hidden
-                onChange={onPick}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-neutral-500">
-                Tip: Drop a video/audio, or just describe what you want. We’ll handle the rest.
-              </p>
-              <button
-                type="submit"
-                disabled={busy}
-                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60"
-              >
-                {busy ? "Working…" : "Generate"}
-              </button>
-            </div>
-
-            {err && (
-              <div className="rounded-lg border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-300">
-                {err}
-              </div>
-            )}
-          </form>
-
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <Card title="Create" desc="Upload → get captioned clips" />
-            <Card title="Clipper" desc="Auto-find hooks & moments" />
-            <Card title="Planner" desc="Plan posts & deadlines" />
+              Choose File / Drop here
+            </button>
+            <p className="mt-2">{file ? file.name : "Video or audio for caption/clip/resize"}</p>
+            <input
+              ref={fileRef}
+              type="file"
+              hidden
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              accept="video/*,audio/*"
+            />
           </div>
+
+          {error && (
+            <div className="text-red-400 text-sm bg-red-950/40 border border-red-900/40 rounded-lg p-3">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 transition text-white font-medium py-3 disabled:opacity-60"
+          >
+            {loading ? "Working…" : "Generate"}
+          </button>
+        </form>
+
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card title="Create" desc="Upload → get captioned clips" />
+          <Card title="Clipper" desc="Auto-find hooks & moments" />
+          <Card title="Planner" desc="Plan posts & deadlines" />
         </div>
-      </section>
+      </div>
+
+      <footer className="mt-10 text-xs text-neutral-600">
+        © 2025 directr — Privacy · Terms
+      </footer>
     </main>
   );
 }
 
 function Card({ title, desc }: { title: string; desc: string }) {
   return (
-    <div className="rounded-2xl border border-neutral-800 bg-neutral-950/40 p-5">
-      <div className="text-lg font-semibold">{title}</div>
-      <div className="mt-1 text-sm text-neutral-400">{desc}</div>
+    <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">
+      <div className="text-lg font-semibold text-white">{title}</div>
+      <div className="text-sm text-neutral-400">{desc}</div>
     </div>
   );
 }
