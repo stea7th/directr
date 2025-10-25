@@ -9,10 +9,11 @@ function projectRefFromUrl(url: string) {
   return m?.[1] || null;
 }
 
-/** Server-side Supabase client that forwards the user's auth token. */
+/** Server-side Supabase client forwarding the user's auth token from cookies. */
 export async function supabaseFromCookies(): Promise<SupabaseClient> {
-  const jar = await cookies();
+  const jar = await cookies(); // Next 15: await cookies()
   const ref = projectRefFromUrl(SUPABASE_URL);
+
   const accessToken =
     jar.get("sb-access-token")?.value ||
     (ref ? jar.get(`sb-${ref}-auth-token`)?.value : undefined) ||
