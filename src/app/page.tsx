@@ -1,350 +1,265 @@
-'use client';
+"use client";
 
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-export default function AppHome() {
-  const [prompt, setPrompt] = useState('');
+// ---- Supabase (browser) — public keys only ----
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+// Heuristics so users don’t need to pick a “type”
+function inferJobType(prompt: string, hasFile: boolean): "hooks" | "caption" | "clip" | "resize" {
+  const p = prompt.toLowerCase();
+  if (!hasFile) return "hooks";
+  if (/(caption|subtitle|transcribe|transcript|srt|vtt)/i.test(p)) return "caption";
+  if (/(clip|highlights|cut|short|snippet)/i.test(p)) return "clip";
+  if (/(resize|9:16|vertical|portrait|reformat)/i.test(p)) return "resize";
+  // default when a file exists but user is vague
+  return "caption";
+}
+
+export default function HomePage() {
+  const [prompt, setPrompt] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [uploadPct, setUploadPct] = useState<number>(0);
   const [busy, setBusy] = useState(false);
-  const [fileName, setFileName] = useState<string>('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  async function handleGenerate() {
-    if (busy) return;
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobStatus, setJobStatus] = useState<"queued" | "processing" | "done" | "error" | null>(null);
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    const hasPrompt = prompt.trim().length > 0;
-    const hasFile = !!fileName;
-    if (!hasPrompt && !hasFile) {
-      alert('Type something or attach a file.');
-      return;
-    }
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
 
-    setBusy(true);
-    try {
-      // JSON payload to match /api/generate
-      const res = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: prompt.trim(),
-          fileName: hasFile ? fileName : undefined,
-        }),
-        credentials: 'include',
+  // ---------- Upload to Supabase (public bucket "uploads") ----------
+  const uploadToSupabase = useCallback(
+    async (f: File): Promise<string> => {
+      // progress UI: we can’t get native % with supabase-js yet; fake smooth ramp
+      setUploadPct(5);
+      const key = `${Date.now()}-${f.name}`.replace(/\s+/g, "_");
+      // Small progressive animation
+      const anim = setInterval(() => setUploadPct((p) => Math.min(95, p + 1)), 120);
+
+      const { error } = await supabase.storage.from("uploads").upload(key, f, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: f.type || undefined,
       });
 
-      const json = await res.json().catch(() => ({} as any));
-      if (!res.ok) throw new Error(json?.error || 'Failed to start');
+      clearInterval(anim);
+      if (error) throw new Error(error.message);
 
-      const id = json?.id || json?.jobId || 'new';
-      window.location.href = `/jobs/${id}`;
-    } catch (e: any) {
-      console.error(e);
-      alert(e?.message || 'Failed to start the job.');
-    } finally {
-      setBusy(false);
-    }
-  }
+      const { data } = supabase.storage.from("uploads").getPublicUrl(key);
+      setUploadPct(100);
+      return data.publicUrl;
+    },
+    []
+  );
 
-  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    setFileName(f ? f.name : '');
-  }
+  // ---------- Create job + poll until finished ----------
+  const submit = useCallback(
+    async (e?: React.FormEvent) => {
+      e?.preventDefault();
+      setBusy(true);
+      setErrorMsg(null);
+      setResultUrl(null);
+      setJobId(null);
+      setJobStatus(null);
+      setUploadPct(0);
 
-  // Drag & drop support for the file button
-  function onDropFile(e: React.DragEvent<HTMLButtonElement>) {
-    e.preventDefault();
-    const f = e.dataTransfer.files?.[0];
-    if (f) {
-      setFileName(f.name);
-      // reflect in the hidden input so form state is consistent
-      if (fileInputRef.current) {
-        const dt = new DataTransfer();
-        dt.items.add(f);
-        fileInputRef.current.files = dt.files;
+      try {
+        // 1) Decide job type
+        const type = inferJobType(prompt, !!file);
+
+        // 2) Upload (only if we actually need a file for this kind of job)
+        let input_url: string | undefined;
+        if (file && type !== "hooks") {
+          input_url = await uploadToSupabase(file);
+        }
+
+        // 3) Create job (server decides the rest)
+        const res = await fetch("/api/jobs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: "Untitled Job",
+            prompt: prompt || undefined,
+            input_url,
+            type, // "hooks" | "caption" | "clip" | "resize"
+          }),
+        });
+
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error || "Failed to create job");
+
+        const id: string = json.id;
+        setJobId(id);
+        setJobStatus("queued");
+
+        // 4) Poll for completion
+        if (pollRef.current) clearInterval(pollRef.current);
+        pollRef.current = setInterval(async () => {
+          try {
+            const r = await fetch(`/api/jobs/${id}`, { cache: "no-store" });
+            const j = await r.json();
+
+            if (j?.status) setJobStatus(j.status);
+            if (j?.error) setErrorMsg(j.error);
+
+            if (j?.result_url) {
+              setResultUrl(j.result_url);
+            }
+
+            if (j?.status === "done" || j?.status === "error") {
+              if (pollRef.current) clearInterval(pollRef.current);
+              setBusy(false);
+            }
+          } catch (err: any) {
+            setErrorMsg(err?.message || "Polling failed");
+            if (pollRef.current) clearInterval(pollRef.current);
+            setBusy(false);
+          }
+        }, 1200);
+      } catch (err: any) {
+        setErrorMsg(err?.message || "Something went wrong");
+        setBusy(false);
       }
-    }
-  }
+    },
+    [file, prompt, uploadToSupabase]
+  );
 
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
+  // ---------- UI ----------
   return (
-    <main className="wrap">
-      <section className="card" aria-label="Directr command surface">
-        <h1 className="title">Type what you want or upload a file</h1>
+    <div className="min-h-screen bg-[#0b0d10] text-zinc-200">
+      <header className="px-6 py-4 border-b border-white/5">
+        <div className="max-w-4xl mx-auto font-bold text-xl">directr.</div>
+      </header>
 
-        <div className="inputStack">
-          <textarea
-            className="prompt"
-            placeholder="Example: Turn this podcast into 5 viral TikToks"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-          />
+      <main className="max-w-4xl mx-auto px-6 py-10">
+        <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-xl font-semibold mb-4">Type what you want or upload a file</h2>
 
-          <div className="row">
-            <button
-              type="button"
-              className="fileBtn"
-              onClick={() => fileInputRef.current?.click()}
+          <form onSubmit={submit} className="space-y-4">
+            <textarea
+              className="w-full h-32 rounded-xl border border-white/10 bg-black/40 p-4 outline-none focus:border-blue-500/60"
+              placeholder="Example: Turn this podcast into 5 viral TikToks with captions and timestamps."
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+            />
+
+            {/* File picker / drop zone */}
+            <label
               onDragOver={(e) => e.preventDefault()}
-              onDrop={onDropFile}
-              aria-label="Choose a file or drop here"
+              onDrop={(e) => {
+                e.preventDefault();
+                const f = e.dataTransfer.files?.[0];
+                if (f) setFile(f);
+              }}
+              className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-white/15 bg-black/30 p-3"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
-                <path
-                  fill="currentColor"
-                  d="M16.5 6.5a3.5 3.5 0 0 1 0 7H14v-2h2.5a1.5 1.5 0 0 0 0-3H13V7h3.5ZM11 8H9v3H6v2h3v3h2v-3h3v-2h-3V8Z"
-                />
-              </svg>
-              <span>{fileName ? fileName : 'Choose File / Drop here'}</span>
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white/10">📁</span>
+                <div className="text-sm">
+                  <div className="font-medium">{file ? file.name : "Choose file / Drop here"}</div>
+                  <div className="opacity-60">
+                    {file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "Video or audio for caption/clip/resize"}
+                  </div>
+                </div>
+              </div>
               <input
-                ref={fileInputRef}
-                className="hiddenFile"
                 type="file"
-                accept="video/*,audio/*,.mp3,.mp4,.mov,.m4a,.wav,.aac"
-                onChange={onPickFile}
+                accept="video/*,audio/*"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                className="hidden"
+                id="file-input"
               />
-            </button>
+              <label
+                htmlFor="file-input"
+                className="px-3 py-2 bg-white/10 rounded-lg text-sm cursor-pointer hover:bg-white/15"
+              >
+                Browse
+              </label>
+            </label>
 
-            <button
-              type="button"
-              className={`genBtn neon ${busy ? 'isBusy' : ''}`}
-              onClick={handleGenerate}
-              disabled={busy || (!prompt.trim() && !fileName)}
-            >
-              {busy ? 'Working…' : 'Generate'}
-            </button>
-          </div>
-        </div>
+            {/* Upload progress (only when uploading) */}
+            {busy && uploadPct > 0 && uploadPct < 100 && (
+              <div className="w-full bg-white/5 rounded-lg h-2 overflow-hidden">
+                <div
+                  className="bg-blue-500 h-2 transition-all"
+                  style={{ width: `${uploadPct}%` }}
+                />
+              </div>
+            )}
 
-        <p className="hint">
-          Tip: Drop a video/audio, or just describe what you want. We’ll handle the rest.
-        </p>
-      </section>
+            {/* Action + state */}
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={busy}
+                className={`px-5 py-2 rounded-lg font-semibold ${
+                  busy ? "bg-slate-600 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500"
+                }`}
+              >
+                {busy ? "Working…" : "Generate"}
+              </button>
 
-      <nav className="tiles" aria-label="Quick links">
-        <a className="tile" href="/create">
-          <strong>Create</strong>
-          <span>Upload → get captioned clips</span>
-        </a>
-        <a className="tile" href="/clipper">
-          <strong>Clipper</strong>
-          <span>Auto-find hooks & moments</span>
-        </a>
-        <a className="tile" href="/planner">
-          <strong>Planner</strong>
-          <span>Plan posts & deadlines</span>
-        </a>
-      </nav>
+              {jobStatus && (
+                <div className="text-sm opacity-80">
+                  Status: <span className="font-medium">{jobStatus}</span>
+                  {jobId ? <span className="opacity-60"> · {jobId.slice(0, 8)}</span> : null}
+                </div>
+              )}
+            </div>
 
-      <style jsx>{`
-        :root {
-          --bg: #0c0c0d;
-          --surface: #121214;
-          --ink: #e9eef3;
-          --muted: #9aa4af;
-          --line: #1b1d21;
-          --brand: #66b2ff;
-          --brand-2: #7cd3ff;
-          --good: #67e8f9;
-        }
+            {/* Result */}
+            {resultUrl && jobStatus === "done" && (
+              <div className="mt-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                <div className="mb-2 font-medium">Your file is ready.</div>
+                <div className="flex items-center gap-3">
+                  <a
+                    href={resultUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-semibold"
+                  >
+                    Download
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrompt("");
+                      setFile(null);
+                      setUploadPct(0);
+                      setJobId(null);
+                      setJobStatus(null);
+                      setResultUrl(null);
+                      setErrorMsg(null);
+                    }}
+                    className="px-3 py-2 bg-white/10 hover:bg-white/15 rounded-lg text-sm"
+                  >
+                    New job
+                  </button>
+                </div>
+              </div>
+            )}
 
-        .wrap {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 48px 16px 96px;
-          color: var(--ink);
-          background: transparent;
-        }
-
-        .card {
-          width: 100%;
-          max-width: 980px;
-          margin: 24px auto 12px;
-          background: radial-gradient(1200px 300px at 50% -10%, rgba(102, 178, 255, 0.06), transparent),
-            linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.02));
-          border: 1px solid var(--line);
-          border-radius: 24px;
-          padding: 28px;
-          backdrop-filter: blur(6px);
-          box-shadow:
-            0 20px 50px rgba(0, 0, 0, 0.4),
-            0 0 0 1px rgba(255, 255, 255, 0.04);
-          animation: fadeUp 540ms ease-out both, cardGlow 6s ease-in-out infinite;
-        }
-
-        .title {
-          font-size: 22px;
-          font-weight: 700;
-          letter-spacing: 0.2px;
-          margin: 0 0 18px;
-        }
-
-        .inputStack { display: flex; flex-direction: column; gap: 14px; }
-
-        .prompt {
-          width: 100%;
-          min-height: 140px;
-          max-height: 320px;
-          padding: 16px 18px;
-          border-radius: 16px;
-          border: 1px solid var(--line);
-          background: #0f1113;
-          color: var(--ink);
-          resize: vertical;
-          outline: none;
-          transition: border-color 160ms ease, box-shadow 200ms ease, min-height 250ms ease;
-        }
-        .prompt:focus {
-          min-height: 180px;
-          border-color: rgba(124, 211, 255, 0.6);
-          box-shadow: 0 0 0 3px rgba(102, 178, 255, 0.18), inset 0 0 0 1px rgba(102, 178, 255, 0.25);
-        }
-
-        .row {
-          display: grid;
-          grid-template-columns: 1fr auto;
-          gap: 12px;
-          align-items: center;
-        }
-
-        .fileBtn {
-          position: relative;
-          width: 100%;
-          height: 48px;
-          border-radius: 999px;
-          background: #0f1113;
-          border: 1px dashed #28303a;
-          color: var(--muted);
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          padding: 0 16px 0 14px;
-          cursor: pointer;
-          transition: border-color 160ms ease, color 160ms ease, box-shadow 200ms ease, transform 120ms ease;
-        }
-        .fileBtn:hover {
-          color: #c6d3df;
-          border-color: #344254;
-          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
-        }
-        .fileBtn:active { transform: translateY(1px); }
-        .hiddenFile { display: none; }
-
-        .genBtn {
-          position: relative;
-          height: 48px;
-          padding: 0 22px;
-          border-radius: 999px;
-          border: 1px solid rgba(124, 211, 255, 0.5);
-          background: linear-gradient(180deg, #1a2430, #161b22);
-          color: #eaf6ff;
-          font-weight: 700;
-          letter-spacing: 0.2px;
-          cursor: pointer;
-          transition: transform 120ms ease, box-shadow 200ms ease, opacity 200ms ease, filter 200ms ease;
-          overflow: hidden;
-          box-shadow:
-            0 0 0 0 rgba(124, 211, 255, 0.0),
-            inset 0 -8px 24px rgba(124, 211, 255, 0.08);
-          animation: pulse 3.6s ease-in-out infinite;
-        }
-        .genBtn.neon::before {
-          content: "";
-          position: absolute;
-          inset: -3px;
-          border-radius: inherit;
-          pointer-events: none;
-          background:
-            radial-gradient(60% 140% at 50% -20%, rgba(124,211,255,0.24), rgba(124,211,255,0) 70%),
-            radial-gradient(120% 80% at 50% 120%, rgba(102,178,255,0.18), rgba(102,178,255,0) 70%);
-          filter: blur(6px);
-          opacity: 0.65;
-          transition: opacity 180ms ease;
-          z-index: 0;
-        }
-        .genBtn.neon:hover::before { opacity: 0.95; }
-        .genBtn.isBusy::after {
-          content: "";
-          position: absolute;
-          inset: 2px;
-          border-radius: inherit;
-          pointer-events: none;
-          background:
-            repeating-linear-gradient(
-              -45deg,
-              rgba(255,255,255,0.10) 0 10px,
-              rgba(255,255,255,0.00) 10px 22px
-            );
-          background-size: 220% 100%;
-          mix-blend-mode: screen;
-          animation: shimmer 1.15s linear infinite;
-          z-index: 1;
-        }
-        .genBtn:hover {
-          box-shadow:
-            0 0 24px rgba(124, 211, 255, 0.18),
-            0 0 0 1px rgba(124, 211, 255, 0.25),
-            inset 0 -10px 28px rgba(124, 211, 255, 0.12);
-          transform: translateY(-0.5px);
-          filter: saturate(1.1);
-        }
-        .genBtn:active { transform: translateY(0.5px); }
-        .genBtn:disabled { opacity: 0.55; cursor: not-allowed; animation: none; }
-        .genBtn.isBusy { animation: throb 1.2s ease-in-out infinite; }
-
-        .hint { margin: 10px 2px 0; font-size: 13px; color: var(--muted); }
-
-        .tiles {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 16px;
-          width: 100%;
-          max-width: 980px;
-          margin: 26px auto 0;
-        }
-        .tile {
-          display: flex; flex-direction: column; gap: 4px;
-          padding: 16px 18px;
-          border-radius: 18px;
-          text-decoration: none; color: var(--ink);
-          background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
-          border: 1px solid var(--line);
-          box-shadow: 0 12px 30px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.03);
-          transition: transform 140ms ease, box-shadow 200ms ease, border-color 160ms ease;
-        }
-        .tile:hover {
-          transform: translateY(-1px);
-          border-color: rgba(124, 211, 255, 0.22);
-          box-shadow: 0 18px 36px rgba(0,0,0,0.4), 0 0 0 1px rgba(124,211,255,0.12);
-        }
-        .tile strong { font-weight: 700; letter-spacing: 0.2px; }
-        .tile span { color: var(--muted); font-size: 13px; }
-
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(10px) scale(0.995); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes cardGlow {
-          0%, 100% { box-shadow: 0 20px 50px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04); }
-          50% { box-shadow: 0 24px 60px rgba(0,0,0,0.46), 0 0 0 1px rgba(124,211,255,0.10); }
-        }
-        @keyframes pulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(124,211,255,0.0), inset 0 -8px 24px rgba(124,211,255,0.08); }
-          50% { box-shadow: 0 0 24px rgba(124,211,255,0.22), inset 0 -10px 30px rgba(124,211,255,0.14); }
-        }
-        @keyframes throb { 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-1px) } }
-        @keyframes shimmer { 0%{ background-position:200% 0 } 100%{ background-position:-20% 0 } }
-
-        @media (prefers-reduced-motion: reduce) {
-          .card, .genBtn { animation: none !important; }
-          .genBtn.isBusy::after { animation: none !important; }
-          .prompt, .tile, .fileBtn, .genBtn { transition: none !important; }
-        }
-        @media (max-width: 720px) {
-          .row { grid-template-columns: 1fr; }
-          .genBtn { width: 100%; }
-          .tiles { grid-template-columns: 1fr; }
-        }
-      `}</style>
-    </main>
+            {/* Error */}
+            {errorMsg && (
+              <div className="mt-2 p-3 rounded-lg bg-rose-600/10 border border-rose-600/30 text-rose-200">
+                {errorMsg}
+              </div>
+            )}
+          </form>
+        </section>
+      </main>
+    </div>
   );
 }
