@@ -6,20 +6,22 @@ export default function ClientJob({
   id,
   initialStatus,
   initialResultText,
+  initialResultUrl,
 }: {
   id: string;
   initialStatus: string;
   initialResultText?: string | null;
+  initialResultUrl?: string | null;
 }) {
   const [status, setStatus] = useState(initialStatus);
-  const [result, setResult] = useState<string | null>(initialResultText || null);
+  const [resultText, setResultText] = useState<string | null>(initialResultText || null);
+  const [resultUrl, setResultUrl] = useState<string | null>(initialResultUrl || null);
   const [loading, setLoading] = useState(false);
 
-  const isDone = status === "done" || status === "error";
+  const isFinal = status === "done" || status === "error";
 
-  // Poll until finished
   useEffect(() => {
-    if (isDone) return;
+    if (isFinal) return;
     let stop = false;
 
     const tick = async () => {
@@ -29,7 +31,8 @@ export default function ClientJob({
         const row = await res.json();
         if (!stop) {
           setStatus(row.status || "unknown");
-          if (row.result_text !== undefined) setResult(row.result_text || null);
+          setResultText(row.result_text || null);
+          setResultUrl(row.result_url || null);
         }
       } catch {}
     };
@@ -37,7 +40,7 @@ export default function ClientJob({
     tick();
     const h = setInterval(tick, 2000);
     return () => { stop = true; clearInterval(h); };
-  }, [id, isDone]);
+  }, [id, isFinal]);
 
   const retry = async () => {
     setLoading(true);
@@ -47,7 +50,8 @@ export default function ClientJob({
       if (res.ok) {
         const row = await res.json();
         setStatus(row.status || "unknown");
-        setResult(row.result_text || null);
+        setResultText(row.result_text || null);
+        setResultUrl(row.result_url || null);
       }
     } finally {
       setLoading(false);
@@ -55,14 +59,14 @@ export default function ClientJob({
   };
 
   const copy = async () => {
-    if (!result) return;
-    await navigator.clipboard.writeText(result);
+    if (!resultText) return;
+    await navigator.clipboard.writeText(resultText);
     alert("Copied!");
   };
 
-  const download = () => {
-    if (!result) return;
-    const blob = new Blob([result], { type: "text/plain;charset=utf-8" });
+  const downloadText = () => {
+    if (!resultText) return;
+    const blob = new Blob([resultText], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -75,41 +79,33 @@ export default function ClientJob({
 
   return (
     <div className="mt-3 space-y-4">
-      <p>
-        Status: <span className="font-medium">{status}</span>
-      </p>
+      <p>Status: <span className="font-medium">{status}</span></p>
 
-      {result ? (
+      {resultUrl ? (
+        <div className="space-y-2">
+          <a className="underline" href={resultUrl} target="_blank" rel="noreferrer">Open result</a>
+          {/* If it's a video/image, you can preview it here based on content-type */}
+        </div>
+      ) : null}
+
+      {resultText ? (
         <>
           <div className="rounded-lg border border-white/10 p-4 bg-white/5">
-            <pre className="whitespace-pre-wrap text-sm">{result}</pre>
+            <pre className="whitespace-pre-wrap text-sm">{resultText}</pre>
           </div>
           <div className="flex gap-3">
-            <button
-              type="button"
-              className="rounded px-3 py-2 bg-blue-600/80 hover:bg-blue-600"
-              onClick={copy}
-            >
-              Copy
-            </button>
-            <button
-              type="button"
-              className="rounded px-3 py-2 bg-blue-600/80 hover:bg-blue-600"
-              onClick={download}
-            >
-              Download .txt
-            </button>
+            <button className="rounded px-3 py-2 bg-blue-600/80 hover:bg-blue-600" onClick={copy}>Copy</button>
+            <button className="rounded px-3 py-2 bg-blue-600/80 hover:bg-blue-600" onClick={downloadText}>Download .txt</button>
           </div>
         </>
-      ) : !isDone ? (
+      ) : !isFinal ? (
         <p className="text-sm text-gray-400">Processing… this will update automatically.</p>
       ) : (
         <p className="text-sm text-gray-400">No result available.</p>
       )}
 
-      {isDone && (
+      {isFinal && (
         <button
-          type="button"
           className="rounded px-3 py-2 bg-blue-600/80 hover:bg-blue-600 disabled:opacity-50"
           onClick={retry}
           disabled={loading}
