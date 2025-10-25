@@ -1,11 +1,32 @@
 import { NextResponse } from "next/server";
-import { supabaseFromCookies } from "../../../../lib/supabase/server";
-// If you wire real models later:
-// import OpenAI from "openai";
-// import Replicate from "replicate";
-// const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-// const replicate = new Replicate({ auth: process.env.REPLICATE_API_KEY });
+import { cookies } from "next/headers";
+import { createClient } from "@supabase/supabase-js";
 
+/* === inline supabaseFromCookies (no external imports) === */
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+function projectRefFromUrl(url: string) {
+  const m = url.match(/^https?:\/\/([a-z0-9-]+)\.supabase\.co/i);
+  return m?.[1] || null;
+}
+
+async function supabaseFromCookies() {
+  const jar = await cookies();
+  const ref = projectRefFromUrl(SUPABASE_URL);
+  const accessToken =
+    jar.get("sb-access-token")?.value ||
+    (ref ? jar.get(`sb-${ref}-auth-token`)?.value : undefined) ||
+    "";
+
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false },
+    global: accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : {},
+  });
+}
+/* === end inline helper === */
+
+// GET /api/jobs/:id
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await supabaseFromCookies();
@@ -21,6 +42,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return NextResponse.json(data);
 }
 
+// POST /api/jobs/:id  -> demo processor switch; replace with real pipelines
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await supabaseFromCookies();
@@ -28,8 +50,12 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const { data: ures } = await supabase.auth.getUser();
   if (!ures?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  // load job
-  const { data: job, error: jerr } = await supabase.from("jobs").select("*").eq("id", id).maybeSingle();
+  const { data: job, error: jerr } = await supabase
+    .from("jobs")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
   if (jerr) return NextResponse.json({ error: jerr.message }, { status: 400 });
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -38,33 +64,29 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (e1) return NextResponse.json({ error: e1.message }, { status: 400 });
 
   try {
-    // ---- DEMO PIPELINE SWITCH (replace with real logic) ----
     let result_url: string | null = null;
     let result_text: string | null = null;
 
     switch (job.type) {
-      case "hook_finder": {
-        // Replace with real LLM call and transcript usage
+      case "hook_finder":
         result_text = `Top Hooks (demo):
 1) This is the moment everything changes…
 2) Stop scrolling: you’re missing THIS.
 3) I tested what nobody else would…`;
         break;
-      }
-      case "clip": {
-        // Replace with real video model/process
-        // result_url = "https://your-storage/public/jobs/clip-<id>.mp4";
+
+      case "clip":
+        // Plug your real clip pipeline here; for now, demo text:
         result_text = "Clip created (demo). Plug in your real processor.";
+        // result_url = "https://storage.example.com/jobs/clip-<id>.mp4";
         break;
-      }
-      case "text_overlay": {
-        // Replace with compositor pipeline
+
+      case "text_overlay":
         result_text = "Overlay applied (demo).";
         break;
-      }
-      default: {
+
+      default:
         result_text = `Unknown job type: ${job.type ?? "(none)"}`;
-      }
     }
 
     const { error: e2 } = await supabase
@@ -75,7 +97,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     if (e2) return NextResponse.json({ error: e2.message }, { status: 400 });
     return NextResponse.json({ ok: true, result_url, result_text });
   } catch (err: any) {
-    await supabase.from("jobs").update({ status: "error", result_text: String(err?.message || err) }).eq("id", id);
+    await supabase
+      .from("jobs")
+      .update({ status: "error", result_text: String(err?.message || err) })
+      .eq("id", id);
     return NextResponse.json({ error: String(err?.message || err) }, { status: 500 });
   }
 }
