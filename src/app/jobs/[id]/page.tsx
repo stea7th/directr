@@ -1,32 +1,40 @@
 import React from 'react';
 import { createClient } from '@/lib/supabase/server';
 
-type Props = {
-  params: { id: string };
-};
+export const dynamic = 'force-dynamic';
 
-export default async function JobPage({ params }: Props) {
-  const supa = await createClient(); // ✅ await the async call
-  const jobId = params.id;
+type RouteParams = { id: string };
 
-  // (Optional) Auth check – remove if you want public access
-  const { data: userData, error: userError } = await supa.auth.getUser();
-  if (userError || !userData?.user) {
+export default async function JobPage({
+  params,
+}: {
+  params: Promise<RouteParams>;
+}) {
+  // ✅ Next 15: params is a Promise — await it
+  const { id } = await params;
+
+  // ✅ Supabase client is async — await it
+  const supa = await createClient();
+
+  // (Optional) auth check — remove if you want public access
+  const { data: userData, error: userErr } = await supa.auth.getUser();
+  if (userErr || !userData?.user) {
     return (
       <main style={{ padding: 24 }}>
-        Not signed in.
+        <h2>Not signed in</h2>
+        <p>You must be signed in to view this job.</p>
       </main>
     );
   }
 
-  // Fetch the job details
-  const { data, error } = await supa
+  // Load the job
+  const { data: job, error } = await supa
     .from('jobs')
     .select('*')
-    .eq('id', jobId)
+    .eq('id', id)
     .single();
 
-  if (error || !data) {
+  if (error || !job) {
     return (
       <main style={{ padding: 24 }}>
         <h2>Job not found</h2>
@@ -37,12 +45,18 @@ export default async function JobPage({ params }: Props) {
 
   return (
     <main style={{ padding: 24 }}>
-      <h1>Job: {data.title}</h1>
-      <p>Status: {data.status}</p>
-      {data.file_name && (
-        <p>Attached file: {data.file_name}</p>
+      <h1 style={{ marginBottom: 8 }}>Job: {job.title}</h1>
+      <p><strong>Status:</strong> {job.status}</p>
+      {job.file_name && <p><strong>File:</strong> {job.file_name}</p>}
+      <p><strong>Created:</strong> {new Date(job.created_at).toLocaleString()}</p>
+
+      {job.output_url && (
+        <p style={{ marginTop: 16 }}>
+          <a href={job.output_url} download>
+            Download result
+          </a>
+        </p>
       )}
-      <p>Created at: {new Date(data.created_at).toLocaleString()}</p>
     </main>
   );
 }
