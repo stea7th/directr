@@ -1,4 +1,4 @@
-:root {
+:global(:root) {
   --bg: #0c0c0d;
   --surface: #121214;
   --ink: #e9eef3;
@@ -8,6 +8,7 @@
   --brand-2: #7cd3ff;
 }
 
+/* layout */
 .wrap {
   min-height: 100vh;
   display: flex;
@@ -43,6 +44,7 @@
 
 .inputStack { display: flex; flex-direction: column; gap: 14px; }
 
+/* inputs */
 .prompt {
   width: 100%;
   min-height: 140px;
@@ -119,8 +121,24 @@
 .genBtn:active { transform: translateY(0.5px); }
 .genBtn:disabled { opacity: 0.55; cursor: not-allowed; }
 
+/* busy shimmer */
+.isBusy::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(-45deg, rgba(255,255,255,0.10) 0 10px, rgba(255,255,255,0.00) 10px 22px);
+  background-size: 220% 100%;
+  mix-blend-mode: screen;
+  animation: shimmer 1.15s linear infinite;
+  z-index: 1;
+}
+
 .hint { margin: 10px 2px 0; font-size: 13px; color: var(--muted); }
 
+/* tiles */
 .tiles {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -146,6 +164,9 @@
 }
 .tile strong { font-weight: 700; letter-spacing: 0.2px; }
 .tile span { color: var(--muted); font-size: 13px; }
+
+/* misc */
+@keyframes shimmer { 0% { background-position:200% 0 } 100% { background-position:-20% 0 } }
 
 @media (max-width: 720px) {
   .row { grid-template-columns: 1fr; }
