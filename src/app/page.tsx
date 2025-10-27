@@ -1,37 +1,19 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
+import styles from './page.module.css';
 
 export default function AppHome() {
   const [prompt, setPrompt] = useState('');
   const [busy, setBusy] = useState(false);
   const [fileName, setFileName] = useState<string>('');
-  const [localFile, setLocalFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  async function uploadIfNeeded(): Promise<string | undefined> {
-    if (!localFile) return undefined;
-
-    const fd = new FormData();
-    fd.append('file', localFile);
-
-    const res = await fetch('/api/upload', {
-      method: 'POST',
-      body: fd,
-      credentials: 'include',
-    });
-
-    const json = await res.json();
-    if (!res.ok) throw new Error(json?.error || 'Upload failed');
-    // returns like: uploads/1234-clip.mp4
-    return json.path as string;
-  }
 
   async function handleGenerate() {
     if (busy) return;
 
     const hasPrompt = prompt.trim().length > 0;
-    const hasFile = !!localFile;
+    const hasFile = !!fileName;
     if (!hasPrompt && !hasFile) {
       alert('Type something or attach a file.');
       return;
@@ -39,18 +21,17 @@ export default function AppHome() {
 
     setBusy(true);
     try {
-      const uploadedPath = await uploadIfNeeded();
-
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           prompt: prompt.trim(),
-          input_path: uploadedPath, // Supabase storage path or undefined
+          fileName: hasFile ? fileName : undefined,
         }),
+        credentials: 'include',
       });
-      const json = await res.json();
+
+      const json = await res.json().catch(() => ({} as any));
       if (!res.ok) throw new Error(json?.error || 'Failed to start');
 
       const id = json?.id || json?.jobId || 'new';
@@ -64,8 +45,7 @@ export default function AppHome() {
   }
 
   function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] || null;
-    setLocalFile(f);
+    const f = e.target.files?.[0];
     setFileName(f ? f.name : '');
   }
 
@@ -73,7 +53,6 @@ export default function AppHome() {
     e.preventDefault();
     const f = e.dataTransfer.files?.[0];
     if (f) {
-      setLocalFile(f);
       setFileName(f.name);
       if (fileInputRef.current) {
         const dt = new DataTransfer();
@@ -84,22 +63,22 @@ export default function AppHome() {
   }
 
   return (
-    <main className="wrap">
-      <section className="card" aria-label="Directr command surface">
-        <h1 className="title">Type what you want or upload a file</h1>
+    <main className={styles.wrap}>
+      <section className={styles.card} aria-label="Directr command surface">
+        <h1 className={styles.title}>Type what you want or upload a file</h1>
 
-        <div className="inputStack">
+        <div className={styles.inputStack}>
           <textarea
-            className="prompt"
+            className={styles.prompt}
             placeholder="Example: Turn this podcast into 5 viral TikToks"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
           />
 
-        <div className="row">
+          <div className={styles.row}>
             <button
               type="button"
-              className="fileBtn"
+              className={styles.fileBtn}
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={onDropFile}
@@ -114,7 +93,7 @@ export default function AppHome() {
               <span>{fileName ? fileName : 'Choose File / Drop here'}</span>
               <input
                 ref={fileInputRef}
-                className="hiddenFile"
+                className={styles.hiddenFile}
                 type="file"
                 accept="video/*,audio/*,.mp3,.mp4,.mov,.m4a,.wav,.aac"
                 onChange={onPickFile}
@@ -123,37 +102,34 @@ export default function AppHome() {
 
             <button
               type="button"
-              className={`genBtn neon ${busy ? 'isBusy' : ''}`}
+              className={`${styles.genBtn} ${busy ? styles.isBusy : ''}`}
               onClick={handleGenerate}
-              disabled={busy || (!prompt.trim() && !localFile)}
+              disabled={busy || (!prompt.trim() && !fileName)}
             >
               {busy ? 'Working…' : 'Generate'}
             </button>
           </div>
         </div>
 
-        <p className="hint">
+        <p className={styles.hint}>
           Tip: Drop a video/audio, or just describe what you want. We’ll handle the rest.
         </p>
       </section>
 
-      <nav className="tiles" aria-label="Quick links">
-        <a className="tile" href="/create">
+      <nav className={styles.tiles} aria-label="Quick links">
+        <a className={styles.tile} href="/create">
           <strong>Create</strong>
           <span>Upload → get captioned clips</span>
         </a>
-        <a className="tile" href="/clipper">
+        <a className={styles.tile} href="/clipper">
           <strong>Clipper</strong>
           <span>Auto-find hooks & moments</span>
         </a>
-        <a className="tile" href="/planner">
+        <a className={styles.tile} href="/planner">
           <strong>Planner</strong>
           <span>Plan posts & deadlines</span>
         </a>
       </nav>
-
-      {/* styles kept intact from your draft */}
-      <style jsx>{`/* (same styles you posted) */`}</style>
     </main>
   );
 }
