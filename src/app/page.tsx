@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import styles from './page.css';
 
 export default function AppHome() {
   const [prompt, setPrompt] = useState('');
@@ -63,22 +62,22 @@ export default function AppHome() {
   }
 
   return (
-    <main className={styles.wrap}>
-      <section className={styles.card} aria-label="Directr command surface">
-        <h1 className={styles.title}>Type what you want or upload a file</h1>
+    <main className="wrap">
+      <section className="card" aria-label="Directr command surface">
+        <h1 className="title">Type what you want or upload a file</h1>
 
-        <div className={styles.inputStack}>
+        <div className="inputStack">
           <textarea
-            className={styles.prompt}
+            className="prompt"
             placeholder="Example: Turn this podcast into 5 viral TikToks"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
           />
 
-          <div className={styles.row}>
+          <div className="row">
             <button
               type="button"
-              className={styles.fileBtn}
+              className="fileBtn"
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={onDropFile}
@@ -93,7 +92,7 @@ export default function AppHome() {
               <span>{fileName ? fileName : 'Choose File / Drop here'}</span>
               <input
                 ref={fileInputRef}
-                className={styles.hiddenFile}
+                className="hiddenFile"
                 type="file"
                 accept="video/*,audio/*,.mp3,.mp4,.mov,.m4a,.wav,.aac"
                 onChange={onPickFile}
@@ -102,7 +101,7 @@ export default function AppHome() {
 
             <button
               type="button"
-              className={`${styles.genBtn} ${busy ? styles.isBusy : ''}`}
+              className={`genBtn neon ${busy ? 'isBusy' : ''}`}
               onClick={handleGenerate}
               disabled={busy || (!prompt.trim() && !fileName)}
             >
@@ -111,21 +110,21 @@ export default function AppHome() {
           </div>
         </div>
 
-        <p className={styles.hint}>
+        <p className="hint">
           Tip: Drop a video/audio, or just describe what you want. We’ll handle the rest.
         </p>
       </section>
 
-      <nav className={styles.tiles} aria-label="Quick links">
-        <a className={styles.tile} href="/create">
+      <nav className="tiles" aria-label="Quick links">
+        <a className="tile" href="/create">
           <strong>Create</strong>
           <span>Upload → get captioned clips</span>
         </a>
-        <a className={styles.tile} href="/clipper">
+        <a className="tile" href="/clipper">
           <strong>Clipper</strong>
           <span>Auto-find hooks & moments</span>
         </a>
-        <a className={styles.tile} href="/planner">
+        <a className="tile" href="/planner">
           <strong>Planner</strong>
           <span>Plan posts & deadlines</span>
         </a>
