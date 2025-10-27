@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import styles from './page.module.css';
+import styles from './page.css';
 
 export default function AppHome() {
   const [prompt, setPrompt] = useState('');
