@@ -1,46 +1,64 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
+// src/app/api/generate/route.ts
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+type Intent =
+  | { type: 'hooks'; count?: number }
+  | { type: 'clip'; count?: number }
+  | { type: 'caption' }
+  | { type: 'resize'; ratio: '9:16' | '1:1' | '16:9' }
+  | { type: 'transcribe' }
+  | { type: 'summarize' }
+  | { type: 'generic' };
 
-function projectRefFromUrl(url: string) {
-  const m = url.match(/^https?:\/\/([a-z0-9-]+)\.supabase\.co/i);
-  return m?.[1] || null;
+function parseIntent(text: string): Intent {
+  const s = text.toLowerCase();
+  const n = Number((s.match(/\b(\d{1,2})\b/) || [])[1]);
+
+  if (/(hook|hooks)/.test(s)) return { type: 'hooks', count: Number.isFinite(n) ? n : 5 };
+  if (/(clip|clips|cut)/.test(s)) return { type: 'clip', count: Number.isFinite(n) ? n : 3 };
+  if (/(caption|subtitles?)/.test(s)) return { type: 'caption' };
+  if (/(9[:x]16|vertical|tiktok)/.test(s)) return { type: 'resize', ratio: '9:16' };
+  if (/(1[:x]1|square)/.test(s)) return { type: 'resize', ratio: '1:1' };
+  if (/(16[:x]9|landscape)/.test(s)) return { type: 'resize', ratio: '16:9' };
+  if (/(transcribe|transcript)/.test(s)) return { type: 'transcribe' };
+  if (/(summarize|summary)/.test(s)) return { type: 'summarize' };
+  return { type: 'generic' };
 }
 
-async function supabaseFromCookies() {
-  const jar = await cookies(); // Next 15: cookies() may be Promise-like here
-  const ref = projectRefFromUrl(SUPABASE_URL);
-
-  const accessToken =
-    jar.get("sb-access-token")?.value ||
-    (ref ? jar.get(`sb-${ref}-auth-token`)?.value : undefined) ||
-    "";
-
-  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: false },
-    global: accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : {},
-  });
-}
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
-  const supabase = await supabaseFromCookies();
+  try {
+    const body = await req.json().catch(() => ({}));
+    const prompt = (body.prompt || '').toString();
+    const input_path = (body.input_path || '').toString() || null;
 
-  const { data: ures, error: uerr } = await supabase.auth.getUser();
-  if (uerr || !ures?.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    const supabase = createClient();
+
+    // figure out what they want
+    const intent = parseIntent(prompt);
+
+    // build a normalized job payload
+    const payload = {
+      title: (prompt && prompt.slice(0, 80)) || 'Untitled Job',
+      type: intent.type,
+      input_path,                 // storage path (uploads/<file>)
+      prompt,                     // original text
+      params: intent,             // machine-usable params
+      status: 'queued' as const,  // queued → processing → done/error
+      result_url: null as string | null,
+      error: null as string | null,
+    };
+
+    const { data, error } = await supabase.from('jobs').insert(payload).select('id').single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+    // ⚠️ kick off your worker here (Railway/Cron/Edge Function) using data.id
+    // e.g. await fetch(process.env.WORKER_URL!, { method: 'POST', body: JSON.stringify({ id: data.id }) })
+
+    return NextResponse.json({ id: data.id });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || 'Failed to create job' }, { status: 500 });
   }
-
-  // -------- YOUR LOGIC HERE --------
-  // const body = await req.json();
-  // ... do work using ures.user.id ...
-  // e.g.:
-  // const { data, error } = await supabase.from("projects").insert({ owner_id: ures.user.id, ...body }).select().single();
-  // if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  // return NextResponse.json({ ok: true, project: data });
-  // ---------------------------------
-
-  return NextResponse.json({ ok: true, user: { id: ures.user.id } });
 }
