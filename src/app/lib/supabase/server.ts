@@ -3,7 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 export async function createClient() {
-  // ✅ cookies() returns a Promise now in Next.js 15, so await it here:
+  // ✅ Next.js 15: cookies() returns a Promise
   const cookieStore = await cookies();
 
   return createServerClient(
@@ -12,10 +12,10 @@ export async function createClient() {
     {
       cookies: {
         get(name: string) {
-          return cookieStore.get(name)?.value || null;
+          return cookieStore.get(name)?.value ?? null;
         },
-        set() {},   // no-op for server
-        remove() {}, // no-op for server
+        set() {},    // no-op on server
+        remove() {}, // no-op on server
       },
     }
   );
