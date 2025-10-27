@@ -1,64 +1,44 @@
-// src/app/api/generate/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { randomUUID } from 'crypto';
 
-type Intent =
-  | { type: 'hooks'; count?: number }
-  | { type: 'clip'; count?: number }
-  | { type: 'caption' }
-  | { type: 'resize'; ratio: '9:16' | '1:1' | '16:9' }
-  | { type: 'transcribe' }
-  | { type: 'summarize' }
-  | { type: 'generic' };
-
-function parseIntent(text: string): Intent {
-  const s = text.toLowerCase();
-  const n = Number((s.match(/\b(\d{1,2})\b/) || [])[1]);
-
-  if (/(hook|hooks)/.test(s)) return { type: 'hooks', count: Number.isFinite(n) ? n : 5 };
-  if (/(clip|clips|cut)/.test(s)) return { type: 'clip', count: Number.isFinite(n) ? n : 3 };
-  if (/(caption|subtitles?)/.test(s)) return { type: 'caption' };
-  if (/(9[:x]16|vertical|tiktok)/.test(s)) return { type: 'resize', ratio: '9:16' };
-  if (/(1[:x]1|square)/.test(s)) return { type: 'resize', ratio: '1:1' };
-  if (/(16[:x]9|landscape)/.test(s)) return { type: 'resize', ratio: '16:9' };
-  if (/(transcribe|transcript)/.test(s)) return { type: 'transcribe' };
-  if (/(summarize|summary)/.test(s)) return { type: 'summarize' };
-  return { type: 'generic' };
-}
-
-export const dynamic = 'force-dynamic';
-
+// POST /api/generate
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const prompt = (body.prompt || '').toString();
-    const input_path = (body.input_path || '').toString() || null;
+    const supabase = await createClient(); // ✅ must await here
 
-    const supabase = createClient();
+    const { prompt, fileName } = await req.json();
 
-    // figure out what they want
-    const intent = parseIntent(prompt);
+    if (!prompt && !fileName) {
+      return NextResponse.json({ error: 'Missing prompt or file.' }, { status: 400 });
+    }
 
-    // build a normalized job payload
+    // Create a job record
     const payload = {
-      title: (prompt && prompt.slice(0, 80)) || 'Untitled Job',
-      type: intent.type,
-      input_path,                 // storage path (uploads/<file>)
-      prompt,                     // original text
-      params: intent,             // machine-usable params
-      status: 'queued' as const,  // queued → processing → done/error
-      result_url: null as string | null,
-      error: null as string | null,
+      id: randomUUID(),
+      title: prompt || 'New Directr Job',
+      status: 'pending',
+      file_name: fileName || null,
+      created_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase.from('jobs').insert(payload).select('id').single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    const { data, error } = await supabase
+      .from('jobs')
+      .insert(payload)
+      .select('id')
+      .single();
 
-    // ⚠️ kick off your worker here (Railway/Cron/Edge Function) using data.id
-    // e.g. await fetch(process.env.WORKER_URL!, { method: 'POST', body: JSON.stringify({ id: data.id }) })
+    if (error) {
+      console.error('Supabase insert error:', error.message);
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
 
-    return NextResponse.json({ id: data.id });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Failed to create job' }, { status: 500 });
+    // ⚙️ Simulate background processing / edge worker trigger
+    console.log(`✅ Job ${data.id} created for "${prompt}"`);
+
+    return NextResponse.json({ id: data.id }, { status: 200 });
+  } catch (err: any) {
+    console.error('Error in /api/generate:', err.message);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
