@@ -1,44 +1,45 @@
-import type { Metadata } from 'next';
-import './globals.css';
-import './page.css';
+// src/components/Header.tsx  (or inside app/layout.tsx)
+import Link from "next/link";
+import { createServerClient } from "@/lib/supabase/server";
 
-export const metadata: Metadata = {
-  title: 'Directr',
-  description:
-    'Upload a file or type a command — get clips, hooks, captions, and exports automatically.',
-};
+export default async function Header() {
+  const supabase = await createServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+  async function signOut() {
+    "use server";
+    const s = await createServerClient();
+    await s.auth.signOut();
+  }
+
   return (
-    <html lang="en">
-      <body className="site">
-        {/* Top Nav */}
-        <header className="nav">
-          <div className="nav__inner">
-            <a href="/" className="logo">directr<span className="dot">.</span></a>
-            <nav className="menu">
-              <a href="/create">Create</a>
-              <a href="/clipper">Clipper</a>
-              <a href="/planner">Planner</a>
-              <a className="link--muted" href="/jobs">Jobs</a>
-            </nav>
-          </div>
-        </header>
+    <nav className="nav">
+      <div className="nav__inner">
+        <Link href="/" className="logo">
+          directr<span className="dot">.</span>
+        </Link>
 
-        {/* Page content */}
-        <main className="page">{children}</main>
+        <div className="menu">
+          <Link href="/create">Create</Link>
+          <Link href="/clipper">Clipper</Link>
+          <Link href="/planner">Planner</Link>
+          <Link href="/jobs">Jobs</Link>
 
-        {/* Footer */}
-        <footer className="footer">
-          <div className="footer__inner">
-            <span>© {new Date().getFullYear()} Directr</span>
-            <span className="spacer">·</span>
-            <a href="/privacy">Privacy</a>
-            <span className="spacer">·</span>
-            <a href="/terms">Terms</a>
-          </div>
-        </footer>
-      </body>
-    </html>
+          {user ? (
+            <form action={signOut}>
+              <button className="btn btn--ghost" type="submit">
+                Sign out
+              </button>
+            </form>
+          ) : (
+            <Link href="/login" className="btn btn--primary">
+              Sign in
+            </Link>
+          )}
+        </div>
+      </div>
+    </nav>
   );
 }
