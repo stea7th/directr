@@ -1,21 +1,27 @@
 // src/lib/supabase/server.ts
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { cookies } from "next/headers";
+import { createServerClient as createSbServer } from "@supabase/ssr";
 
-export async function createClient() {
-  // ✅ Next.js 15: cookies() returns a Promise
+export async function createServerClient() {
   const cookieStore = await cookies();
 
-  return createServerClient(
+  return createSbServer(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         get(name: string) {
-          return cookieStore.get(name)?.value ?? null;
+          return cookieStore.get(name)?.value;
         },
-        set() {},    // no-op on server
-        remove() {}, // no-op on server
+        set(name: string, value: string, options: any) {
+          // Next 15 cookies store is mutable on the server
+          // @ts-ignore - Next provides compatible options
+          cookieStore.set(name, value, options);
+        },
+        remove(name: string, options: any) {
+          // @ts-ignore
+          cookieStore.set(name, "", { ...options, maxAge: 0 });
+        },
       },
     }
   );
