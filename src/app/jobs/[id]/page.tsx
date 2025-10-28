@@ -1,62 +1,53 @@
-import React from 'react';
-import { createClient } from '@/lib/supabase/server';
+import React from "react";
+import Link from "next/link";
+import { createServerClient } from "@/lib/supabase/server";
 
-export const dynamic = 'force-dynamic';
+// Next 15 passes params as a Promise — await it.
+export default async function JobPage(props: { params: Promise<{ id: string }> }) {
+  const { id } = await props.params;
 
-type RouteParams = { id: string };
+  const supabase = await createServerClient();
 
-export default async function JobPage({
-  params,
-}: {
-  params: Promise<RouteParams>;
-}) {
-  // ✅ Next 15: params is a Promise — await it
-  const { id } = await params;
-
-  // ✅ Supabase client is async — await it
-  const supa = await createClient();
-
-  // (Optional) auth check — remove if you want public access
-  const { data: userData, error: userErr } = await supa.auth.getUser();
-  if (userErr || !userData?.user) {
+  // (optional) keep the auth gate, since your page shows that "Not signed in" state
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
     return (
-      <main style={{ padding: 24 }}>
-        <h2>Not signed in</h2>
-        <p>You must be signed in to view this job.</p>
+      <main className="container" style={{ padding: 24 }}>
+        <h2 className="title">Not signed in</h2>
+        <p className="subtitle">You must be signed in to view this job.</p>
+        <Link className="btn btn--primary" href="/login">Sign in</Link>
       </main>
     );
   }
 
-  // Load the job
-  const { data: job, error } = await supa
-    .from('jobs')
-    .select('*')
-    .eq('id', id)
+  const { data: job, error } = await supabase
+    .from("jobs")
+    .select("*")
+    .eq("id", id)
     .single();
 
-  if (error || !job) {
+  if (error) {
     return (
-      <main style={{ padding: 24 }}>
-        <h2>Job not found</h2>
-        <p>{error?.message || 'No job data available.'}</p>
+      <main className="container" style={{ padding: 24 }}>
+        <h2 className="title">Job not found</h2>
+        <div className="job__err">{error.message}</div>
+        <Link href="/" className="btn btn--ghost">Back home</Link>
       </main>
     );
   }
 
   return (
-    <main style={{ padding: 24 }}>
-      <h1 style={{ marginBottom: 8 }}>Job: {job.title}</h1>
-      <p><strong>Status:</strong> {job.status}</p>
-      {job.file_name && <p><strong>File:</strong> {job.file_name}</p>}
-      <p><strong>Created:</strong> {new Date(job.created_at).toLocaleString()}</p>
-
-      {job.output_url && (
-        <p style={{ marginTop: 16 }}>
-          <a href={job.output_url} download>
-            Download result
-          </a>
-        </p>
-      )}
+    <main className="container" style={{ padding: 24 }}>
+      <h1 className="title">{job.title || "Job"}</h1>
+      <div className="card" style={{ display: "grid", gap: 8 }}>
+        <div><span className="badge">ID</span> <code>{job.id}</code></div>
+        <div><span className="badge">Status</span> <strong>{job.status}</strong></div>
+        {job.file_name && <div><span className="badge">File</span> {job.file_name}</div>}
+        {job.input_url && <div className="job__meta">{job.input_url}</div>}
+      </div>
+      <div className="actions">
+        <Link href="/" className="btn">Back</Link>
+      </div>
     </main>
   );
 }
