@@ -1,44 +1,44 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { randomUUID } from 'crypto';
+import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
+import { createServerClient } from "@/lib/supabase/server";
 
 // POST /api/generate
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient(); // ✅ must await here
+    const supabase = await createServerClient();
 
-    const { prompt, fileName } = await req.json();
-
-    if (!prompt && !fileName) {
-      return NextResponse.json({ error: 'Missing prompt or file.' }, { status: 400 });
+    // (optional) make sure we have a user — aligns with your RLS
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Not signed in" }, { status: 401 });
     }
 
-    // Create a job record
+    const { prompt = "", fileName } = await req.json();
+
+    // Build payload that matches your table + CHECK(status) constraint
     const payload = {
       id: randomUUID(),
-      title: prompt || 'New Directr Job',
-      status: 'pending',
+      user_id: user.id,
+      title: prompt?.slice(0, 80) || "Untitled Job",
+      input_url: fileName || null,
+      status: "queued",          // <-- must be one of allowed values
       file_name: fileName || null,
       created_at: new Date().toISOString(),
     };
 
     const { data, error } = await supabase
-      .from('jobs')
+      .from("jobs")
       .insert(payload)
-      .select('id')
+      .select("id")
       .single();
 
     if (error) {
-      console.error('Supabase insert error:', error.message);
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // ⚙️ Simulate background processing / edge worker trigger
-    console.log(`✅ Job ${data.id} created for "${prompt}"`);
-
-    return NextResponse.json({ id: data.id }, { status: 200 });
-  } catch (err: any) {
-    console.error('Error in /api/generate:', err.message);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    // TODO: kick your worker with data.id if needed
+    return NextResponse.json({ id: data.id });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message ?? "Failed" }, { status: 500 });
   }
 }
