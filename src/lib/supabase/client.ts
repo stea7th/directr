@@ -1,9 +1,8 @@
-import { createClient as createSb } from "@supabase/supabase-js";
+// Browser/client Supabase (for uploads from the home page)
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 export function createClient() {
-  return createSb(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: true, autoRefreshToken: true } }
-  );
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  return createSupabaseClient(supabaseUrl, supabaseKey);
 }
