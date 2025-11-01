@@ -1,54 +1,20 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import styles from './page.css';
-import { createClient } from '@/lib/supabase/client';
+import styles from './page.module.css';
 import { useRouter } from 'next/navigation';
 
 export default function AppHome() {
-  const router = useRouter();
   const [prompt, setPrompt] = useState('');
   const [busy, setBusy] = useState(false);
   const [fileName, setFileName] = useState<string>('');
-  const [fileObj, setFileObj] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] || null;
-    setFileObj(f);
-    setFileName(f ? f.name : '');
-  }
-
-  function onDropFile(e: React.DragEvent<HTMLButtonElement>) {
-    e.preventDefault();
-    const f = e.dataTransfer.files?.[0] || null;
-    if (!f) return;
-    setFileObj(f);
-    setFileName(f.name);
-    if (fileInputRef.current) {
-      const dt = new DataTransfer();
-      dt.items.add(f);
-      fileInputRef.current.files = dt.files;
-    }
-  }
-
-  async function uploadToSupabase(file: File) {
-    const supabase = createClient();
-    const ext = file.name.split('.').pop() || 'bin';
-    const path = `inputs/${crypto.randomUUID()}.${ext}`;
-    const { error } = await supabase.storage.from('uploads').upload(path, file, {
-      cacheControl: '3600',
-      upsert: false,
-    });
-    if (error) throw new Error(error.message);
-    return path; // relative path inside 'uploads'
-  }
+  const router = useRouter();
 
   async function handleGenerate() {
     if (busy) return;
-
     const hasPrompt = prompt.trim().length > 0;
-    const hasFile = !!fileObj;
+    const hasFile = !!fileName;
     if (!hasPrompt && !hasFile) {
       alert('Type something or attach a file.');
       return;
@@ -56,21 +22,14 @@ export default function AppHome() {
 
     setBusy(true);
     try {
-      // 1) optional file upload
-      let inputPath: string | undefined = undefined;
-      if (fileObj) {
-        inputPath = await uploadToSupabase(fileObj);
-      }
-
-      // 2) create job
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           prompt: prompt.trim(),
-          filePath: inputPath,
+          fileName: hasFile ? fileName : undefined,
         }),
+        credentials: 'include',
       });
 
       const json = await res.json().catch(() => ({} as any));
@@ -83,6 +42,24 @@ export default function AppHome() {
       alert(e?.message || 'Failed to start the job.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    setFileName(f ? f.name : '');
+  }
+
+  function onDropFile(e: React.DragEvent<HTMLButtonElement>) {
+    e.preventDefault();
+    const f = e.dataTransfer.files?.[0];
+    if (f) {
+      setFileName(f.name);
+      if (fileInputRef.current) {
+        const dt = new DataTransfer();
+        dt.items.add(f);
+        fileInputRef.current.files = dt.files;
+      }
     }
   }
 
@@ -126,7 +103,7 @@ export default function AppHome() {
 
             <button
               type="button"
-              className={styles.genBtn}
+              className={`${styles.genBtn} ${styles.neon} ${busy ? styles.isBusy : ''}`}
               onClick={handleGenerate}
               disabled={busy || (!prompt.trim() && !fileName)}
             >
@@ -147,11 +124,11 @@ export default function AppHome() {
         </a>
         <a className={styles.tile} href="/clipper">
           <strong>Clipper</strong>
-          <span>Auto-find hooks &amp; moments</span>
+          <span>Auto-find hooks & moments</span>
         </a>
         <a className={styles.tile} href="/planner">
           <strong>Planner</strong>
-          <span>Plan posts &amp; deadlines</span>
+          <span>Plan posts & deadlines</span>
         </a>
       </nav>
     </main>
