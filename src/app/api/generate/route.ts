@@ -1,13 +1,17 @@
+// src/app/api/generate/route.ts
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { createServerClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(req: Request) {
   try {
-    const { prompt, filePath } = await req.json();
-    const supa = createServerClient();
+    const supa = await createClient(); // <-- IMPORTANT: await
 
-    // who is this?
+    const body = await req.json().catch(() => ({} as any));
+    const prompt = (body?.prompt ?? '').toString().trim();
+    const fileName: string | null = body?.fileName ?? null;
+
+    // (optional) who is this?
     const { data: authData } = await supa.auth.getUser();
     const userId = authData?.user?.id ?? null;
 
@@ -15,11 +19,13 @@ export async function POST(req: Request) {
     const payload = {
       id,
       user_id: userId,
-      prompt: prompt ?? '',
-      input_path: filePath ?? null,
-      output_path: null,
+      title:
+        prompt.slice(0, 120) ||
+        (fileName ? `Process ${fileName}` : 'Untitled job'),
       status: 'queued',
-      error: null,
+      input_prompt: prompt,
+      input_file: fileName,
+      created_at: new Date().toISOString(),
     };
 
     const { error } = await supa.from('jobs').insert(payload);
@@ -27,9 +33,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // TODO: trigger your worker to process {id}
+    // kick off worker here if you have one; for now just return the id
     return NextResponse.json({ id });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Bad request' }, { status: 400 });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err?.message ?? 'Failed' },
+      { status: 500 }
+    );
   }
 }
