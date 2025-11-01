@@ -1,8 +1,13 @@
 // src/app/jobs/[id]/page.tsx
-import type { PageProps } from 'next';
 import JobViewer from './viewer';
 
-export default async function JobPage({ params }: PageProps<{ id: string }>) {
-  const { id } = await params; // 👈 params is a Promise in Next 15
+type Params = { id: string };
+
+export default async function JobPage({
+  params,
+}: {
+  params: Promise<Params>;
+}) {
+  const { id } = await params; // Next 15: params is a Promise
   return <JobViewer id={id} />;
 }
