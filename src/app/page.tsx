@@ -1,18 +1,54 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
+import styles from './page.css';
+import { createClient } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
 
 export default function AppHome() {
+  const router = useRouter();
   const [prompt, setPrompt] = useState('');
   const [busy, setBusy] = useState(false);
   const [fileName, setFileName] = useState<string>('');
+  const [fileObj, setFileObj] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] || null;
+    setFileObj(f);
+    setFileName(f ? f.name : '');
+  }
+
+  function onDropFile(e: React.DragEvent<HTMLButtonElement>) {
+    e.preventDefault();
+    const f = e.dataTransfer.files?.[0] || null;
+    if (!f) return;
+    setFileObj(f);
+    setFileName(f.name);
+    if (fileInputRef.current) {
+      const dt = new DataTransfer();
+      dt.items.add(f);
+      fileInputRef.current.files = dt.files;
+    }
+  }
+
+  async function uploadToSupabase(file: File) {
+    const supabase = createClient();
+    const ext = file.name.split('.').pop() || 'bin';
+    const path = `inputs/${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from('uploads').upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+    if (error) throw new Error(error.message);
+    return path; // relative path inside 'uploads'
+  }
 
   async function handleGenerate() {
     if (busy) return;
 
     const hasPrompt = prompt.trim().length > 0;
-    const hasFile = !!fileName;
+    const hasFile = !!fileObj;
     if (!hasPrompt && !hasFile) {
       alert('Type something or attach a file.');
       return;
@@ -20,21 +56,28 @@ export default function AppHome() {
 
     setBusy(true);
     try {
+      // 1) optional file upload
+      let inputPath: string | undefined = undefined;
+      if (fileObj) {
+        inputPath = await uploadToSupabase(fileObj);
+      }
+
+      // 2) create job
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           prompt: prompt.trim(),
-          fileName: hasFile ? fileName : undefined,
+          filePath: inputPath,
         }),
-        credentials: 'include',
       });
 
       const json = await res.json().catch(() => ({} as any));
       if (!res.ok) throw new Error(json?.error || 'Failed to start');
 
       const id = json?.id || json?.jobId || 'new';
-      window.location.href = `/jobs/${id}`;
+      router.push(`/jobs/${id}`);
     } catch (e: any) {
       console.error(e);
       alert(e?.message || 'Failed to start the job.');
@@ -43,41 +86,23 @@ export default function AppHome() {
     }
   }
 
-  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    setFileName(f ? f.name : '');
-  }
-
-  function onDropFile(e: React.DragEvent<HTMLButtonElement>) {
-    e.preventDefault();
-    const f = e.dataTransfer.files?.[0];
-    if (f) {
-      setFileName(f.name);
-      if (fileInputRef.current) {
-        const dt = new DataTransfer();
-        dt.items.add(f);
-        fileInputRef.current.files = dt.files;
-      }
-    }
-  }
-
   return (
-    <main className="wrap">
-      <section className="card" aria-label="Directr command surface">
-        <h1 className="title">Type what you want or upload a file</h1>
+    <main className={styles.wrap}>
+      <section className={styles.card} aria-label="Directr command surface">
+        <h1 className={styles.title}>Type what you want or upload a file</h1>
 
-        <div className="inputStack">
+        <div className={styles.inputStack}>
           <textarea
-            className="prompt"
+            className={styles.prompt}
             placeholder="Example: Turn this podcast into 5 viral TikToks"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
           />
 
-          <div className="row">
+          <div className={styles.row}>
             <button
               type="button"
-              className="fileBtn"
+              className={styles.fileBtn}
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={onDropFile}
@@ -92,7 +117,7 @@ export default function AppHome() {
               <span>{fileName ? fileName : 'Choose File / Drop here'}</span>
               <input
                 ref={fileInputRef}
-                className="hiddenFile"
+                className={styles.hiddenFile}
                 type="file"
                 accept="video/*,audio/*,.mp3,.mp4,.mov,.m4a,.wav,.aac"
                 onChange={onPickFile}
@@ -101,7 +126,7 @@ export default function AppHome() {
 
             <button
               type="button"
-              className={`genBtn neon ${busy ? 'isBusy' : ''}`}
+              className={styles.genBtn}
               onClick={handleGenerate}
               disabled={busy || (!prompt.trim() && !fileName)}
             >
@@ -110,23 +135,23 @@ export default function AppHome() {
           </div>
         </div>
 
-        <p className="hint">
+        <p className={styles.hint}>
           Tip: Drop a video/audio, or just describe what you want. We’ll handle the rest.
         </p>
       </section>
 
-      <nav className="tiles" aria-label="Quick links">
-        <a className="tile" href="/create">
+      <nav className={styles.tiles} aria-label="Quick links">
+        <a className={styles.tile} href="/create">
           <strong>Create</strong>
           <span>Upload → get captioned clips</span>
         </a>
-        <a className="tile" href="/clipper">
+        <a className={styles.tile} href="/clipper">
           <strong>Clipper</strong>
-          <span>Auto-find hooks & moments</span>
+          <span>Auto-find hooks &amp; moments</span>
         </a>
-        <a className="tile" href="/planner">
+        <a className={styles.tile} href="/planner">
           <strong>Planner</strong>
-          <span>Plan posts & deadlines</span>
+          <span>Plan posts &amp; deadlines</span>
         </a>
       </nav>
     </main>
