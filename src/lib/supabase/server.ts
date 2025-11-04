@@ -1,40 +1,24 @@
 // src/lib/supabase/server.ts
-import { cookies } from 'next/headers';
-import { createServerClient as _createServerClient } from '@supabase/ssr';
-import type { CookieOptions } from '@supabase/ssr';
+import { cookies, headers } from "next/headers";
+import { createServerClient as createSSRClient } from "@supabase/ssr";
+// import type { Database } from "@/lib/supabase/types"; // optional
 
-function env(name: string) {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env: ${name}`);
-  return v;
-}
+export async function createServerClient() {
+  const cookieStore = await cookies();
 
-/**
- * Create a Supabase client for server environments (RSCs, route handlers, etc)
- * NOTE: Next.js 15 => cookies() is async, so we await it here.
- */
-export async function createClient() {
-  const cookieStore = await cookies(); // <-- IMPORTANT in Next 15
-  return _createServerClient(
-    env('NEXT_PUBLIC_SUPABASE_URL'),
-    env('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+  const supabase = createSSRClient/*<Database>*/(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         get(name: string) {
           return cookieStore.get(name)?.value;
         },
-        set(name: string, value: string, options: CookieOptions) {
-          // mutate response cookies
-          cookieStore.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          cookieStore.set({ name, value: '', ...options, maxAge: 0 });
-        },
+        set() {},   // no-op on server; Route Handlers manage Set-Cookie
+        remove() {},// no-op
       },
     }
   );
-}
 
-// Optional alias so older imports keep working:
-export const createServerClient = createClient;
-export type { CookieOptions };
+  return supabase;
+}
