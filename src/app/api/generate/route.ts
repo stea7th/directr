@@ -1,44 +1,48 @@
-// src/app/api/generate/route.ts
+ // src/app/api/generate/route.ts
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 
 export async function POST(req: Request) {
-  try {
-    const supa = await createClient(); // <-- IMPORTANT: await
+  const supa = createServerClient(); // returns a client (not a Promise)
+  const body = await req.json();
 
-    const body = await req.json().catch(() => ({} as any));
-    const prompt = (body?.prompt ?? '').toString().trim();
-    const fileName: string | null = body?.fileName ?? null;
+  const fileUrl  = body.fileUrl ?? null;     // URL from your uploader
+  const fileName = body.fileName ?? null;    // original filename
+  const prompt   = body.prompt   ?? '';      // text prompt allowed to be empty
 
-    // (optional) who is this?
-    const { data: authData } = await supa.auth.getUser();
-    const userId = authData?.user?.id ?? null;
-
-    const id = randomUUID();
-    const payload = {
-      id,
-      user_id: userId,
-      title:
-        prompt.slice(0, 120) ||
-        (fileName ? `Process ${fileName}` : 'Untitled job'),
-      status: 'queued',
-      input_prompt: prompt,
-      input_file: fileName,
-      created_at: new Date().toISOString(),
-    };
-
-    const { error } = await supa.from('jobs').insert(payload);
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    // kick off worker here if you have one; for now just return the id
-    return NextResponse.json({ id });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err?.message ?? 'Failed' },
-      { status: 500 }
-    );
+  // Who’s creating this job?
+  const { data: authData, error: authErr } = await supa.auth.getUser();
+  if (authErr || !authData?.user?.id) {
+    return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
   }
+  const userId = authData.user.id;
+
+  // You can allow prompt-only jobs; if you want to require a file, uncomment:
+  // if (!fileUrl) return NextResponse.json({ error: 'fileUrl required' }, { status: 400 });
+
+  const id = randomUUID();
+
+  const payload = {
+    id,
+    user_id: userId,
+    input_prompt: prompt,
+    file_name: fileName,
+    input_file: fileUrl,
+    input_path: fileUrl,   // mirror so worker never sees NULL
+    status: 'queued',
+  };
+
+  const { data, error } = await supa
+    .from('jobs')
+    .insert(payload)
+    .select('id')
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  // Kick worker with data.id (Railway/Cron/etc.)
+  return NextResponse.json({ id: data.id }, { status: 201 });
 }
