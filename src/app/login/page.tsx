@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -19,41 +19,39 @@ export default function LoginPage() {
   const [err, setErr] = useState<string | null>(null);
 
   const supabase = useMemo(() => createClient(), []);
-  const redirectTo = useMemo(() => {
-    // return to ?next=/foo or default to /
-    const next = search?.get('next') || '/';
-    // full absolute URL is best for OAuth providers
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      url.pathname = '/auth/callback';
-      url.search = `next=${encodeURIComponent(next)}`;
-      return url.toString();
-    }
-    return undefined;
-  }, [search]);
+  const nextPath = search?.get('next') || '/';
 
-  // If already signed in, bounce away
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!cancelled && data.user) router.replace(search?.get('next') || '/');
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [router, search, supabase]);
+  const redirectTo =
+    typeof window !== 'undefined'
+      ? (() => {
+          const u = new URL(window.location.href);
+          u.pathname = '/auth/callback';
+          u.search = `next=${encodeURIComponent(nextPath)}`;
+          return u.toString();
+        })()
+      : undefined;
+
+  // ---- helpers
+  async function ensureSignedOutIfNeeded() {
+    // If you arrived here with an old session, show the form instead of bouncing
+    const { data } = await supabase.auth.getUser();
+    if (data.user) {
+      // do NOT redirect; let user choose to sign out
+      setNote(`You're already signed in as ${data.user.email ?? data.user.id}.`);
+    }
+  }
+  // fire once after first paint, but don’t redirect
+  React.useEffect(() => {
+    // no await needed; best-effort check
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    ensureSignedOutIfNeeded();
+  }, []);
 
   async function handleGoogle() {
-    setErr(null);
-    setNote(null);
-    setLoading(true);
+    setErr(null); setNote(null); setLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo, // must be whitelisted in Supabase Auth -> URL Configuration
-        queryParams: { prompt: 'select_account' },
-      },
+      options: { redirectTo, queryParams: { prompt: 'select_account' } }
     });
     setLoading(false);
     if (error) setErr(error.message);
@@ -61,12 +59,10 @@ export default function LoginPage() {
 
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault();
-    setErr(null);
-    setNote(null);
-    setLoading(true);
+    setErr(null); setNote(null); setLoading(true);
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: redirectTo },
+      options: { emailRedirectTo: redirectTo }
     });
     setLoading(false);
     if (error) setErr(error.message);
@@ -75,20 +71,18 @@ export default function LoginPage() {
 
   async function handlePassword(e: React.FormEvent) {
     e.preventDefault();
-    setErr(null);
-    setNote(null);
-    setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password: pw,
-    });
+    setErr(null); setNote(null); setLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
     setLoading(false);
-    if (error) {
-      // If the user doesn’t exist yet, suggest creating one
-      setErr(error.message);
-      return;
-    }
-    if (data.user) router.replace(search?.get('next') || '/');
+    if (error) { setErr(error.message); return; }
+    if (data.user) router.replace(nextPath);
+  }
+
+  async function handleSignOut() {
+    setLoading(true);
+    await supabase.auth.signOut();
+    setLoading(false);
+    setNote('Signed out. You can log in below.');
   }
 
   return (
@@ -97,64 +91,35 @@ export default function LoginPage() {
         <h1>Sign in to Directr</h1>
         <p className="sub">Choose a method below.</p>
 
+        {note && <p style={{ color: 'var(--muted)', marginTop: 8 }}>{note}</p>}
+        {err && <p style={{ color: 'var(--err)', marginTop: 8 }}>{err}</p>}
+
         <div className="tabs" role="tablist" aria-label="Sign-in methods">
-          <button
-            className={`tab ${tab === 'google' ? 'tab--active' : ''}`}
-            onClick={() => setTab('google')}
-            role="tab"
-            aria-selected={tab === 'google'}
-          >
-            Google
-          </button>
-          <button
-            className={`tab ${tab === 'magic' ? 'tab--active' : ''}`}
-            onClick={() => setTab('magic')}
-            role="tab"
-            aria-selected={tab === 'magic'}
-          >
-            Magic Link
-          </button>
-          <button
-            className={`tab ${tab === 'password' ? 'tab--active' : ''}`}
-            onClick={() => setTab('password')}
-            role="tab"
-            aria-selected={tab === 'password'}
-          >
-            Password
-          </button>
+          <button className={`tab ${tab === 'google' ? 'tab--active' : ''}`} onClick={() => setTab('google')}>Google</button>
+          <button className={`tab ${tab === 'magic' ? 'tab--active' : ''}`} onClick={() => setTab('magic')}>Magic Link</button>
+          <button className={`tab ${tab === 'password' ? 'tab--active' : ''}`} onClick={() => setTab('password')}>Password</button>
         </div>
 
-        {/* Google */}
         {tab === 'google' && (
           <div className="mt-12">
-            <button
-              className="btn btn--primary btn--full"
-              onClick={handleGoogle}
-              disabled={loading}
-            >
+            <button className="btn btn--primary btn--full" onClick={handleGoogle} disabled={loading}>
               {loading ? 'Redirecting…' : 'Continue with Google'}
             </button>
             <div className="links">
               <Link href="/signup">Create one</Link>
+              <Link href="/reset">Reset password</Link>
+              <button className="linklike" onClick={handleSignOut} disabled={loading}>Sign out</button>
               <Link href="/">Back to home</Link>
             </div>
           </div>
         )}
 
-        {/* Magic Link */}
         {tab === 'magic' && (
           <form onSubmit={handleMagicLink} className="mt-12">
             <label className="field">
               <span>Email</span>
-              <input
-                className="input"
-                type="email"
-                inputMode="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <input className="input" type="email" inputMode="email" placeholder="you@example.com"
+                     value={email} onChange={(e) => setEmail(e.target.value)} required />
             </label>
             <div className="actions">
               <button className="btn btn--primary btn--full" disabled={loading}>
@@ -164,38 +129,23 @@ export default function LoginPage() {
             <div className="links">
               <Link href="/signup">Create one</Link>
               <Link href="/reset">Reset password</Link>
+              <button className="linklike" onClick={handleSignOut} disabled={loading}>Sign out</button>
               <Link href="/">Back to home</Link>
             </div>
           </form>
         )}
 
-        {/* Password */}
         {tab === 'password' && (
           <form onSubmit={handlePassword} className="mt-12">
             <label className="field">
               <span>Email</span>
-              <input
-                className="input"
-                type="email"
-                inputMode="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
+              <input className="input" type="email" inputMode="email" placeholder="you@example.com"
+                     value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
             </label>
             <label className="field mt-12">
               <span>Password</span>
-              <input
-                className="input"
-                type="password"
-                placeholder="••••••••"
-                value={pw}
-                onChange={(e) => setPw(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
+              <input className="input" type="password" placeholder="••••••••"
+                     value={pw} onChange={(e) => setPw(e.target.value)} required autoComplete="current-password" />
             </label>
             <div className="actions">
               <button className="btn btn--primary btn--full" disabled={loading}>
@@ -205,21 +155,10 @@ export default function LoginPage() {
             <div className="links">
               <Link href="/reset">Reset password</Link>
               <Link href="/signup">Create one</Link>
+              <button className="linklike" onClick={handleSignOut} disabled={loading}>Sign out</button>
               <Link href="/">Back to home</Link>
             </div>
           </form>
-        )}
-
-        {/* Messages */}
-        {err && (
-          <p style={{ color: 'var(--err)', marginTop: 12, fontSize: 13 }}>
-            {err}
-          </p>
-        )}
-        {note && (
-          <p style={{ color: 'var(--muted)', marginTop: 12, fontSize: 13 }}>
-            {note}
-          </p>
         )}
       </div>
     </main>
