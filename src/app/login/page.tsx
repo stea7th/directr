@@ -1,197 +1,219 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/lib/supabase/client";
 
 type Tab = "google" | "magic" | "password";
 
 export default function LoginPage() {
-  const supabase = createClientComponentClient();
   const router = useRouter();
-  const params = useSearchParams();
+  const search = useSearchParams();
+  const next = search.get("next") || "/";
 
+  const supabase = createClient();
   const [tab, setTab] = useState<Tab>("google");
-  const [email, setEmail] = useState("");
-  const [pwd, setPwd] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  // optional: switch tab via URL like /login?tab=password
-  useEffect(() => {
-    const t = params.get("tab");
-    if (t === "magic" || t === "password" || t === "google") setTab(t);
-  }, [params]);
+  // shared fields
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  // if already signed in, bounce home
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.replace("/");
-    });
-  }, [router, supabase]);
-
-  const onGoogle = async () => {
-    setErr(null); setMsg(null); setLoading(true);
+  async function signInWithGoogle() {
     try {
+      setErr(null); setMsg(null); setLoading(true);
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+        }
       });
       if (error) throw error;
-      // user will be redirected by Google → Supabase → /auth/callback
+      // OAuth will redirect — nothing else to do
     } catch (e: any) {
-      setErr(e.message ?? "Google sign-in failed");
+      setErr(e.message || "Google sign-in failed.");
       setLoading(false);
     }
-  };
+  }
 
-  const onMagic = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErr(null); setMsg(null); setLoading(true);
+  async function sendMagicLink() {
     try {
+      setErr(null); setMsg(null); setLoading(true);
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+        }
       });
       if (error) throw error;
-      setMsg("Magic link sent. Check your email.");
+      setMsg("Check your email for a magic link.");
     } catch (e: any) {
-      setErr(e.message ?? "Failed to send magic link");
+      setErr(e.message || "Could not send magic link.");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const onPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErr(null); setMsg(null); setLoading(true);
+  async function signInWithPassword() {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password: pwd });
+      setErr(null); setMsg(null); setLoading(true);
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      router.replace("/");
+      router.replace(next);
+      router.refresh();
     } catch (e: any) {
-      setErr(e.message ?? "Invalid email or password");
+      setErr(e.message || "Sign-in failed.");
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  async function resetPassword() {
+    try {
+      setErr(null); setMsg(null); setLoading(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+      });
+      if (error) throw error;
+      setMsg("Password reset email sent.");
+    } catch (e: any) {
+      setErr(e.message || "Could not send reset email.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
-        <h1 className="text-xl font-semibold mb-2">Sign in to Directr</h1>
-        <p className="text-sm text-zinc-400 mb-6">Choose a method below.</p>
-
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setTab("google")}
-            className={`px-3 py-2 rounded-lg text-sm border ${tab==="google" ? "bg-white text-black border-white" : "border-white/15 hover:bg-white/10"}`}
-          >
-            Google
-          </button>
-          <button
-            onClick={() => setTab("magic")}
-            className={`px-3 py-2 rounded-lg text-sm border ${tab==="magic" ? "bg-white text-black border-white" : "border-white/15 hover:bg-white/10"}`}
-          >
-            Magic Link
-          </button>
-          <button
-            onClick={() => setTab("password")}
-            className={`px-3 py-2 rounded-lg text-sm border ${tab==="password" ? "bg-white text-black border-white" : "border-white/15 hover:bg-white/10"}`}
-          >
-            Password
-          </button>
+    <div className="min-h-screen bg-[var(--bg,#0a0a0a)] text-white">
+      {/* Simple header */}
+      <header className="sticky top-0 z-10 border-b border-white/10 bg-black/40 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+          <a href="/" className="font-semibold tracking-tight">directr<span className="text-sky-400">.</span></a>
+          <a href="/" className="rounded-xl border border-white/10 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5">Home</a>
         </div>
+      </header>
 
-        {/* Messages */}
-        {err && <div className="mb-4 text-sm text-red-400">{err}</div>}
-        {msg && <div className="mb-4 text-sm text-emerald-400">{msg}</div>}
+      <main className="mx-auto max-w-5xl px-4">
+        <div className="mx-auto mt-14 w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900/70 p-6 shadow-xl">
+          <h1 className="mb-2 text-2xl font-semibold">Sign in to Directr</h1>
+          <p className="mb-6 text-sm text-white/60">Choose a method below.</p>
 
-        {/* Panels */}
-        {tab === "google" && (
-          <div className="space-y-4">
+          {/* Tabs */}
+          <div className="mb-5 flex gap-2">
             <button
-              onClick={onGoogle}
-              disabled={loading}
-              className="w-full h-11 rounded-xl bg-white text-black font-medium hover:opacity-90 disabled:opacity-60"
+              onClick={() => setTab("google")}
+              className={`rounded-lg px-3 py-1.5 text-sm ${tab === "google" ? "bg-white text-black" : "border border-white/15 text-white/80 hover:bg-white/5"}`}
             >
-              {loading ? "Redirecting…" : "Continue with Google"}
+              Google
             </button>
-            <p className="text-xs text-zinc-400">
-              We’ll redirect you to Google to continue.
-            </p>
+            <button
+              onClick={() => setTab("magic")}
+              className={`rounded-lg px-3 py-1.5 text-sm ${tab === "magic" ? "bg-white text-black" : "border border-white/15 text-white/80 hover:bg-white/5"}`}
+            >
+              Magic Link
+            </button>
+            <button
+              onClick={() => setTab("password")}
+              className={`rounded-lg px-3 py-1.5 text-sm ${tab === "password" ? "bg-white text-black" : "border border-white/15 text-white/80 hover:bg-white/5"}`}
+            >
+              Password
+            </button>
           </div>
-        )}
 
-        {tab === "magic" && (
-          <form onSubmit={onMagic} className="space-y-3">
-            <label className="block text-sm text-zinc-300">Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="w-full h-11 rounded-xl bg-zinc-800 border border-white/10 px-3 outline-none focus:ring-2 focus:ring-sky-500"
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full h-11 rounded-xl bg-sky-500 font-medium hover:brightness-110 disabled:opacity-60"
-            >
-              {loading ? "Sending…" : "Send Magic Link"}
-            </button>
-          </form>
-        )}
+          {/* Alerts */}
+          {err && <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">{err}</div>}
+          {msg && <div className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">{msg}</div>}
 
-        {tab === "password" && (
-          <form onSubmit={onPassword} className="space-y-3">
-            <label className="block text-sm text-zinc-300">Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="w-full h-11 rounded-xl bg-zinc-800 border border-white/10 px-3 outline-none focus:ring-2 focus:ring-sky-500"
-            />
-            <label className="block text-sm text-zinc-300 mt-2">Password</label>
-            <input
-              type="password"
-              required
-              value={pwd}
-              onChange={(e) => setPwd(e.target.value)}
-              placeholder="••••••••"
-              className="w-full h-11 rounded-xl bg-zinc-800 border border-white/10 px-3 outline-none focus:ring-2 focus:ring-sky-500"
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full h-11 rounded-xl bg-white text-black font-medium hover:opacity-90 disabled:opacity-60"
-            >
-              {loading ? "Signing in…" : "Sign in"}
-            </button>
-          </form>
-        )}
+          {/* Panels */}
+          {tab === "google" && (
+            <div className="space-y-4">
+              <button
+                onClick={signInWithGoogle}
+                disabled={loading}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-medium text-black hover:opacity-95 disabled:opacity-60"
+              >
+                Continue with Google
+              </button>
+            </div>
+          )}
 
-        {/* Helper links */}
-        <div className="mt-6 text-xs text-zinc-400 space-y-1">
-          <p>
-            Don’t have an account?{" "}
+          {tab === "magic" && (
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs text-white/70">Email</label>
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  className="w-full rounded-xl border border-white/10 bg-zinc-800/80 px-3 py-2 text-sm outline-none ring-0 placeholder:text-white/40 focus:border-white/20 focus:ring-2 focus:ring-sky-500/40"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <button
+                onClick={sendMagicLink}
+                disabled={loading || !email}
+                className="w-full rounded-xl bg-white px-4 py-3 text-sm font-medium text-black hover:opacity-95 disabled:opacity-60"
+              >
+                Send magic link
+              </button>
+            </div>
+          )}
+
+          {tab === "password" && (
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs text-white/70">Email</label>
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  className="w-full rounded-xl border border-white/10 bg-zinc-800/80 px-3 py-2 text-sm outline-none focus:border-white/20 focus:ring-2 focus:ring-sky-500/40"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-white/70">Password</label>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  className="w-full rounded-xl border border-white/10 bg-zinc-800/80 px-3 py-2 text-sm outline-none focus:border-white/20 focus:ring-2 focus:ring-sky-500/40"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </div>
+              <button
+                onClick={signInWithPassword}
+                disabled={loading || !email || !password}
+                className="w-full rounded-xl bg-white px-4 py-3 text-sm font-medium text-black hover:opacity-95 disabled:opacity-60"
+              >
+                Sign in
+              </button>
+
+              <div className="text-center">
+                <button
+                  onClick={resetPassword}
+                  className="text-sm text-sky-400 hover:underline"
+                  type="button"
+                >
+                  Reset password
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6 flex items-center justify-between text-sm text-white/60">
             <a href="/signup" className="text-sky-400 hover:underline">Create one</a>
-          </p>
-          <p>
-            Trouble?{" "}
-            <a href="/reset" className="text-sky-400 hover:underline">Reset password</a>
-          </p>
+            <a href="/" className="text-white/60 hover:text-white">Back to home</a>
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
