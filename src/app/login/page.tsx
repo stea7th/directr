@@ -1,282 +1,197 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { createBrowserClient } from '@/lib/supabase/client';
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-type Tab = 'phone' | 'password' | 'magic';
+type Tab = "google" | "magic" | "password";
 
-export default function SignInPage() {
-  const supabase = createBrowserClient();
+export default function LoginPage() {
+  const supabase = createClientComponentClient();
   const router = useRouter();
-  const sp = useSearchParams();
-  const redirectTo = sp.get('redirectTo') || '/';
+  const params = useSearchParams();
 
-  const [tab, setTab] = useState<Tab>('phone');
-
-  // shared UI state
+  const [tab, setTab] = useState<Tab>("google");
+  const [email, setEmail] = useState("");
+  const [pwd, setPwd] = useState("");
   const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
 
-  // phone state
-  const [phone, setPhone] = useState('');
-  const [codeSent, setCodeSent] = useState(false);
-  const [otp, setOtp] = useState('');
+  // optional: switch tab via URL like /login?tab=password
+  useEffect(() => {
+    const t = params.get("tab");
+    if (t === "magic" || t === "password" || t === "google") setTab(t);
+  }, [params]);
 
-  // email/password state
-  const [email, setEmail] = useState('');
-  const [pw, setPw] = useState('');
+  // if already signed in, bounce home
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) router.replace("/");
+    });
+  }, [router, supabase]);
 
-  // magic link state (re-use email)
-  const [magicEmail, setMagicEmail] = useState('');
-
-  async function handlePhoneSend() {
-    setErr(null); setOk(null);
-    if (!phone.trim()) { setErr('Enter your phone number.'); return; }
+  const onGoogle = async () => {
+    setErr(null); setMsg(null); setLoading(true);
     try {
-      setLoading(true);
-      const { error } = await supabase.auth.signInWithOtp({
-        phone,
-        options: { channel: 'sms' }, // use SMS
-      });
-      if (error) throw error;
-      setCodeSent(true);
-      setOk('Code sent. Check your SMS.');
-    } catch (e: any) {
-      setErr(e?.message || 'Failed to send code.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handlePhoneVerify() {
-    setErr(null); setOk(null);
-    if (!phone.trim() || !otp.trim()) {
-      setErr('Enter phone and the 6-digit code.'); return;
-    }
-    try {
-      setLoading(true);
-      const { data, error } = await supabase.auth.verifyOtp({
-        phone,
-        token: otp,
-        type: 'sms',
-      });
-      if (error) throw error;
-      if (data?.session) {
-        setOk('Signed in!');
-        router.replace(redirectTo);
-      } else {
-        setErr('Could not verify code.');
-      }
-    } catch (e: any) {
-      setErr(e?.message || 'Invalid code.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleEmailPassword() {
-    setErr(null); setOk(null);
-    if (!email || !pw) { setErr('Enter email and password.'); return; }
-    try {
-      setLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: pw,
-      });
-      if (error) throw error;
-      if (data.session) {
-        setOk('Signed in!');
-        router.replace(redirectTo);
-      } else {
-        setErr('Sign in failed.');
-      }
-    } catch (e: any) {
-      setErr(e?.message || 'Sign in failed.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleMagicLink() {
-    setErr(null); setOk(null);
-    if (!magicEmail) { setErr('Enter your email.'); return; }
-    try {
-      setLoading(true);
-      const { error } = await supabase.auth.signInWithOtp({
-        email: magicEmail,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
         options: {
-          emailRedirectTo:
-            typeof window !== 'undefined'
-              ? `${window.location.origin}/auth/callback`
-              : undefined,
+          redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
       if (error) throw error;
-      setOk('Magic link sent. Check your email.');
+      // user will be redirected by Google → Supabase → /auth/callback
     } catch (e: any) {
-      setErr(e?.message || 'Could not send magic link.');
+      setErr(e.message ?? "Google sign-in failed");
+      setLoading(false);
+    }
+  };
+
+  const onMagic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null); setMsg(null); setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) throw error;
+      setMsg("Magic link sent. Check your email.");
+    } catch (e: any) {
+      setErr(e.message ?? "Failed to send magic link");
     } finally {
       setLoading(false);
     }
-  }
+  };
+
+  const onPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null); setMsg(null); setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password: pwd });
+      if (error) throw error;
+      router.replace("/");
+    } catch (e: any) {
+      setErr(e.message ?? "Invalid email or password");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <main style={styles.wrap}>
-      <div style={styles.card}>
-        <h1 style={styles.h1}>Sign in to Directr</h1>
+    <main className="min-h-screen bg-black text-white flex items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
+        <h1 className="text-xl font-semibold mb-2">Sign in to Directr</h1>
+        <p className="text-sm text-zinc-400 mb-6">Choose a method below.</p>
 
-        <div style={styles.tabs}>
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6">
           <button
-            onClick={() => setTab('phone')}
-            style={{ ...styles.tab, ...(tab === 'phone' ? styles.tabActive : {}) }}
+            onClick={() => setTab("google")}
+            className={`px-3 py-2 rounded-lg text-sm border ${tab==="google" ? "bg-white text-black border-white" : "border-white/15 hover:bg-white/10"}`}
           >
-            Phone
+            Google
           </button>
           <button
-            onClick={() => setTab('password')}
-            style={{ ...styles.tab, ...(tab === 'password' ? styles.tabActive : {}) }}
-          >
-            Email + Password
-          </button>
-          <button
-            onClick={() => setTab('magic')}
-            style={{ ...styles.tab, ...(tab === 'magic' ? styles.tabActive : {}) }}
+            onClick={() => setTab("magic")}
+            className={`px-3 py-2 rounded-lg text-sm border ${tab==="magic" ? "bg-white text-black border-white" : "border-white/15 hover:bg-white/10"}`}
           >
             Magic Link
           </button>
+          <button
+            onClick={() => setTab("password")}
+            className={`px-3 py-2 rounded-lg text-sm border ${tab==="password" ? "bg-white text-black border-white" : "border-white/15 hover:bg-white/10"}`}
+          >
+            Password
+          </button>
         </div>
 
-        {err && <div style={styles.err}>{err}</div>}
-        {ok && <div style={styles.ok}>{ok}</div>}
+        {/* Messages */}
+        {err && <div className="mb-4 text-sm text-red-400">{err}</div>}
+        {msg && <div className="mb-4 text-sm text-emerald-400">{msg}</div>}
 
-        {tab === 'phone' && (
-          <div style={styles.form}>
-            <label style={styles.label}>Phone number</label>
-            <input
-              style={styles.input}
-              placeholder="+1 555 123 4567"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              inputMode="tel"
-            />
-            {!codeSent ? (
-              <button style={styles.btn} onClick={handlePhoneSend} disabled={loading}>
-                {loading ? 'Sending…' : 'Send code'}
-              </button>
-            ) : (
-              <>
-                <label style={{ ...styles.label, marginTop: 10 }}>6-digit code</label>
-                <input
-                  style={styles.input}
-                  placeholder="••••••"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  inputMode="numeric"
-                />
-                <button style={styles.btn} onClick={handlePhoneVerify} disabled={loading}>
-                  {loading ? 'Verifying…' : 'Verify & sign in'}
-                </button>
-                <button
-                  style={styles.linkBtn}
-                  onClick={handlePhoneSend}
-                  disabled={loading}
-                  aria-label="Resend code"
-                >
-                  Resend code
-                </button>
-              </>
-            )}
+        {/* Panels */}
+        {tab === "google" && (
+          <div className="space-y-4">
+            <button
+              onClick={onGoogle}
+              disabled={loading}
+              className="w-full h-11 rounded-xl bg-white text-black font-medium hover:opacity-90 disabled:opacity-60"
+            >
+              {loading ? "Redirecting…" : "Continue with Google"}
+            </button>
+            <p className="text-xs text-zinc-400">
+              We’ll redirect you to Google to continue.
+            </p>
           </div>
         )}
 
-        {tab === 'password' && (
-          <div style={styles.form}>
-            <label style={styles.label}>Email</label>
+        {tab === "magic" && (
+          <form onSubmit={onMagic} className="space-y-3">
+            <label className="block text-sm text-zinc-300">Email</label>
             <input
-              style={styles.input}
               type="email"
-              placeholder="you@example.com"
+              required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-            />
-            <label style={styles.label}>Password</label>
-            <input
-              style={styles.input}
-              type="password"
-              placeholder="••••••••"
-              value={pw}
-              onChange={(e) => setPw(e.target.value)}
-              autoComplete="current-password"
-            />
-            <button style={styles.btn} onClick={handleEmailPassword} disabled={loading}>
-              {loading ? 'Signing in…' : 'Sign in'}
-            </button>
-          </div>
-        )}
-
-        {tab === 'magic' && (
-          <div style={styles.form}>
-            <label style={styles.label}>Email</label>
-            <input
-              style={styles.input}
-              type="email"
               placeholder="you@example.com"
-              value={magicEmail}
-              onChange={(e) => setMagicEmail(e.target.value)}
+              className="w-full h-11 rounded-xl bg-zinc-800 border border-white/10 px-3 outline-none focus:ring-2 focus:ring-sky-500"
             />
-            <button style={styles.btn} onClick={handleMagicLink} disabled={loading}>
-              {loading ? 'Sending…' : 'Send magic link'}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full h-11 rounded-xl bg-sky-500 font-medium hover:brightness-110 disabled:opacity-60"
+            >
+              {loading ? "Sending…" : "Send Magic Link"}
             </button>
-          </div>
+          </form>
         )}
 
-        <p style={styles.small}>
-          Don’t have an account?{' '}
-          <a href="/signup" style={styles.a}>Create one</a>
-        </p>
+        {tab === "password" && (
+          <form onSubmit={onPassword} className="space-y-3">
+            <label className="block text-sm text-zinc-300">Email</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full h-11 rounded-xl bg-zinc-800 border border-white/10 px-3 outline-none focus:ring-2 focus:ring-sky-500"
+            />
+            <label className="block text-sm text-zinc-300 mt-2">Password</label>
+            <input
+              type="password"
+              required
+              value={pwd}
+              onChange={(e) => setPwd(e.target.value)}
+              placeholder="••••••••"
+              className="w-full h-11 rounded-xl bg-zinc-800 border border-white/10 px-3 outline-none focus:ring-2 focus:ring-sky-500"
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full h-11 rounded-xl bg-white text-black font-medium hover:opacity-90 disabled:opacity-60"
+            >
+              {loading ? "Signing in…" : "Sign in"}
+            </button>
+          </form>
+        )}
+
+        {/* Helper links */}
+        <div className="mt-6 text-xs text-zinc-400 space-y-1">
+          <p>
+            Don’t have an account?{" "}
+            <a href="/signup" className="text-sky-400 hover:underline">Create one</a>
+          </p>
+          <p>
+            Trouble?{" "}
+            <a href="/reset" className="text-sky-400 hover:underline">Reset password</a>
+          </p>
+        </div>
       </div>
     </main>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  wrap: { minHeight: '100svh', display: 'grid', placeItems: 'center', padding: 24 },
-  card: {
-    width: '100%', maxWidth: 440, background: 'var(--panel,#111)', borderRadius: 16,
-    border: '1px solid var(--border,rgba(255,255,255,.1))', padding: 20,
-  },
-  h1: { margin: '2px 0 12px', fontSize: 20, fontWeight: 700 },
-  tabs: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 12 },
-  tab: {
-    height: 36, borderRadius: 10, border: '1px solid var(--border,rgba(255,255,255,.1))',
-    background: 'var(--panel-2,#0f0f0f)', color: '#e5e7eb', cursor: 'pointer',
-  },
-  tabActive: { outline: '2px solid var(--accent,#0ea5e9)' },
-  form: { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 },
-  label: { fontSize: 12, color: 'var(--muted,#b6bcc6)' },
-  input: {
-    height: 40, borderRadius: 12, border: '1px solid var(--border,rgba(255,255,255,.1))',
-    background: 'var(--panel-2,#0f0f0f)', color: '#fff', padding: '0 12px',
-  },
-  btn: {
-    height: 40, borderRadius: 12, background: 'var(--accent,#0ea5e9)', color: '#fff',
-    border: 'none', cursor: 'pointer', fontWeight: 600, marginTop: 6,
-  },
-  linkBtn: {
-    background: 'transparent', border: 'none', color: 'var(--accent,#0ea5e9)',
-    cursor: 'pointer', marginTop: 6, textDecoration: 'underline',
-  },
-  err: {
-    margin: '8px 0', fontSize: 13, color: '#fecaca',
-    border: '1px solid #7f1d1d', background: 'rgba(239,68,68,.12)', borderRadius: 10, padding: 8,
-  },
-  ok: {
-    margin: '8px 0', fontSize: 13, color: '#86efac',
-    border: '1px solid #14532d', background: 'rgba(34,197,94,.12)', borderRadius: 10, padding: 8,
-  },
-  small: { marginTop: 14, fontSize: 12, color: 'var(--muted,#b6bcc6)' },
-  a: { color: 'var(--accent,#0ea5e9)', textDecoration: 'underline' },
-};
