@@ -1,219 +1,227 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 
-type Tab = "google" | "magic" | "password";
+type Tab = 'google' | 'magic' | 'password';
 
 export default function LoginPage() {
   const router = useRouter();
   const search = useSearchParams();
-  const next = search.get("next") || "/";
+  const [tab, setTab] = useState<Tab>('google');
 
-  const supabase = createClient();
-  const [tab, setTab] = useState<Tab>("google");
+  const [email, setEmail] = useState('');
+  const [pw, setPw] = useState('');
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  // shared fields
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  async function signInWithGoogle() {
-    try {
-      setErr(null); setMsg(null); setLoading(true);
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
-        }
-      });
-      if (error) throw error;
-      // OAuth will redirect — nothing else to do
-    } catch (e: any) {
-      setErr(e.message || "Google sign-in failed.");
-      setLoading(false);
+  const supabase = useMemo(() => createClient(), []);
+  const redirectTo = useMemo(() => {
+    // return to ?next=/foo or default to /
+    const next = search?.get('next') || '/';
+    // full absolute URL is best for OAuth providers
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.pathname = '/auth/callback';
+      url.search = `next=${encodeURIComponent(next)}`;
+      return url.toString();
     }
+    return undefined;
+  }, [search]);
+
+  // If already signed in, bounce away
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!cancelled && data.user) router.replace(search?.get('next') || '/');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router, search, supabase]);
+
+  async function handleGoogle() {
+    setErr(null);
+    setNote(null);
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo, // must be whitelisted in Supabase Auth -> URL Configuration
+        queryParams: { prompt: 'select_account' },
+      },
+    });
+    setLoading(false);
+    if (error) setErr(error.message);
   }
 
-  async function sendMagicLink() {
-    try {
-      setErr(null); setMsg(null); setLoading(true);
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
-        }
-      });
-      if (error) throw error;
-      setMsg("Check your email for a magic link.");
-    } catch (e: any) {
-      setErr(e.message || "Could not send magic link.");
-    } finally {
-      setLoading(false);
-    }
+  async function handleMagicLink(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    setNote(null);
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: redirectTo },
+    });
+    setLoading(false);
+    if (error) setErr(error.message);
+    else setNote('Magic link sent! Check your email.');
   }
 
-  async function signInWithPassword() {
-    try {
-      setErr(null); setMsg(null); setLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      router.replace(next);
-      router.refresh();
-    } catch (e: any) {
-      setErr(e.message || "Sign-in failed.");
-    } finally {
-      setLoading(false);
+  async function handlePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    setNote(null);
+    setLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: pw,
+    });
+    setLoading(false);
+    if (error) {
+      // If the user doesn’t exist yet, suggest creating one
+      setErr(error.message);
+      return;
     }
-  }
-
-  async function resetPassword() {
-    try {
-      setErr(null); setMsg(null); setLoading(true);
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
-      });
-      if (error) throw error;
-      setMsg("Password reset email sent.");
-    } catch (e: any) {
-      setErr(e.message || "Could not send reset email.");
-    } finally {
-      setLoading(false);
-    }
+    if (data.user) router.replace(search?.get('next') || '/');
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg,#0a0a0a)] text-white">
-      {/* Simple header */}
-      <header className="sticky top-0 z-10 border-b border-white/10 bg-black/40 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <a href="/" className="font-semibold tracking-tight">directr<span className="text-sky-400">.</span></a>
-          <a href="/" className="rounded-xl border border-white/10 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5">Home</a>
+    <main className="page">
+      <div className="auth">
+        <h1>Sign in to Directr</h1>
+        <p className="sub">Choose a method below.</p>
+
+        <div className="tabs" role="tablist" aria-label="Sign-in methods">
+          <button
+            className={`tab ${tab === 'google' ? 'tab--active' : ''}`}
+            onClick={() => setTab('google')}
+            role="tab"
+            aria-selected={tab === 'google'}
+          >
+            Google
+          </button>
+          <button
+            className={`tab ${tab === 'magic' ? 'tab--active' : ''}`}
+            onClick={() => setTab('magic')}
+            role="tab"
+            aria-selected={tab === 'magic'}
+          >
+            Magic Link
+          </button>
+          <button
+            className={`tab ${tab === 'password' ? 'tab--active' : ''}`}
+            onClick={() => setTab('password')}
+            role="tab"
+            aria-selected={tab === 'password'}
+          >
+            Password
+          </button>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-5xl px-4">
-        <div className="mx-auto mt-14 w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900/70 p-6 shadow-xl">
-          <h1 className="mb-2 text-2xl font-semibold">Sign in to Directr</h1>
-          <p className="mb-6 text-sm text-white/60">Choose a method below.</p>
-
-          {/* Tabs */}
-          <div className="mb-5 flex gap-2">
+        {/* Google */}
+        {tab === 'google' && (
+          <div className="mt-12">
             <button
-              onClick={() => setTab("google")}
-              className={`rounded-lg px-3 py-1.5 text-sm ${tab === "google" ? "bg-white text-black" : "border border-white/15 text-white/80 hover:bg-white/5"}`}
+              className="btn btn--primary btn--full"
+              onClick={handleGoogle}
+              disabled={loading}
             >
-              Google
+              {loading ? 'Redirecting…' : 'Continue with Google'}
             </button>
-            <button
-              onClick={() => setTab("magic")}
-              className={`rounded-lg px-3 py-1.5 text-sm ${tab === "magic" ? "bg-white text-black" : "border border-white/15 text-white/80 hover:bg-white/5"}`}
-            >
-              Magic Link
-            </button>
-            <button
-              onClick={() => setTab("password")}
-              className={`rounded-lg px-3 py-1.5 text-sm ${tab === "password" ? "bg-white text-black" : "border border-white/15 text-white/80 hover:bg-white/5"}`}
-            >
-              Password
-            </button>
+            <div className="links">
+              <Link href="/signup">Create one</Link>
+              <Link href="/">Back to home</Link>
+            </div>
           </div>
+        )}
 
-          {/* Alerts */}
-          {err && <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">{err}</div>}
-          {msg && <div className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">{msg}</div>}
-
-          {/* Panels */}
-          {tab === "google" && (
-            <div className="space-y-4">
-              <button
-                onClick={signInWithGoogle}
-                disabled={loading}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-medium text-black hover:opacity-95 disabled:opacity-60"
-              >
-                Continue with Google
+        {/* Magic Link */}
+        {tab === 'magic' && (
+          <form onSubmit={handleMagicLink} className="mt-12">
+            <label className="field">
+              <span>Email</span>
+              <input
+                className="input"
+                type="email"
+                inputMode="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </label>
+            <div className="actions">
+              <button className="btn btn--primary btn--full" disabled={loading}>
+                {loading ? 'Sending…' : 'Send link'}
               </button>
             </div>
-          )}
+            <div className="links">
+              <Link href="/signup">Create one</Link>
+              <Link href="/reset">Reset password</Link>
+              <Link href="/">Back to home</Link>
+            </div>
+          </form>
+        )}
 
-          {tab === "magic" && (
-            <div className="space-y-4">
-              <div>
-                <label className="mb-1 block text-xs text-white/70">Email</label>
-                <input
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                  className="w-full rounded-xl border border-white/10 bg-zinc-800/80 px-3 py-2 text-sm outline-none ring-0 placeholder:text-white/40 focus:border-white/20 focus:ring-2 focus:ring-sky-500/40"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <button
-                onClick={sendMagicLink}
-                disabled={loading || !email}
-                className="w-full rounded-xl bg-white px-4 py-3 text-sm font-medium text-black hover:opacity-95 disabled:opacity-60"
-              >
-                Send magic link
+        {/* Password */}
+        {tab === 'password' && (
+          <form onSubmit={handlePassword} className="mt-12">
+            <label className="field">
+              <span>Email</span>
+              <input
+                className="input"
+                type="email"
+                inputMode="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+            </label>
+            <label className="field mt-12">
+              <span>Password</span>
+              <input
+                className="input"
+                type="password"
+                placeholder="••••••••"
+                value={pw}
+                onChange={(e) => setPw(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+            </label>
+            <div className="actions">
+              <button className="btn btn--primary btn--full" disabled={loading}>
+                {loading ? 'Signing in…' : 'Sign in'}
               </button>
             </div>
-          )}
-
-          {tab === "password" && (
-            <div className="space-y-4">
-              <div>
-                <label className="mb-1 block text-xs text-white/70">Email</label>
-                <input
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  className="w-full rounded-xl border border-white/10 bg-zinc-800/80 px-3 py-2 text-sm outline-none focus:border-white/20 focus:ring-2 focus:ring-sky-500/40"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs text-white/70">Password</label>
-                <input
-                  type="password"
-                  autoComplete="current-password"
-                  className="w-full rounded-xl border border-white/10 bg-zinc-800/80 px-3 py-2 text-sm outline-none focus:border-white/20 focus:ring-2 focus:ring-sky-500/40"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                />
-              </div>
-              <button
-                onClick={signInWithPassword}
-                disabled={loading || !email || !password}
-                className="w-full rounded-xl bg-white px-4 py-3 text-sm font-medium text-black hover:opacity-95 disabled:opacity-60"
-              >
-                Sign in
-              </button>
-
-              <div className="text-center">
-                <button
-                  onClick={resetPassword}
-                  className="text-sm text-sky-400 hover:underline"
-                  type="button"
-                >
-                  Reset password
-                </button>
-              </div>
+            <div className="links">
+              <Link href="/reset">Reset password</Link>
+              <Link href="/signup">Create one</Link>
+              <Link href="/">Back to home</Link>
             </div>
-          )}
+          </form>
+        )}
 
-          <div className="mt-6 flex items-center justify-between text-sm text-white/60">
-            <a href="/signup" className="text-sky-400 hover:underline">Create one</a>
-            <a href="/" className="text-white/60 hover:text-white">Back to home</a>
-          </div>
-        </div>
-      </main>
-    </div>
+        {/* Messages */}
+        {err && (
+          <p style={{ color: 'var(--err)', marginTop: 12, fontSize: 13 }}>
+            {err}
+          </p>
+        )}
+        {note && (
+          <p style={{ color: 'var(--muted)', marginTop: 12, fontSize: 13 }}>
+            {note}
+          </p>
+        )}
+      </div>
+    </main>
   );
 }
