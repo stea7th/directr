@@ -1,91 +1,105 @@
-/* --- Login page scoped styles --- */
+'use client';
+
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 import './page.css';
-:root {
-  --bg:#0a0a0a;
-  --panel:#111;
-  --fg:#fff;
-  --muted:#b6bcc6;
-  --border:rgba(255,255,255,.10);
-  --ring:rgba(2,132,199,.35);
-  --accent:#0ea5e9;
-}
 
-.page{
-  min-height:calc(100vh - 80px);
-  display:flex;
-  align-items:flex-start;
-  justify-content:center;
-  padding:48px 16px 80px;
-}
+export default function LoginPage() {
+  const supa = createClient();
+  const [tab, setTab] = useState<'google' | 'magic' | 'password'>('google');
 
-.auth{
-  width:100%;
-  max-width:440px;
-  background:var(--panel);
-  border:1px solid var(--border);
-  border-radius:16px;
-  padding:22px;
-  box-shadow:0 0 0 1px rgba(255,255,255,.03) inset;
-}
+  const signInWithGoogle = async () => {
+    await supa.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${location.origin}/auth/callback` },
+    });
+  };
 
-.auth h1{
-  margin:0 0 6px;
-  font-size:22px;
-  font-weight:700;
-  letter-spacing:.2px;
-  color:var(--fg);
-}
+  const sendMagic = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const email = (new FormData(e.currentTarget).get('email') as string) || '';
+    const { error } = await supa.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: `${location.origin}/auth/callback` },
+    });
+    if (error) alert(error.message);
+    else alert('Magic link sent.');
+  };
 
-.auth .sub{
-  margin:0 0 16px;
-  color:var(--muted);
-  font-size:14px;
-}
+  const signInWithPassword = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const email = fd.get('email') as string;
+    const password = fd.get('password') as string;
+    const { error } = await supa.auth.signInWithPassword({ email, password });
+    if (error) alert(error.message);
+  };
 
-/* Tabs */
-.tabs{display:flex; gap:8px; margin-top:6px}
-.tab{
-  height:32px; padding:0 10px;
-  border-radius:10px; border:1px solid var(--border);
-  background:#0e0e0e; color:var(--muted); font-size:12px;
-  cursor:pointer;
-}
-.tab--active{color:var(--fg); background:#141414; border-color:var(--border)}
+  return (
+    <div className="page">
+      <div className="auth">
+        <h1>Sign in to Directr</h1>
+        <p className="sub">Choose a method below.</p>
 
-/* Form */
-.field{display:flex; flex-direction:column; gap:6px}
-.field span{color:var(--muted); font-size:12px}
-.input{
-  width:100%; height:38px; border-radius:12px;
-  border:1px solid var(--border);
-  background:#0f0f10; color:var(--fg);
-  padding:0 12px; outline:none;
-}
-.input:focus{box-shadow:0 0 0 3px var(--ring)}
+        <div className="tabs">
+          <button className={`tab ${tab === 'google' ? 'tab--active' : ''}`} onClick={() => setTab('google')}>
+            Google
+          </button>
+          <button className={`tab ${tab === 'magic' ? 'tab--active' : ''}`} onClick={() => setTab('magic')}>
+            Magic Link
+          </button>
+          <button className={`tab ${tab === 'password' ? 'tab--active' : ''}`} onClick={() => setTab('password')}>
+            Password
+          </button>
+        </div>
 
-/* Buttons */
-.btn{
-  height:38px; border-radius:12px; border:1px solid var(--border);
-  background:#0f0f10; color:#e5e7eb; padding:0 12px;
-  font-size:14px; line-height:38px; cursor:pointer;
-}
-.btn:hover{box-shadow:0 0 0 2px var(--ring)}
-.btn--primary{background:var(--accent); border-color:transparent; color:#fff}
-.btn--full{width:100%}
-.btn:disabled{opacity:.6; cursor:not-allowed}
+        {tab === 'google' && (
+          <div className="actions">
+            <button className="btn btn--primary btn--full" onClick={signInWithGoogle}>
+              Continue with Google
+            </button>
+          </div>
+        )}
 
-/* Layout helpers */
-.actions{margin-top:14px}
-.links{
-  margin-top:12px; display:flex; flex-wrap:wrap;
-  gap:12px; font-size:13px;
-}
-.links a{color:var(--muted); text-decoration:underline}
-.links a:hover{color:var(--fg)}
-.linklike{
-  background:none; border:none; padding:0; cursor:pointer;
-  color:var(--muted); text-decoration:underline; font-size:13px;
-}
-.linklike:hover{color:var(--fg)}
+        {tab === 'magic' && (
+          <form className="mt-12" onSubmit={sendMagic}>
+            <div className="field">
+              <span>Email</span>
+              <input className="input" type="email" name="email" required />
+            </div>
+            <div className="actions">
+              <button className="btn btn--primary btn--full" type="submit">
+                Send magic link
+              </button>
+            </div>
+          </form>
+        )}
 
-.mt-12{margin-top:12px}
+        {tab === 'password' && (
+          <form className="mt-12" onSubmit={signInWithPassword}>
+            <div className="field">
+              <span>Email</span>
+              <input className="input" type="email" name="email" required />
+            </div>
+            <div className="field">
+              <span>Password</span>
+              <input className="input" type="password" name="password" required />
+            </div>
+            <div className="actions">
+              <button className="btn btn--primary btn--full" type="submit">
+                Sign in
+              </button>
+            </div>
+          </form>
+        )}
+
+        <div className="links">
+          <Link href="/">Back to home</Link>
+          <Link href="/signup">Create one</Link>
+          <Link href="/reset">Reset password</Link>
+        </div>
+      </div>
+    </div>
+  );
+}
