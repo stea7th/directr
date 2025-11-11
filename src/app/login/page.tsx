@@ -1,5 +1,5 @@
 /* --- Login page scoped styles --- */
-
+import './page.css';
 :root {
   --bg:#0a0a0a;
   --panel:#111;
