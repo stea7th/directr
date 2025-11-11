@@ -2,13 +2,12 @@
 import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
 
-export const dynamic = "force-dynamic"; // always fresh on load
+export const dynamic = "force-dynamic";
 
 type JobRow = {
   id: string;
   status?: string;
   created_at?: string;
-  // schema has been changing: try both
   input_prompt?: string | null;
   prompt?: string | null;
   file_name?: string | null;
@@ -27,7 +26,9 @@ function Badge({ status }: { status?: string }) {
       : "border-zinc-700/60 bg-zinc-900/30 text-zinc-200/80";
 
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs border ${color}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs border ${color}`}
+    >
       <span
         className={`h-1.5 w-1.5 rounded-full ${
           text === "done"
@@ -65,14 +66,13 @@ function Card({
 }
 
 async function getUserAndJobs() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
 
   const { data: auth } = await supabase.auth.getUser();
   const user = auth?.user ?? null;
 
   if (!user) return { user: null as const, jobs: [] as JobRow[] };
 
-  // Be permissive with columns while your schema stabilizes
   const { data: rows } = await supabase
     .from("jobs")
     .select("*")
@@ -88,17 +88,25 @@ export default async function Home() {
 
   return (
     <main className="min-h-[calc(100vh-60px)] px-5 sm:px-6 md:px-8 py-8 bg-[#0a0a0a] text-white">
-      {/* Top */}
+      {/* Header */}
       <header className="mb-8">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight">
             directr<span className="text-sky-400">.</span>
           </h1>
           <nav className="hidden sm:flex items-center gap-4 text-sm text-zinc-400">
-            <Link href="/create" className="hover:text-white">Create</Link>
-            <Link href="/clipper" className="hover:text-white">Clipper</Link>
-            <Link href="/planner" className="hover:text-white">Planner</Link>
-            <Link href="/jobs" className="hover:text-white">Jobs</Link>
+            <Link href="/create" className="hover:text-white">
+              Create
+            </Link>
+            <Link href="/clipper" className="hover:text-white">
+              Clipper
+            </Link>
+            <Link href="/planner" className="hover:text-white">
+              Planner
+            </Link>
+            <Link href="/jobs" className="hover:text-white">
+              Jobs
+            </Link>
           </nav>
         </div>
 
@@ -141,10 +149,7 @@ export default async function Home() {
       <section className="mt-10">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Recent jobs</h2>
-          <Link
-            href="/jobs"
-            className="text-sm text-sky-400 hover:opacity-90"
-          >
+          <Link href="/jobs" className="text-sm text-sky-400 hover:opacity-90">
             View all →
           </Link>
         </div>
@@ -184,21 +189,32 @@ export default async function Home() {
             </ul>
           ) : (
             <div className="rounded-xl border border-white/10 bg-[#101010] p-6 text-zinc-400">
-              No jobs yet. <Link href="/create" className="text-sky-400">Create your first job →</Link>
+              No jobs yet.{" "}
+              <Link href="/create" className="text-sky-400">
+                Create your first job →
+              </Link>
             </div>
           )
         ) : (
           <div className="rounded-xl border border-white/10 bg-[#101010] p-6 text-zinc-400">
             Sign in to see your recent jobs.{" "}
-            <Link href="/login" className="text-sky-400">Go to login →</Link>
+            <Link href="/login" className="text-sky-400">
+              Go to login →
+            </Link>
           </div>
         )}
       </section>
 
       {/* Footer */}
       <footer className="mt-12 border-t border-white/10 pt-6 text-sm text-zinc-500">
-        © {new Date().getFullYear()} directr · <Link href="/terms" className="hover:text-zinc-300">Terms</Link> ·{" "}
-        <Link href="/privacy" className="hover:text-zinc-300">Privacy</Link>
+        © {new Date().getFullYear()} directr ·{" "}
+        <Link href="/terms" className="hover:text-zinc-300">
+          Terms
+        </Link>{" "}
+        ·{" "}
+        <Link href="/privacy" className="hover:text-zinc-300">
+          Privacy
+        </Link>
       </footer>
     </main>
   );
