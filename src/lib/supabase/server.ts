@@ -1,12 +1,10 @@
-// src/lib/supabase/server.ts
-import { cookies, headers } from "next/headers";
-import { createServerClient as createSSRClient } from "@supabase/ssr";
-// import type { Database } from "@/lib/supabase/types"; // optional
+import { cookies } from "next/headers";
+import { createServerClient as createSupabaseServerClient } from "@supabase/ssr";
 
-export async function createServerClient() {
-  const cookieStore = await cookies();
+export function createServerClient() {
+  const cookieStore = cookies();
 
-  const supabase = createSSRClient/*<Database>*/(
+  return createSupabaseServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -14,11 +12,14 @@ export async function createServerClient() {
         get(name: string) {
           return cookieStore.get(name)?.value;
         },
-        set() {},   // no-op on server; Route Handlers manage Set-Cookie
-        remove() {},// no-op
+        set(name: string, value: string, options?: Parameters<typeof cookieStore.set>[2]) {
+          cookieStore.set(name, value, options);
+        },
+        remove(name: string, options?: Parameters<typeof cookieStore.set>[1]) {
+          // remove by setting an expired cookie
+          cookieStore.set(name, "", { ...options, maxAge: 0 });
+        },
       },
     }
   );
-
-  return supabase;
 }
