@@ -1,0 +1,27 @@
+// src/app/create/page.tsx
+import { createServerClient } from "@/lib/supabase/server";
+import Link from "next/link";
+
+export default async function CreatePage() {
+  const supabase = createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    // simple inline guard; Home already redirects, but this keeps deep-links safe
+    return (
+      <main className="container">
+        <h1 className="title">Please sign in</h1>
+        <p className="subtitle">You need an account to create.</p>
+        <Link className="btn btn--primary" href="/login">Go to login</Link>
+      </main>
+    );
+  }
+
+  return (
+    <main className="container">
+      <h1 className="title">Create</h1>
+      <p className="subtitle">Your creation dashboard goes here.</p>
+      {/* put your old /create UI back here later */}
+    </main>
+  );
+}
