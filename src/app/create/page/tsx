@@ -1,41 +1,26 @@
 // src/app/create/page.tsx
-import { createServerClient } from "@/lib/supabase/server";
-import Link from "next/link";
+export const dynamic = "force-dynamic";
 
-export default async function CreatePage() {
-  // (Optional) gate by auth — if you don’t want this, remove the next 3 lines.
-  const supabase = await createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
+export default function CreatePage() {
   return (
-    <main className="container">
-      <header className="stack gap-2 mb-6">
-        <h1 className="h1">Create</h1>
-        <p className="muted">Upload a video or describe what you want; we’ll handle the rest.</p>
-      </header>
+    <main className="container" style={{ padding: "2rem" }}>
+      <h1 className="h1" style={{ marginBottom: "0.5rem" }}>Create</h1>
+      <p className="muted" style={{ marginBottom: "1.5rem" }}>
+        Minimal placeholder so the route never 404s.
+      </p>
 
-      {!user && (
-        <div className="notice">
-          You’re not signed in. <Link href="/login">Sign in</Link> to create jobs.
-        </div>
-      )}
-
-      <section className="panel">
-        {/* Keep the form simple; it won’t 404. Wire it to your API when ready. */}
-        <form className="stack gap-4" action="/api/generate" method="post" encType="multipart/form-data">
-          <label className="stack gap-2">
-            <span>Tell us what to make</span>
-            <textarea name="prompt" placeholder="Clip 5 times, add captions, export 9:16" rows={4} />
-          </label>
-
-          <label className="stack gap-2">
-            <span>Upload a file (optional)</span>
-            <input type="file" name="file" accept="video/*,audio/*" />
-          </label>
-
-          <div className="row gap-2">
+      <section className="panel" style={{ padding: "1rem", border: "1px solid #222", borderRadius: 12 }}>
+        <form action="/api/generate" method="post" encType="multipart/form-data">
+          <div style={{ display: "grid", gap: "0.75rem" }}>
+            <label>
+              <div style={{ marginBottom: 6 }}>Prompt</div>
+              <textarea name="prompt" rows={4} placeholder="Clip 5 times; 9:16; captions" />
+            </label>
+            <label>
+              <div style={{ marginBottom: 6 }}>File (optional)</div>
+              <input type="file" name="file" accept="video/*,audio/*" />
+            </label>
             <button className="btn btn--primary" type="submit">Create</button>
-            <Link href="/jobs" className="btn btn--ghost">View jobs</Link>
           </div>
         </form>
       </section>
