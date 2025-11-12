@@ -1,18 +1,15 @@
-// src/lib/supabase/client.ts
-"use client";
+// Works with Next.js App Router + @supabase/ssr
+import { createBrowserClient as createBrowserClientLib } from "@supabase/ssr";
 
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+// If you generated Database types, you can import them and add <Database> below.
+// import type { Database } from "../types";
 
-export function createClient() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
-    }
-  );
+export function createBrowserClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  if (!url || !anon) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  }
+  // return createBrowserClientLib<Database>(url, anon);
+  return createBrowserClientLib(url, anon);
 }
