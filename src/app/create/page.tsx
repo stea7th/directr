@@ -1,63 +1,122 @@
 "use client";
 
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import "./page.css";
 
-type UploadFile = File & { preview?: string };
+type UploadFile = File & { preview?: string; pretty?: string };
+
+const MAX_MB = 2048; // 2GB soft limit for UX (tweak as you like)
+const ACCEPT = "video/*,audio/*";
 
 export default function CreatePage() {
   const [prompt, setPrompt] = useState("");
   const [file, setFile] = useState<UploadFile | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [progress, setProgress] = useState(0);
+  const [toast, setToast] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const liveRef = useRef<HTMLDivElement>(null);
 
-  const onPick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0] || null;
-    if (f) setFile(Object.assign(f, { preview: URL.createObjectURL(f) }));
-  }, []);
+  const disabled = useMemo(() => isBusy || (!prompt && !file), [isBusy, prompt, file]);
 
-  const onDrop = useCallback((e: React.DragEvent<HTMLLabelElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const speak = (msg: string) => {
+    setToast(msg);
+    // auto-hide toast
+    setTimeout(() => setToast((t) => (t === msg ? null : t)), 2600);
+    // aria-live
+    if (liveRef.current) liveRef.current.textContent = msg;
+  };
+
+  function prettyBytes(bytes: number) {
+    const units = ["B", "KB", "MB", "GB"];
+    let i = 0, val = bytes;
+    while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
+    return `${val.toFixed(val >= 100 ? 0 : val >= 10 ? 1 : 2)} ${units[i]}`;
+  }
+
+  function decorate(f: File): UploadFile {
+    return Object.assign(f, {
+      preview: URL.createObjectURL(f),
+      pretty: `${f.name} · ${prettyBytes(f.size)}`
+    });
+  }
+
+  const acceptFile = (f: File | null) => {
+    if (!f) return;
+    const mb = f.size / (1024 * 1024);
+    if (mb > MAX_MB) {
+      speak(`File too large. Max ~${MAX_MB} MB`);
+      return;
+    }
+    // basic type hint—still allow since some containers misreport
+    if (!f.type.startsWith("video/") && !f.type.startsWith("audio/")) {
+      speak("Unexpected type. Try a video or audio file.");
+    }
+    setFile(decorate(f));
+  };
+
+  const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    acceptFile(e.target.files?.[0] || null);
+  };
+
+  const onDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault(); e.stopPropagation();
     setIsDragging(false);
-    const f = e.dataTransfer.files?.[0] || null;
-    if (f) setFile(Object.assign(f, { preview: URL.createObjectURL(f) }));
-  }, []);
+    acceptFile(e.dataTransfer.files?.[0] || null);
+  };
 
-  const onDrag = useCallback((e: React.DragEvent<HTMLLabelElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") setIsDragging(true);
-    else setIsDragging(false);
-  }, []);
+  const onDrag = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault(); e.stopPropagation();
+    setIsDragging(e.type === "dragenter" || e.type === "dragover");
+  };
 
   const onClear = () => {
+    if (file?.preview) URL.revokeObjectURL(file.preview);
     setFile(null);
-    if (inputRef.current) inputRef.current.value = "";
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const onSubmit = async (e: React.FormEvent) => {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!prompt && !file) return;
+    if (disabled) return;
     setIsBusy(true);
+    setProgress(0);
 
-    // Simulate a request so the UI animates nicely.
-    await new Promise((r) => setTimeout(r, 1500));
+    // Demo progress animation while you wire your real API:
+    const start = performance.now();
+    const tick = () => {
+      const t = performance.now() - start;
+      const pct = Math.min(95, Math.round((t / 1800) * 100));
+      setProgress(pct);
+      if (pct < 95) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
 
-    // TODO: hook your real POST /api/jobs here
-    // const body = new FormData();
-    // if (file) body.append("file", file);
-    // body.append("prompt", prompt);
-    // await fetch("/api/jobs", { method: "POST", body });
+    try {
+      // TODO: replace with your real POST /api/jobs
+      // const body = new FormData();
+      // if (file) body.append("file", file);
+      // body.append("prompt", prompt);
+      // const res = await fetch("/api/jobs", { method: "POST", body });
+      // if (!res.ok) throw new Error(await res.text());
 
-    setIsBusy(false);
-    alert("✅ Job created (demo). Wire to your /api when ready.");
-  };
+      await new Promise((r) => setTimeout(r, 1800)); // simulate
+      setProgress(100);
+      speak("Job created — check Jobs in a moment.");
+      setPrompt("");
+      onClear();
+    } catch (err: any) {
+      speak(err?.message || "Something went wrong.");
+    } finally {
+      setIsBusy(false);
+      setTimeout(() => setProgress(0), 600);
+    }
+  }
 
   return (
     <main className="create__main">
-      {/* animated background blobs */}
+      {/* motion background */}
       <div className="bg-blob bg-blob--one" />
       <div className="bg-blob bg-blob--two" />
       <div className="bg-blob bg-blob--three" />
@@ -65,11 +124,10 @@ export default function CreatePage() {
       <section className="create__wrap">
         <header className="create__header">
           <h1 className="title">Create</h1>
-          <p className="sub">Upload or drop a file and tell Directr what to make.</p>
+          <p className="sub">Tell Directr what to make — drop a file or paste a URL.</p>
         </header>
 
-        <form className="panel" onSubmit={onSubmit}>
-          {/* prompt */}
+        <form className="panel panel--ring" onSubmit={onSubmit} noValidate>
           <label className="field">
             <span className="field__label">Prompt</span>
             <textarea
@@ -78,10 +136,22 @@ export default function CreatePage() {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={4}
+              spellCheck={false}
             />
+            <div className="assist">
+              {["Find 3 hooks → 9:16", "Clip 5 × 30s with subs", "Summarize to 60s VO"].map(t => (
+                <button
+                  key={t}
+                  className="chip"
+                  type="button"
+                  onClick={() => setPrompt((p) => (p ? p + "\n" + t : t))}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
           </label>
 
-          {/* dropzone */}
           <label
             className={`drop ${isDragging ? "drop--drag" : ""} ${file ? "drop--has" : ""}`}
             onDrop={onDrop}
@@ -92,78 +162,58 @@ export default function CreatePage() {
             <div className="drop__inner">
               {!file ? (
                 <>
-                  <div className="drop__icon">⬆️</div>
+                  <div className="drop__icon" aria-hidden>⬆️</div>
                   <div className="drop__text">
-                    <strong>Drag & drop</strong> a video/audio here, or
-                    <button
-                      type="button"
-                      className="link"
-                      onClick={() => inputRef.current?.click()}
-                    >
+                    <strong>Drag & drop</strong> a file here, or{" "}
+                    <button type="button" className="link" onClick={() => fileInputRef.current?.click()}>
                       browse
                     </button>
                   </div>
-                  <div className="drop__hint">MP4, MOV, WAV, MP3… up to a few GB (Edge Functions OK)</div>
+                  <div className="drop__hint">Accepted: video/audio · up to ~2 GB</div>
                 </>
               ) : (
                 <div className="drop__file">
-                  <div className="drop__badge">{file.name}</div>
-                  <button type="button" className="link" onClick={onClear}>
-                    remove
-                  </button>
+                  <div className="drop__badge" title={file.name}>
+                    {file.pretty}
+                  </div>
+                  <button type="button" className="link" onClick={onClear}>remove</button>
                 </div>
               )}
             </div>
             <input
-              ref={inputRef}
+              ref={fileInputRef}
               type="file"
-              accept="video/*,audio/*"
+              accept={ACCEPT}
               className="hidden"
               onChange={onPick}
             />
           </label>
 
-          {/* action */}
-          <button className={`prime ${isBusy ? "prime--busy" : ""}`} disabled={isBusy}>
+          {!!progress && (
+            <div className="bar" aria-hidden>
+              <div className="bar__fill" style={{ width: `${progress}%` }} />
+            </div>
+          )}
+
+          <button className={`prime ${isBusy ? "prime--busy" : ""}`} disabled={disabled}>
             <span className="prime__shine" />
-            {isBusy ? (
-              <>
-                <span className="dots" aria-hidden />
-                Working…
-              </>
-            ) : (
-              "Create"
-            )}
+            {isBusy ? (<><span className="dots" aria-hidden /><span>Working…</span></>) : "Create"}
           </button>
+
+          <div className="sr-live" aria-live="polite" aria-atomic="true" ref={liveRef} />
         </form>
 
-        {/* tips */}
-        <div className="tips">
-          <div className="tip">
-            <div className="tip__title">Quick prompts</div>
-            <div className="tip__chips">
-              {[
-                "Find 3 hooks → 9:16",
-                "Clip 5 × 30s with subs",
-                "Summarize to 60s voiceover",
-              ].map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className="chip"
-                  onClick={() => setPrompt((p) => (p ? p + "\n" + t : t))}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="tip">
-            <div className="tip__title">Pro tip</div>
-            <p className="tip__body">You can paste a TikTok/YouTube URL instead of uploading a file.</p>
-          </div>
-        </div>
+        <footer className="foot">
+          <span className="foot__hint">Pro tip: Paste a TikTok/YouTube URL in the prompt.</span>
+        </footer>
       </section>
+
+      {/* toast */}
+      {toast && (
+        <div className="toast" role="status">
+          {toast}
+        </div>
+      )}
     </main>
   );
 }
