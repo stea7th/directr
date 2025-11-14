@@ -1,97 +1,96 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 
 export default function CreatePage() {
   const [prompt, setPrompt] = useState("");
   const [fileName, setFileName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   function handleChooseFile() {
-    fileRef.current?.click();
+    fileInputRef.current?.click();
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    setFileName(f ? f.name : "");
+    const file = e.target.files?.[0];
+    setFileName(file ? file.name : "");
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!prompt && !fileName) return;
 
-    setBusy(true);
-
-    // TODO: wire this up to your /api/generate endpoint.
-    await new Promise((r) => setTimeout(r, 1000));
-
-    setBusy(false);
+    setSubmitting(true);
+    // TODO: wire to your /api/generate endpoint
+    await new Promise((r) => setTimeout(r, 900));
+    setSubmitting(false);
   }
 
   return (
-    <main className="create-page">
-      <section className="create-shell">
-        <h1 className="create-heading">Type what you want or upload a file</h1>
+    <main className="create-root">
+      <section className="create-panel">
+        <div className="create-header">
+          <h1>Type what you want or upload a file</h1>
+          <p>Example: Turn this podcast into 5 viral TikToks</p>
+        </div>
 
-        <form className="create-form" onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="create-form">
           <textarea
-            className="create-textarea"
-            placeholder="Example: Turn this podcast into 5 viral TikToks"
+            className="prompt-input"
             rows={6}
+            placeholder="Describe what you want. We’ll handle the rest."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
           />
 
-          <div className="create-fileRow">
+          <div className="upload-row">
             <button
               type="button"
-              className="create-fileButton"
+              className="upload-btn"
               onClick={handleChooseFile}
             >
-              Choose file / Drop here
+              + Choose file / Drop here
             </button>
 
             <input
-              ref={fileRef}
+              ref={fileInputRef}
               type="file"
-              className="create-fileInput"
+              className="file-input"
               accept="video/*,audio/*"
               onChange={handleFileChange}
             />
 
-            <span className="create-fileName">
+            <span className="file-label">
               {fileName || "No file selected"}
             </span>
 
             <button
               type="submit"
-              className="create-generateButton"
-              disabled={busy}
+              className="generate-btn"
+              disabled={submitting}
             >
-              {busy ? "Working..." : "Generate"}
+              {submitting ? "Working…" : "Generate"}
             </button>
           </div>
 
-          <p className="create-tip">
-            Tip: Drop a video/audio, or just describe what you want. We&apos;ll
+          <p className="tip">
+            Tip: Drop a video/audio file, or just describe what you want. We’ll
             handle the rest.
           </p>
         </form>
       </section>
 
-      <section className="create-modes">
+      <section className="modes">
         <Link href="/create" className="mode-card">
           <div className="mode-title">Create</div>
           <div className="mode-sub">Upload → get captioned clips</div>
         </Link>
-
         <Link href="/clipper" className="mode-card">
           <div className="mode-title">Clipper</div>
           <div className="mode-sub">Auto-find hooks & moments</div>
         </Link>
-
         <Link href="/planner" className="mode-card">
           <div className="mode-title">Planner</div>
           <div className="mode-sub">Plan posts & deadlines</div>
@@ -101,94 +100,117 @@ export default function CreatePage() {
       <style jsx>{`
         :root {
           --bg: #050506;
-          --panel: #101114;
-          --panel-soft: #17181d;
-          --border: #242630;
-          --fg: #f3f4f6;
-          --muted: #8c92a7;
+          --card: #101115;
+          --card-soft: #151722;
+          --card-inner: #0b0c11;
+          --border: #262835;
+          --border-soft: #35384a;
+          --fg: #f5f5f7;
+          --muted: #8b92a2;
           --brand: #4f6bed;
-          --brand-soft: #3c5be0;
+          --brand-soft: #3f58d8;
         }
 
-        .create-page {
+        .create-root {
           min-height: calc(100vh - 64px);
           padding: 48px 16px 96px;
-          background: radial-gradient(circle at top left, #131520 0, #050506 60%);
+          background: radial-gradient(circle at top left, #151827 0, #050506 65%);
           color: var(--fg);
           display: flex;
           flex-direction: column;
-          gap: 24px;
+          gap: 32px;
         }
 
-        .create-shell {
-          max-width: 980px;
+        .create-panel {
+          max-width: 1024px;
           margin: 0 auto;
-          background: radial-gradient(circle at top left, #191b23, #101114);
-          border-radius: 24px;
-          border: 1px solid var(--border);
-          padding: 28px 26px 24px;
-          box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+          background: radial-gradient(circle at top left, #1b1d28 0, #101115 55%);
+          border-radius: 26px;
+          border: 1px solid #171821;
+          padding: 26px 30px 22px;
+          box-shadow: 0 26px 80px rgba(0, 0, 0, 0.65);
         }
 
-        .create-heading {
-          font-size: 24px;
+        .create-header h1 {
+          margin: 0 0 4px;
+          font-size: 22px;
           font-weight: 700;
-          margin-bottom: 16px;
+          letter-spacing: 0.01em;
+        }
+
+        .create-header p {
+          margin: 0;
+          font-size: 13px;
+          color: var(--muted);
         }
 
         .create-form {
+          margin-top: 18px;
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 16px;
         }
 
-        .create-textarea {
+        .prompt-input {
           width: 100%;
-          min-height: 160px;
-          border-radius: 16px;
+          border-radius: 20px;
           border: 1px solid var(--border);
-          background: #090b0f;
-          padding: 14px 16px;
+          background: radial-gradient(circle at top left, #141623 0, #090a10 55%);
+          padding: 14px 18px;
           color: var(--fg);
           font-size: 14px;
           resize: vertical;
           outline: none;
+          box-shadow: 0 0 0 0 transparent;
+          transition: border-color 120ms ease, box-shadow 120ms ease,
+            background 120ms ease;
         }
 
-        .create-textarea::placeholder {
+        .prompt-input::placeholder {
           color: var(--muted);
         }
 
-        .create-textarea:focus {
-          border-color: #32374a;
+        .prompt-input:focus {
+          border-color: var(--border-soft);
+          box-shadow: 0 0 0 1px rgba(79, 107, 237, 0.25);
+          background: #090a12;
         }
 
-        .create-fileRow {
+        .upload-row {
           display: grid;
           grid-template-columns: auto 1fr auto;
           align-items: center;
           gap: 12px;
           border-radius: 999px;
           border: 1px dashed var(--border);
-          background: #090b0f;
-          padding: 8px 10px 8px 10px;
+          background: #06070c;
+          padding: 8px 10px 8px 14px;
         }
 
-        .create-fileInput {
+        .file-input {
           display: none;
         }
 
-        .create-fileButton {
+        .upload-btn {
           border-radius: 999px;
           border: 1px solid var(--border);
           padding: 8px 12px;
-          background: #111217;
+          background: #11121a;
           color: var(--fg);
           font-size: 13px;
           cursor: pointer;
+          transition: transform 120ms ease, box-shadow 120ms ease,
+            background 120ms ease, border-color 120ms ease;
         }
 
-        .create-fileName {
+        .upload-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+          border-color: var(--border-soft);
+          background: #161827;
+        }
+
+        .file-label {
           font-size: 13px;
           color: var(--muted);
           white-space: nowrap;
@@ -196,43 +218,65 @@ export default function CreatePage() {
           text-overflow: ellipsis;
         }
 
-        .create-generateButton {
+        .generate-btn {
           border-radius: 999px;
-          border: none;
-          padding: 10px 18px;
-          background: var(--brand);
+          border: 1px solid #475fe0;
+          padding: 9px 18px;
+          min-width: 110px;
+          background: radial-gradient(circle at 0% 0%, #6a84ff 0, #3f58d8 40%, #2839a8 100%);
           color: white;
           font-weight: 600;
           font-size: 14px;
           cursor: pointer;
+          box-shadow: 0 18px 42px rgba(79, 107, 237, 0.6);
+          transition: transform 130ms ease, box-shadow 130ms ease,
+            filter 130ms ease, opacity 100ms ease;
         }
 
-        .create-generateButton:disabled {
-          opacity: 0.6;
+        .generate-btn:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 22px 52px rgba(79, 107, 237, 0.8);
+          filter: brightness(1.05);
+        }
+
+        .generate-btn:disabled {
+          opacity: 0.7;
           cursor: default;
+          transform: none;
+          box-shadow: 0 14px 32px rgba(0, 0, 0, 0.6);
         }
 
-        .create-tip {
-          margin-top: 2px;
+        .tip {
+          margin: 0 4px 0;
           font-size: 13px;
           color: var(--muted);
         }
 
-        .create-modes {
-          max-width: 980px;
+        .modes {
+          max-width: 1024px;
           margin: 0 auto;
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 16px;
+          gap: 18px;
         }
 
         .mode-card {
           text-decoration: none;
-          background: var(--panel-soft);
-          border-radius: 18px;
-          border: 1px solid var(--border);
+          background: #101115;
+          border-radius: 20px;
+          border: 1px solid #181924;
           padding: 16px 18px;
           color: var(--fg);
+          box-shadow: 0 18px 46px rgba(0, 0, 0, 0.65);
+          transition: transform 130ms ease, box-shadow 130ms ease,
+            border-color 130ms ease, background 130ms ease;
+        }
+
+        .mode-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 22px 56px rgba(0, 0, 0, 0.75);
+          border-color: var(--border-soft);
+          background: var(--card-soft);
         }
 
         .mode-title {
@@ -247,22 +291,24 @@ export default function CreatePage() {
         }
 
         @media (max-width: 900px) {
-          .create-shell {
-            padding: 20px 18px 18px;
+          .create-panel {
+            margin-top: 8px;
+            padding: 20px 16px 18px;
           }
 
-          .create-modes {
-            grid-template-columns: 1fr;
-          }
-
-          .create-fileRow {
+          .upload-row {
             grid-template-columns: auto 1fr;
             grid-template-rows: auto auto;
           }
 
-          .create-generateButton {
+          .generate-btn {
             grid-column: 1 / -1;
             justify-self: flex-end;
+            margin-top: 4px;
+          }
+
+          .modes {
+            grid-template-columns: 1fr;
           }
         }
       `}</style>
