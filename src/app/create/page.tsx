@@ -144,4 +144,221 @@ export default function CreatePage() {
               ),
             #050609;
           border: 1px solid rgba(255, 255, 255, 0.04);
-          box-shadow: inset 0 0
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.01);
+          padding: 18px 20px;
+          margin-bottom: 18px;
+        }
+
+        @media (min-width: 900px) {
+          .create-textarea-wrap {
+            padding: 22px 24px;
+          }
+        }
+
+        .create-textarea {
+          width: 100%;
+          min-height: 130px;
+          resize: vertical;
+          border: none;
+          outline: none;
+          background: transparent;
+          color: #f5f5f7;
+          font-size: 14px;
+          line-height: 1.5;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+            sans-serif;
+        }
+
+        .create-textarea::placeholder {
+          color: rgba(255, 255, 255, 0.32);
+        }
+
+        .create-bottom-row {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          align-items: stretch;
+        }
+
+        @media (min-width: 900px) {
+          .create-bottom-row {
+            flex-direction: row;
+            align-items: center;
+            gap: 16px;
+          }
+        }
+
+        .create-file-bar {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: flex-start;
+          border-radius: 999px;
+          padding: 12px 18px;
+          border: 1px dashed rgba(255, 255, 255, 0.12);
+          background: radial-gradient(
+              circle at top,
+              rgba(255, 255, 255, 0.04),
+              transparent 60%
+            );
+          color: rgba(255, 255, 255, 0.7);
+          font-size: 13px;
+          cursor: pointer;
+          overflow: hidden;
+          transition:
+            border-color 0.2s ease-out,
+            background 0.2s ease-out,
+            box-shadow 0.2s ease-out,
+            transform 0.18s ease-out;
+        }
+
+        .create-file-bar:hover {
+          border-color: rgba(157, 196, 255, 0.6);
+          background: radial-gradient(
+              circle at top,
+              rgba(157, 196, 255, 0.12),
+              transparent 65%
+            );
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7);
+          transform: translateY(-1px);
+        }
+
+        .create-file-label {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          pointer-events: none;
+        }
+
+        .create-file-bullet {
+          font-size: 12px;
+          color: rgba(157, 196, 255, 0.9);
+        }
+
+        .create-file-input {
+          position: absolute;
+          inset: 0;
+          opacity: 0;
+          cursor: pointer;
+        }
+
+        .create-generate-btn {
+          margin-left: auto;
+          border-radius: 999px;
+          padding: 10px 24px;
+          border: 1px solid rgba(139, 187, 255, 0.7);
+          background: radial-gradient(
+                circle at 0% 0%,
+                rgba(139, 187, 255, 0.45),
+                rgba(50, 80, 130, 0.6)
+              ),
+            #171c26;
+          color: #f5f7ff;
+          font-weight: 500;
+          font-size: 14px;
+          letter-spacing: 0.02em;
+          cursor: pointer;
+          box-shadow:
+            0 0 0 1px rgba(20, 40, 70, 0.7),
+            0 12px 30px rgba(0, 0, 0, 0.9);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          white-space: nowrap;
+          transition:
+            transform 0.18s ease-out,
+            box-shadow 0.18s ease-out,
+            filter 0.18s ease-out,
+            background 0.18s ease-out;
+        }
+
+        .create-generate-btn:hover {
+          transform: translateY(-2px);
+          box-shadow:
+            0 0 0 1px rgba(148, 202, 255, 0.8),
+            0 18px 45px rgba(0, 0, 0, 1);
+          filter: brightness(1.05);
+        }
+
+        .create-generate-btn:active {
+          transform: translateY(0);
+          box-shadow:
+            0 0 0 1px rgba(148, 202, 255, 0.7),
+            0 6px 16px rgba(0, 0, 0, 0.9);
+        }
+
+        .create-tip {
+          margin-top: 14px;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.45);
+        }
+
+        .create-tiles-section {
+          max-width: 960px;
+          margin: 0 auto;
+          width: 100%;
+        }
+
+        .create-tiles-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 14px;
+        }
+
+        @media (min-width: 900px) {
+          .create-tiles-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+        }
+
+        .create-tile {
+          border-radius: 20px;
+          padding: 18px 20px;
+          background: radial-gradient(
+                circle at top left,
+                rgba(255, 255, 255, 0.02),
+                transparent 60%
+              ),
+            #090a0d;
+          border: 1px solid rgba(255, 255, 255, 0.04);
+          box-shadow:
+            0 18px 40px rgba(0, 0, 0, 0.9),
+            inset 0 0 0 0.5px rgba(255, 255, 255, 0.02);
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          transition:
+            transform 0.2s ease-out,
+            box-shadow 0.2s ease-out,
+            border-color 0.2s ease-out,
+            background 0.2s ease-out;
+        }
+
+        .create-tile:hover {
+          transform: translateY(-4px);
+          border-color: rgba(255, 255, 255, 0.08);
+          background: radial-gradient(
+                circle at top left,
+                rgba(255, 255, 255, 0.04),
+                transparent 65%
+              ),
+            #0c0e13;
+          box-shadow:
+            0 26px 60px rgba(0, 0, 0, 0.95),
+            inset 0 0 0 0.5px rgba(255, 255, 255, 0.03);
+        }
+
+        .create-tile h2 {
+          font-size: 14px;
+          font-weight: 600;
+          color: #f5f5f7;
+        }
+
+        .create-tile p {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.55);
+        }
+      `}</style>
+    </main>
+  );
+}
