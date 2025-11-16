@@ -8,9 +8,18 @@ export default function CreatePage() {
   const router = useRouter();
 
   const [prompt, setPrompt] = useState("");
+  const [platform, setPlatform] = useState("TikTok");
+  const [goal, setGoal] = useState("Drive sales / grow page");
+  const [length, setLength] = useState("30");
+  const [tone, setTone] = useState("Casual");
   const [fileName, setFileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (f) setFileName(f.name);
+  }
 
   async function handleGenerate() {
     setError(null);
@@ -25,19 +34,22 @@ export default function CreatePage() {
 
       const res = await fetch("/api/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt,
-          // you can add platform / goal / tone later if you want
+          platform,
+          goal,
+          length,
+          tone,
+          // file isn’t wired yet – we’ll add upload later
         }),
       });
 
       const raw = await res.text();
       let data: any = null;
 
-      // Try to parse JSON – if it’s HTML (<!DOCTYPE...) we show a clean error
+      // Try to parse JSON – if it’s HTML (<!DOCTYPE…>)
+      // we give a clean message instead of the crash
       try {
         data = JSON.parse(raw);
       } catch {
@@ -55,26 +67,18 @@ export default function CreatePage() {
       }
 
       if (data?.jobId) {
-        // redirect to the job page when wired up in the API
         router.push(`/jobs/${data.jobId}`);
-        return;
+      } else {
+        setError(
+          "Generated successfully, but no job id was returned. Ask your dev (me) to wire this up fully."
+        );
       }
-
-      // Fallback if API doesn’t send jobId yet
-      setError(
-        "Generated successfully, but no job id was returned. Ask your dev (me) to wire this up fully."
-      );
     } catch (err: any) {
       console.error(err);
       setError(err?.message || "Unexpected error talking to /api/generate.");
     } finally {
       setLoading(false);
     }
-  }
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (f) setFileName(f.name);
   }
 
   return (
@@ -85,6 +89,7 @@ export default function CreatePage() {
         </header>
 
         <div className="create-main-card">
+          {/* TEXTAREA */}
           <div className="create-textarea-wrap">
             <textarea
               name="prompt"
@@ -95,6 +100,57 @@ export default function CreatePage() {
             />
           </div>
 
+          {/* TWEAK OPTIONS ROW */}
+          <div className="create-input-row">
+            <div className="create-field">
+              <span className="create-label">Platform</span>
+              <select
+                className="create-select"
+                value={platform}
+                onChange={(e) => setPlatform(e.target.value)}
+              >
+                <option>TikTok</option>
+                <option>Reels</option>
+                <option>Shorts</option>
+                <option>Twitter</option>
+              </select>
+            </div>
+
+            <div className="create-field create-field-grow">
+              <span className="create-label">Goal</span>
+              <input
+                className="create-input"
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
+                placeholder="Drive sales, grow page, etc."
+              />
+            </div>
+
+            <div className="create-field">
+              <span className="create-label">Length (seconds)</span>
+              <input
+                className="create-input"
+                value={length}
+                onChange={(e) => setLength(e.target.value)}
+              />
+            </div>
+
+            <div className="create-field">
+              <span className="create-label">Tone</span>
+              <select
+                className="create-select"
+                value={tone}
+                onChange={(e) => setTone(e.target.value)}
+              >
+                <option>Casual</option>
+                <option>High-energy</option>
+                <option>Storytelling</option>
+                <option>Authority</option>
+              </select>
+            </div>
+          </div>
+
+          {/* FILE + BUTTON ROW */}
           <div className="create-bottom-row">
             <label className="create-file-bar">
               <span className="create-file-label">
@@ -147,10 +203,10 @@ export default function CreatePage() {
         </div>
       </section>
 
-      {/* Page-scoped styling – same as your old one */}
+      {/* your original CSS + a few extra classes for the options row */}
       <style jsx>{`
         .create-root {
-          min-height: calc(100vh - 64px); /* account for nav */
+          min-height: calc(100vh - 64px);
           padding: 64px 24px 80px;
           background: radial-gradient(
               circle at top,
@@ -253,6 +309,63 @@ export default function CreatePage() {
 
         .create-textarea::placeholder {
           color: rgba(255, 255, 255, 0.32);
+        }
+
+        /* new tweaks row */
+        .create-input-row {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 10px;
+          margin-bottom: 14px;
+        }
+
+        @media (min-width: 900px) {
+          .create-input-row {
+            grid-template-columns: 0.9fr 1.6fr 0.7fr 0.9fr;
+          }
+        }
+
+        .create-field {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .create-field-grow {
+          flex: 1;
+        }
+
+        .create-label {
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        .create-select,
+        .create-input {
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: #050609;
+          padding: 8px 12px;
+          font-size: 12px;
+          color: #f5f5f7;
+          outline: none;
+          width: 100%;
+        }
+
+        .create-select:focus,
+        .create-input:focus {
+          border-color: rgba(157, 196, 255, 0.7);
+        }
+
+        .create-select {
+          appearance: none;
+          background-image: linear-gradient(
+            to bottom,
+            rgba(255, 255, 255, 0.08),
+            rgba(255, 255, 255, 0.02)
+          );
         }
 
         .create-bottom-row {
