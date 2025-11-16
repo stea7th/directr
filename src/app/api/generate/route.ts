@@ -6,63 +6,75 @@ import { generateClipIdeas } from "@/lib/ai";
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createServerClient();
-    const { data: auth } = await supabase.auth.getUser();
-    const user = auth?.user ?? null;
+    const body = (await req.json()) as {
+      prompt?: string;
+      platform?: string;
+    };
 
-    if (!user) {
+    const prompt = (body.prompt || "").trim();
+    const platform = (body.platform || "TikTok").trim();
+
+    if (!prompt) {
+      return NextResponse.json(
+        { error: "Prompt is required" },
+        { status: 400 }
+      );
+    }
+
+    const supabase = await createServerClient();
+
+    // Who is creating this job?
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabase.auth.getUser();
+
+    if (authErr || !user?.id) {
       return NextResponse.json(
         { error: "Not signed in" },
         { status: 401 }
       );
     }
 
-    const body = await req.json().catch(() => ({}));
-    const { prompt, platform = "tiktok" } = body as {
-      prompt?: string;
-      platform?: string;
-    };
+    // 1) Ask the AI for ideas/script
+    const aiText = await generateClipIdeas({
+      topic: prompt,
+      platform,
+      goal: "Generate short-form video ideas and a rough script",
+      length: "30–60",
+      tone: "natural creator, non-cringe",
+    });
 
-    if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
-      return NextResponse.json(
-        { error: "Missing prompt" },
-        { status: 400 }
-      );
-    }
-
-    // 1) Call AI
-    const clips = await generateClipIdeas(
-      `Platform: ${platform}\nUser prompt: ${prompt}`
-    );
+    const id = randomUUID();
 
     // 2) Insert job into Supabase
-    const id = randomUUID();
-    const { data: job, error } = await supabase
+    const { data: job, error: dbError } = await supabase
       .from("jobs")
       .insert({
         id,
         user_id: user.id,
-        status: "done", // make sure this matches your jobs_status_check
-        input_type: "text",
-        input_prompt: prompt,
-        result_json: clips,
+        platform,
+        prompt,
+        result: aiText,
+        status: "complete", // adjust if your jobs_status_check uses different values
       })
       .select("*")
       .single();
 
-    if (error) {
-      console.error("Supabase insert error", error);
+    if (dbError) {
+      console.error("DB insert error", dbError);
       return NextResponse.json(
-        { error: error.message },
+        { error: dbError.message },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ job, clips });
+    // 3) Return the job to the client
+    return NextResponse.json({ job }, { status: 201 });
   } catch (err: any) {
-    console.error("Generate route error", err);
+    console.error("Generate API error", err);
     return NextResponse.json(
-      { error: "Server error", details: err?.message ?? String(err) },
+      { error: err?.message || "Unknown error" },
       { status: 500 }
     );
   }
