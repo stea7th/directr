@@ -1,81 +1,83 @@
 // src/app/create/page.tsx
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+
+type Platform = "TikTok" | "Reels" | "Shorts";
 
 export default function CreatePage() {
   const router = useRouter();
 
   const [prompt, setPrompt] = useState("");
-  const [platform, setPlatform] = useState("TikTok");
-  const [goal, setGoal] = useState("");
+  const [platform, setPlatform] = useState<Platform>("TikTok");
+  const [goal, setGoal] = useState("Drive sales");
   const [length, setLength] = useState("30");
   const [tone, setTone] = useState("Casual");
   const [file, setFile] = useState<File | null>(null);
 
   const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleGenerate() {
     setError(null);
+    setStatus(null);
 
-    // basic validation
-    if (!prompt.trim()) {
-      setError("Add a quick description so Directr knows what to build.");
+    const trimmed = prompt.trim();
+    if (!trimmed) {
+      setError("Please describe what you want Directr to create.");
       return;
     }
 
     setLoading(true);
     try {
-      // For now we only send text fields.
-      // (File support can be wired later once your backend accepts uploads.)
+      // If you want to actually upload file → switch this to FormData.
+      // For now we just send the filename as a hint.
+      const body = {
+        prompt: trimmed,
+        platform,
+        goal,
+        length,
+        tone,
+        fileName: file?.name ?? null,
+      };
+
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          prompt,
-          platform,
-          goal,
-          length,
-          tone,
-          // fileName: file?.name ?? null, // optional placeholder
-        }),
+        body: JSON.stringify(body),
       });
 
+      const data = await res.json().catch(() => ({} as any));
+      console.log("Generate response", data);
+
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Something went wrong while generating.");
-      }
-
-      const data = await res.json().catch(() => ({}));
-
-      // Prefer jobId → /jobs/[id]
-      if (data.jobId) {
-        router.push(`/jobs/${data.jobId}`);
+        setError(
+          data?.error ||
+            "Something went wrong talking to the AI. Try again in a sec."
+        );
         return;
       }
 
-      // Fallback: if backend returns a redirectUrl
-      if (data.redirectUrl) {
-        router.push(data.redirectUrl);
+      // Try both shapes just in case:
+      const jobId: string | undefined =
+        data.jobId ?? data.job?.id ?? data.id;
+
+      if (!jobId) {
+        setStatus(
+          "Generated successfully, but no job id was returned. Ask your dev (me) to wire this up fully."
+        );
         return;
       }
 
-      // If API succeeds but no jobId, just show a soft message
-      setError(
-        "Generated successfully, but no job id was returned. Ask your dev (me) to wire this up fully."
-      );
+      setStatus("Generated! Redirecting to your job…");
+      router.push(`/jobs/${jobId}`);
     } catch (err: any) {
-      const message = String(err?.message ?? err ?? "Unexpected error.");
-      // If server returned HTML (the <DOCTYPE issue) this makes it less ugly
-      if (message.startsWith("<!DOCTYPE")) {
-        setError("Unexpected HTML response from /api/generate. Check the API route.");
-      } else {
-        setError(message);
-      }
+      console.error(err);
+      setError("Unexpected error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -89,6 +91,7 @@ export default function CreatePage() {
         </header>
 
         <div className="create-main-card">
+          {/* Prompt */}
           <div className="create-textarea-wrap">
             <textarea
               name="prompt"
@@ -99,59 +102,56 @@ export default function CreatePage() {
             />
           </div>
 
-          {/* extra controls row */}
-          <div className="create-options-grid">
-            <div className="create-option-field">
-              <label className="create-label">Platform</label>
-              <select
-                className="create-select"
-                value={platform}
-                onChange={(e) => setPlatform(e.target.value)}
-              >
-                <option>TikTok</option>
-                <option>Instagram Reels</option>
-                <option>YouTube Shorts</option>
-                <option>Facebook Reels</option>
-              </select>
+          {/* Controls row */}
+          <div className="create-control-row">
+            <div className="control-group">
+              <label className="control-label">Platform</label>
+              <div className="pill-row">
+                {["TikTok", "Reels", "Shorts"].map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPlatform(p as Platform)}
+                    className={
+                      "pill-button" +
+                      (platform === p ? " pill-button--active" : "")
+                    }
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="create-option-field">
-              <label className="create-label">Goal</label>
+            <div className="control-group">
+              <label className="control-label">Goal</label>
               <input
-                className="create-input"
-                placeholder="Drive sales, build authority, etc."
+                className="pill-input"
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
               />
             </div>
 
-            <div className="create-option-field">
-              <label className="create-label">Length (seconds)</label>
+            <div className="control-group">
+              <label className="control-label">Length (seconds)</label>
               <input
-                className="create-input"
-                type="number"
-                min={5}
-                max={180}
+                className="pill-input"
                 value={length}
                 onChange={(e) => setLength(e.target.value)}
               />
             </div>
 
-            <div className="create-option-field">
-              <label className="create-label">Tone</label>
-              <select
-                className="create-select"
+            <div className="control-group">
+              <label className="control-label">Tone</label>
+              <input
+                className="pill-input"
                 value={tone}
                 onChange={(e) => setTone(e.target.value)}
-              >
-                <option>Casual</option>
-                <option>High energy</option>
-                <option>Professional</option>
-                <option>Storytelling</option>
-              </select>
+              />
             </div>
           </div>
 
+          {/* File + Generate */}
           <div className="create-bottom-row">
             <label className="create-file-bar">
               <span className="create-file-label">
@@ -163,8 +163,8 @@ export default function CreatePage() {
                 name="file"
                 className="create-file-input"
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  setFile(f ?? null);
+                  const f = e.target.files?.[0] || null;
+                  setFile(f);
                 }}
               />
             </label>
@@ -179,14 +179,16 @@ export default function CreatePage() {
             </button>
           </div>
 
+          {/* Status + error */}
           {error && <p className="create-error">{error}</p>}
-
-          {!error && (
-            <p className="create-tip">
-              Tip: Drop a video/audio, or just describe what you want.
-              We&apos;ll handle the rest.
-            </p>
+          {status && !error && (
+            <p className="create-status">{status}</p>
           )}
+
+          <p className="create-tip">
+            Tip: Drop a video/audio, or just describe what you want.
+            We&apos;ll handle the rest.
+          </p>
         </div>
       </section>
 
@@ -209,10 +211,10 @@ export default function CreatePage() {
         </div>
       </section>
 
-      {/* Page-scoped styling – same file, no external CSS needed */}
+      {/* Page-scoped styling */}
       <style jsx>{`
         .create-root {
-          min-height: calc(100vh - 64px); /* account for nav */
+          min-height: calc(100vh - 64px);
           padding: 64px 24px 80px;
           background: radial-gradient(
               circle at top,
@@ -309,59 +311,84 @@ export default function CreatePage() {
           color: #f5f5f7;
           font-size: 14px;
           line-height: 1.5;
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
-            sans-serif;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont,
+            "SF Pro Text", sans-serif;
         }
 
         .create-textarea::placeholder {
           color: rgba(255, 255, 255, 0.32);
         }
 
-        .create-options-grid {
+        .create-control-row {
           display: grid;
           grid-template-columns: 1fr;
-          gap: 10px;
+          gap: 12px;
           margin-bottom: 14px;
         }
 
         @media (min-width: 900px) {
-          .create-options-grid {
+          .create-control-row {
             grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 12px;
           }
         }
 
-        .create-option-field {
+        .control-group {
           display: flex;
           flex-direction: column;
           gap: 6px;
         }
 
-        .create-label {
+        .control-label {
           font-size: 11px;
           text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: rgba(255, 255, 255, 0.55);
+          letter-spacing: 0.14em;
+          color: rgba(255, 255, 255, 0.45);
         }
 
-        .create-input,
-        .create-select {
+        .pill-row {
+          display: flex;
+          gap: 6px;
+        }
+
+        .pill-button,
+        .pill-input {
           border-radius: 999px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          background: rgba(5, 6, 10, 0.9);
-          color: #f5f5f7;
-          font-size: 13px;
-          padding: 8px 14px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(0, 0, 0, 0.4);
+          padding: 6px 12px;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.85);
           outline: none;
-          appearance: none;
+          transition:
+            border-color 0.15s ease-out,
+            background 0.15s ease-out,
+            transform 0.15s ease-out,
+            box-shadow 0.15s ease-out;
         }
 
-        .create-input::placeholder {
-          color: rgba(255, 255, 255, 0.3);
-        }
-
-        .create-select {
+        .pill-button {
           cursor: pointer;
+        }
+
+        .pill-button--active {
+          border-color: rgba(157, 196, 255, 0.7);
+          background: radial-gradient(
+                circle at top,
+                rgba(157, 196, 255, 0.25),
+                transparent 60%
+              ),
+            #141621;
+        }
+
+        .pill-input {
+          width: 100%;
+        }
+
+        .pill-button:hover,
+        .pill-input:focus {
+          border-color: rgba(157, 196, 255, 0.8);
+          box-shadow: 0 10px 22px rgba(0, 0, 0, 0.8);
+          transform: translateY(-1px);
         }
 
         .create-bottom-row {
@@ -419,10 +446,6 @@ export default function CreatePage() {
           align-items: center;
           gap: 6px;
           pointer-events: none;
-          max-width: 100%;
-          white-space: nowrap;
-          text-overflow: ellipsis;
-          overflow: hidden;
         }
 
         .create-file-bullet {
@@ -464,11 +487,10 @@ export default function CreatePage() {
             transform 0.18s ease-out,
             box-shadow 0.18s ease-out,
             filter 0.18s ease-out,
-            background 0.18s ease-out,
-            opacity 0.18s ease-out;
+            background 0.18s ease-out;
         }
 
-        .create-generate-btn:hover:enabled {
+        .create-generate-btn:hover:not(:disabled) {
           transform: translateY(-2px);
           box-shadow:
             0 0 0 1px rgba(148, 202, 255, 0.8),
@@ -476,16 +498,16 @@ export default function CreatePage() {
           filter: brightness(1.05);
         }
 
-        .create-generate-btn:active:enabled {
+        .create-generate-btn:disabled {
+          opacity: 0.6;
+          cursor: default;
+        }
+
+        .create-generate-btn:active:not(:disabled) {
           transform: translateY(0);
           box-shadow:
             0 0 0 1px rgba(148, 202, 255, 0.7),
             0 6px 16px rgba(0, 0, 0, 0.9);
-        }
-
-        .create-generate-btn:disabled {
-          opacity: 0.7;
-          cursor: default;
         }
 
         .create-tip {
@@ -495,9 +517,15 @@ export default function CreatePage() {
         }
 
         .create-error {
-          margin-top: 12px;
+          margin-top: 8px;
           font-size: 12px;
           color: #ff8080;
+        }
+
+        .create-status {
+          margin-top: 8px;
+          font-size: 12px;
+          color: #9ecfff;
         }
 
         .create-tiles-section {
