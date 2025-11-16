@@ -1,61 +1,58 @@
 // src/lib/ai.ts
 import OpenAI from "openai";
 
-const openai = new OpenAI({
+const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export type ClipIdea = {
-  title: string;
-  hook: string;
-  clip_description: string;
-  overlay_text: string[];
-  broll_ideas: string[];
+type GenerateInput = {
+  topic: string;
   platform: string;
+  goal?: string;
+  length?: string;
+  tone?: string;
 };
 
-export async function generateClipIdeas(prompt: string): Promise<ClipIdea[]> {
-  const systemPrompt = `
-You are an expert short-form content director.
-Given a description of a long-form video, you must respond with 3-5 short-form clip ideas.
+export async function generateScriptCopy(input: GenerateInput): Promise<string> {
+  const { topic, platform, goal, length, tone } = input;
 
-Each idea must include:
-- title
-- hook
-- clip_description
-- overlay_text (array of 1-3 phrases to put as text on screen)
-- broll_ideas (array of visual ideas)
-- platform (tiktok, reels, or shorts – choose based on tone)
+  const prompt = `
+You are Directr, an AI that designs short-form video concepts.
 
-Respond ONLY as JSON array. No explanations, no extra text.
-  `.trim();
+Make 1 high-performing script based on:
+- Topic: ${topic}
+- Platform: ${platform}
+- Goal: ${goal || "general engagement"}
+- Length: ${length || "30"} seconds
+- Tone: ${tone || "casual"}
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    temperature: 0.8,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: prompt },
+Return:
+- A hook
+- Beat-by-beat structure
+- Rough VO lines
+- B-roll suggestions
+`.trim();
+
+  const response = await client.responses.create({
+    model: "gpt-4.1-mini",
+    input: [
+      {
+        role: "user",
+        content: prompt,
+      },
     ],
   });
 
-  const raw = completion.choices[0]?.message?.content ?? "[]";
-  // handle both string and array content types
-  const text =
-    typeof raw === "string"
-      ? raw
-      : Array.isArray(raw)
-      ? raw.map((p: any) => (typeof p === "string" ? p : p.text ?? "")).join("")
-      : "[]";
+  const first = response.output[0];
 
-  try {
-    const parsed = JSON.parse(text);
-    if (Array.isArray(parsed)) {
-      return parsed as ClipIdea[];
-    }
-    return [];
-  } catch (e) {
-    console.error("Failed to parse AI response", e, text);
-    return [];
+  if (
+    first &&
+    first.content &&
+    first.content[0] &&
+    first.content[0].type === "output_text"
+  ) {
+    return first.content[0].text;
   }
+
+  return JSON.stringify(response.output, null, 2);
 }
