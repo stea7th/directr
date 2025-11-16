@@ -10,21 +10,22 @@ export async function POST(req: Request) {
     body = null;
   }
 
-  // Minimal JSON so we can prove the route works
   return NextResponse.json(
     {
       ok: true,
-      message: "Hello from /api/generate (POST).",
+      message: "Hello from /api/generate",
       received: body,
     },
     { status: 200 }
   );
 }
 
-// Optional: hitting it in the browser with GET should ALSO give JSON
 export async function GET() {
   return NextResponse.json(
-    { ok: true, message: "Use POST at /api/generate." },
+    {
+      ok: true,
+      message: "Use POST to /api/generate",
+    },
     { status: 200 }
   );
 }
