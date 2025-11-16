@@ -1,54 +1,85 @@
 // src/app/create/page.tsx
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+type ToneOption = "Casual" | "High energy" | "Educational" | "Storytelling";
 
 export default function CreatePage() {
+  const router = useRouter();
+
   const [prompt, setPrompt] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
+  const [platform, setPlatform] = useState("TikTok");
+  const [goal, setGoal] = useState("");
+  const [lengthSeconds, setLengthSeconds] = useState("30");
+  const [tone, setTone] = useState<ToneOption>("Casual");
+  const [file, setFile] = useState<File | null>(null);
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleGenerate() {
     setError(null);
-    setResult(null);
+    setStatus(null);
 
-    const trimmed = prompt.trim();
-    if (!trimmed) {
-      setError("Type what you want first.");
+    if (!prompt.trim() && !file) {
+      setError("Give me a prompt or upload a file first.");
       return;
     }
 
-    setLoading(true);
+    setIsLoading(true);
+
     try {
+      // For now we just send metadata; backend can later use fileName
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: trimmed,
-          platform: "TikTok", // we can expose this later as a dropdown
+          prompt,
+          platform,
+          goal,
+          lengthSeconds,
+          tone,
+          fileName: file?.name ?? null,
         }),
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to generate.");
-      }
-
       const data = await res.json();
 
-      // Prefer the DB result if available
-      const text: string =
-        data?.job?.result ||
-        data?.job?.result_text ||
-        "Generated successfully, but no text result was returned.";
+      if (!res.ok) {
+        setError(data?.error || "Something went wrong while generating.");
+        setIsLoading(false);
+        return;
+      }
 
-      setResult(text);
+      if (data?.job?.id) {
+        // Send user to the job page just like before
+        router.push(`/jobs/${data.job.id}`);
+        return;
+      }
+
+      setStatus(
+        "Generated successfully, but no job id was returned. Ask your dev (me) to wire this up fully."
+      );
     } catch (err: any) {
-      setError(err.message || "Something went wrong.");
+      console.error(err);
+      setError(err?.message || "Unexpected error while generating.");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) {
+      setFile(null);
+      return;
+    }
+    setFile(f);
+    setStatus(null);
+    setError(null);
   }
 
   return (
@@ -59,6 +90,7 @@ export default function CreatePage() {
         </header>
 
         <div className="create-main-card">
+          {/* Prompt textarea */}
           <div className="create-textarea-wrap">
             <textarea
               name="prompt"
@@ -69,20 +101,72 @@ export default function CreatePage() {
             />
           </div>
 
+          {/* Controls row (platform / goal / length / tone) */}
+          <div className="create-controls-row">
+            <div className="create-control">
+              <label className="create-control-label">Platform</label>
+              <select
+                className="create-control-input"
+                value={platform}
+                onChange={(e) => setPlatform(e.target.value)}
+              >
+                <option value="TikTok">TikTok</option>
+                <option value="Reels">Instagram Reels</option>
+                <option value="Shorts">YouTube Shorts</option>
+                <option value="Multi">Multi-platform</option>
+              </select>
+            </div>
+
+            <div className="create-control">
+              <label className="create-control-label">Goal</label>
+              <input
+                className="create-control-input"
+                placeholder="Drive sales, grow page, etc."
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
+              />
+            </div>
+
+            <div className="create-control">
+              <label className="create-control-label">Length (seconds)</label>
+              <input
+                className="create-control-input"
+                type="number"
+                min={5}
+                max={120}
+                value={lengthSeconds}
+                onChange={(e) => setLengthSeconds(e.target.value)}
+              />
+            </div>
+
+            <div className="create-control">
+              <label className="create-control-label">Tone</label>
+              <select
+                className="create-control-input"
+                value={tone}
+                onChange={(e) => setTone(e.target.value as ToneOption)}
+              >
+                <option value="Casual">Casual</option>
+                <option value="High energy">High energy</option>
+                <option value="Educational">Educational</option>
+                <option value="Storytelling">Storytelling</option>
+              </select>
+            </div>
+          </div>
+
+          {/* File + Generate row */}
           <div className="create-bottom-row">
             <label className="create-file-bar">
               <span className="create-file-label">
                 <span className="create-file-bullet">•</span>
-                Choose File / Drop here
+                {file ? file.name : "Choose File / Drop here"}
               </span>
               <input
                 type="file"
                 name="file"
                 className="create-file-input"
-                // TODO: later – upload this to Supabase and pass fileUrl to /api/generate
-                onChange={() => {
-                  // for now, just ignore until we wire storage
-                }}
+                accept="video/*,audio/*"
+                onChange={handleFileChange}
               />
             </label>
 
@@ -90,32 +174,28 @@ export default function CreatePage() {
               type="button"
               className="create-generate-btn"
               onClick={handleGenerate}
-              disabled={loading}
+              disabled={isLoading}
             >
-              {loading ? "Generating..." : "Generate"}
+              {isLoading ? "Generating…" : "Generate"}
             </button>
           </div>
 
+          {/* Status / error line */}
+          <div className="create-status-row">
+            {error && <p className="create-status create-status--error">{error}</p>}
+            {!error && status && (
+              <p className="create-status create-status--info">{status}</p>
+            )}
+          </div>
+
           <p className="create-tip">
-            Tip: Drop a video/audio, or just describe what you want.
-            We&apos;ll handle the rest.
+            Tip: Drop a video/audio, or just describe what you want. We&apos;ll
+            handle the rest.
           </p>
-
-          {error && (
-            <p className="create-error">
-              {error}
-            </p>
-          )}
-
-          {result && (
-            <div className="create-output">
-              <h2>Clip ideas</h2>
-              <pre>{result}</pre>
-            </div>
-          )}
         </div>
       </section>
 
+      {/* Tiles */}
       <section className="create-tiles-section">
         <div className="create-tiles-grid">
           <article className="create-tile">
@@ -135,10 +215,10 @@ export default function CreatePage() {
         </div>
       </section>
 
-      {/* Page-scoped styling – same style you had, plus a couple extra classes */}
+      {/* Page-scoped styles */}
       <style jsx>{`
         .create-root {
-          min-height: calc(100vh - 64px); /* account for nav */
+          min-height: calc(100vh - 64px);
           padding: 64px 24px 80px;
           background: radial-gradient(
               circle at top,
@@ -227,7 +307,7 @@ export default function CreatePage() {
 
         .create-textarea {
           width: 100%;
-          min-height: 130px;
+          min-height: 160px;
           resize: vertical;
           border: none;
           outline: none;
@@ -235,12 +315,64 @@ export default function CreatePage() {
           color: #f5f5f7;
           font-size: 14px;
           line-height: 1.5;
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
-            sans-serif;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont,
+            "SF Pro Text", sans-serif;
         }
 
         .create-textarea::placeholder {
           color: rgba(255, 255, 255, 0.32);
+        }
+
+        .create-controls-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          margin-bottom: 16px;
+        }
+
+        @media (min-width: 900px) {
+          .create-controls-row {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+          }
+        }
+
+        .create-control {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .create-control-label {
+          font-size: 10px;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.45);
+        }
+
+        .create-control-input {
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: #050609;
+          padding: 8px 14px;
+          font-size: 12px;
+          color: #f5f5f7;
+          outline: none;
+          box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.02);
+          transition:
+            border-color 0.18s ease-out,
+            box-shadow 0.18s ease-out,
+            background 0.18s ease-out,
+            transform 0.18s ease-out;
+        }
+
+        .create-control-input:focus {
+          border-color: rgba(157, 196, 255, 0.8);
+          background: #05070c;
+          box-shadow:
+            0 0 0 1px rgba(157, 196, 255, 0.7),
+            0 10px 28px rgba(0, 0, 0, 0.8);
+          transform: translateY(-1px);
         }
 
         .create-bottom-row {
@@ -339,7 +471,12 @@ export default function CreatePage() {
             transform 0.18s ease-out,
             box-shadow 0.18s ease-out,
             filter 0.18s ease-out,
-            background 0.18s ease-out;
+            background 0.18s ease-out,
+            opacity 0.18s ease-out;
+          opacity: ${`${
+            // keep button visually subtle but not disabled
+            1
+          }`};
         }
 
         .create-generate-btn:hover:not(:disabled) {
@@ -350,11 +487,6 @@ export default function CreatePage() {
           filter: brightness(1.05);
         }
 
-        .create-generate-btn:disabled {
-          opacity: 0.6;
-          cursor: default;
-        }
-
         .create-generate-btn:active:not(:disabled) {
           transform: translateY(0);
           box-shadow:
@@ -362,44 +494,32 @@ export default function CreatePage() {
             0 6px 16px rgba(0, 0, 0, 0.9);
         }
 
-        .create-tip {
-          margin-top: 14px;
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.45);
+        .create-generate-btn:disabled {
+          cursor: default;
+          opacity: 0.7;
         }
 
-        .create-error {
+        .create-status-row {
+          min-height: 18px;
+          margin-top: 6px;
+        }
+
+        .create-status {
+          font-size: 12px;
+        }
+
+        .create-status--error {
+          color: #ff6b6b;
+        }
+
+        .create-status--info {
+          color: rgba(255, 255, 255, 0.6);
+        }
+
+        .create-tip {
           margin-top: 8px;
           font-size: 12px;
-          color: #ff7b7b;
-        }
-
-        .create-output {
-          margin-top: 18px;
-          border-radius: 18px;
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          background: rgba(5, 6, 10, 0.88);
-          padding: 14px 16px;
-          max-height: 260px;
-          overflow: auto;
-          box-shadow: 0 14px 40px rgba(0, 0, 0, 0.9);
-        }
-
-        .create-output h2 {
-          font-size: 13px;
-          font-weight: 600;
-          color: rgba(245, 245, 247, 0.85);
-          margin-bottom: 8px;
-        }
-
-        .create-output pre {
-          white-space: pre-wrap;
-          word-break: break-word;
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
-            sans-serif;
-          font-size: 12px;
-          line-height: 1.5;
-          color: rgba(245, 245, 247, 0.86);
+          color: rgba(255, 255, 255, 0.45);
         }
 
         .create-tiles-section {
