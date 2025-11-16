@@ -1,11 +1,7 @@
 // src/lib/ai.ts
 import OpenAI from "openai";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-type GenerateClipIdeasParams = {
+export type GenerateInput = {
   topic: string;
   platform: string;
   goal: string;
@@ -13,65 +9,57 @@ type GenerateClipIdeasParams = {
   tone: string;
 };
 
-export async function generateClipIdeas(
-  params: GenerateClipIdeasParams
-): Promise<string> {
-  const { topic, platform, goal, length, tone } = params;
+// Lazily create OpenAI client so we only throw inside route try/catch
+let _client: OpenAI | null = null;
 
-  const systemPrompt = `
-You are an elite short-form content strategist and video editor.
+function getClient() {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) {
+    throw new Error("OPENAI_API_KEY is not set in your environment");
+  }
+  if (!_client) {
+    _client = new OpenAI({ apiKey: key });
+  }
+  return _client;
+}
 
-You help creators turn long-form content into viral short-form clips.
-You respond in a clean, structured way that is easy to copy into an editor.
+export async function generateClipIdeas(input: GenerateInput): Promise<string> {
+  const openai = getClient();
 
-RULES:
-- No cringe marketing speak.
-- No fake “must watch” hooks.
-- Sound like a real, modern creator.
-- Focus on hooks, angles, and what happens in each clip.
-- Do NOT talk about yourself, just give the plan.
-`;
+  const prompt = `
+You are Directr, an AI that creates short-form video scripts.
 
-  const userPrompt = `
-Platform: ${platform}
-Goal: ${goal}
-Desired clip length: ${length} seconds
-Tone: ${tone}
+Topic: ${input.topic}
+Platform: ${input.platform}
+Goal: ${input.goal}
+Target length (seconds): ${input.length}
+Tone: ${input.tone}
 
-Topic / source description:
-${topic}
+Return:
+- 3–5 clip ideas with strong hooks
+- Beat-by-beat structure for each
+- Simple on-screen text + b-roll suggestions.
 
-Return a list like:
+Format your answer as clean, human-readable text. No JSON.
+  `.trim();
 
-1) Title: ...
-   Hook: ...
-   Angle: ...
-   Suggested pacing: ...
-   On-screen text ideas: ...
-   B-roll / overlay ideas: ...
-   CTA (optional): ...
-
-Give 3–5 strong clips. Keep it tight but detailed enough that an editor
-could build the clips from this alone.
-`;
-
-  const response = await client.responses.create({
+  const res: any = await openai.responses.create({
     model: "gpt-4.1-mini",
-    input: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-  } as any);
+    input: prompt,
+  });
 
-  // The OpenAI "responses" type definitions are a bit strict,
-  // so we keep this loose to avoid TypeScript errors.
-  const first = (response as any).output?.[0];
-  const content = first?.content?.[0];
+  // Super defensive extraction so TS doesn't complain
+  const first = res?.output?.[0];
+  const text =
+    first?.output_text?.[0]?.content
+      ?.map((c: any) => c?.text ?? "")
+      .join(" ")
+      .trim() ||
+    first?.content?.[0]?.text ||
+    "";
 
-  const text: string =
-    content?.type === "output_text" && typeof content?.text === "string"
-      ? content.text
-      : JSON.stringify(response);
+  if (text) return text;
 
-  return text.trim();
+  // Fallback: stringify the whole object so at least you see *something*
+  return JSON.stringify(res, null, 2);
 }
