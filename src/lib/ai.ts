@@ -9,7 +9,7 @@ export type GenerateInput = {
   tone: string;
 };
 
-// Lazily create OpenAI client so we only throw inside route try/catch
+// Lazily create the OpenAI client so we only throw inside our route try/catch
 let _client: OpenAI | null = null;
 
 function getClient() {
@@ -48,8 +48,9 @@ Format your answer as clean, human-readable text. No JSON.
     input: prompt,
   });
 
-  // Super defensive extraction so TS doesn't complain
   const first = res?.output?.[0];
+
+  // Try a bunch of shapes so TS stops whining and we still get text
   const text =
     first?.output_text?.[0]?.content
       ?.map((c: any) => c?.text ?? "")
@@ -60,6 +61,6 @@ Format your answer as clean, human-readable text. No JSON.
 
   if (text) return text;
 
-  // Fallback: stringify the whole object so at least you see *something*
+  // Fallback so you at least see *something*
   return JSON.stringify(res, null, 2);
 }
