@@ -5,7 +5,7 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-type GenerateInput = {
+export type GenerateInput = {
   topic: string;
   platform: string;
   goal?: string;
@@ -19,18 +19,30 @@ export async function generateScriptCopy(input: GenerateInput): Promise<string> 
   const prompt = `
 You are Directr, an AI that designs short-form video concepts.
 
-Make 1 high-performing script based on:
+Make 1 high-performing short-form video script based on:
+
 - Topic: ${topic}
 - Platform: ${platform}
 - Goal: ${goal || "general engagement"}
 - Length: ${length || "30"} seconds
-- Tone: ${tone || "casual"}
+- Tone: ${tone || "casual, natural, creator-style"}
 
-Return:
-- A hook
-- Beat-by-beat structure
-- Rough VO lines
-- B-roll suggestions
+Return the answer in this structure:
+
+HOOK:
+- 1–2 punchy hook options
+
+BEATS:
+- Beat 1: ...
+- Beat 2: ...
+- Beat 3: ...
+(Each beat should say what the viewer sees and hears.)
+
+SCRIPT:
+- Line-by-line, like a shooting script
+
+B-ROLL / VISUAL IDEAS:
+- List b-roll ideas and on-screen text moments
 `.trim();
 
   const response = await client.responses.create({
@@ -54,5 +66,15 @@ Return:
     return first.content[0].text;
   }
 
+  // Fallback: dump raw output if format is different
   return JSON.stringify(response.output, null, 2);
+}
+
+/**
+ * Backwards-compatible name that your API route imports.
+ * This is what ./src/app/api/generate/route.ts is expecting.
+ */
+export async function generateClipIdeas(input: GenerateInput): Promise<string> {
+  // For now, reuse the same generator.
+  return generateScriptCopy(input);
 }
