@@ -6,17 +6,13 @@ import { generateClipIdeas } from "@/lib/ai";
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json().catch(() => ({}))) as {
+    const body = (await req.json()) as {
       prompt?: string;
       platform?: string;
-      goal?: string;
-      length?: string;
-      tone?: string;
-      fileName?: string;
     };
 
-    const prompt = (body.prompt ?? "").trim();
-    const platform = (body.platform ?? "TikTok").trim() || "TikTok";
+    const prompt = (body.prompt || "").trim();
+    const platform = (body.platform || "TikTok").trim();
 
     if (!prompt) {
       return NextResponse.json(
@@ -27,7 +23,7 @@ export async function POST(req: Request) {
 
     const supabase = await createServerClient();
 
-    // Who is creating this job?
+    // Who’s creating this job?
     const {
       data: { user },
       error: authErr,
@@ -40,20 +36,18 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1) Ask the AI for ideas/script
+    // 1) Ask AI for ideas (text only for now)
     const aiText = await generateClipIdeas({
       topic: prompt,
       platform,
-      goal:
-        body.goal ??
-        "Generate short-form video ideas and a rough script",
-      length: body.length ?? "30–60",
-      tone: body.tone ?? "natural creator, non-cringe",
+      goal: "Generate short-form clip ideas and outlines from this topic",
+      length: "30–60",
+      tone: "natural creator, non-cringe",
     });
 
     const id = randomUUID();
 
-    // 2) Insert job into Supabase
+    // 2) Insert into jobs table
     const { data: job, error: dbError } = await supabase
       .from("jobs")
       .insert({
@@ -62,25 +56,22 @@ export async function POST(req: Request) {
         platform,
         prompt,
         result: aiText,
-        status: "complete", // or whatever your status enum uses
+        status: "complete", // assuming your status enum/check allows this
       })
       .select("*")
       .single();
 
-    if (dbError || !job) {
+    if (dbError) {
       console.error("DB insert error", dbError);
       return NextResponse.json(
-        { error: dbError?.message ?? "Failed to create job" },
+        { error: dbError.message },
         { status: 500 }
       );
     }
 
-    // 3) Return job + jobId so the UI can redirect
+    // 3) Return job + jobId so the frontend can use it
     return NextResponse.json(
-      {
-        jobId: job.id,
-        job,
-      },
+      { jobId: id, job },
       { status: 201 }
     );
   } catch (err: any) {
