@@ -2,82 +2,50 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-
-type Platform = "TikTok" | "Reels" | "Shorts";
 
 export default function CreatePage() {
-  const router = useRouter();
-
   const [prompt, setPrompt] = useState("");
-  const [platform, setPlatform] = useState<Platform>("TikTok");
-  const [goal, setGoal] = useState("Drive sales");
-  const [length, setLength] = useState("30");
-  const [tone, setTone] = useState("Casual");
-  const [file, setFile] = useState<File | null>(null);
-
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
+  const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleGenerate() {
     setError(null);
-    setStatus(null);
+    setResult(null);
 
     const trimmed = prompt.trim();
     if (!trimmed) {
-      setError("Please describe what you want Directr to create.");
+      setError("Type what you want first.");
       return;
     }
 
     setLoading(true);
     try {
-      // If you want to actually upload file → switch this to FormData.
-      // For now we just send the filename as a hint.
-      const body = {
-        prompt: trimmed,
-        platform,
-        goal,
-        length,
-        tone,
-        fileName: file?.name ?? null,
-      };
-
       const res = await fetch("/api/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: trimmed,
+          platform: "TikTok", // we can expose this later as a dropdown
+        }),
       });
 
-      const data = await res.json().catch(() => ({} as any));
-      console.log("Generate response", data);
-
       if (!res.ok) {
-        setError(
-          data?.error ||
-            "Something went wrong talking to the AI. Try again in a sec."
-        );
-        return;
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to generate.");
       }
 
-      // Try both shapes just in case:
-      const jobId: string | undefined =
-        data.jobId ?? data.job?.id ?? data.id;
+      const data = await res.json();
 
-      if (!jobId) {
-        setStatus(
-          "Generated successfully, but no job id was returned. Ask your dev (me) to wire this up fully."
-        );
-        return;
-      }
+      // Prefer the DB result if available
+      const text: string =
+        data?.job?.result ||
+        data?.job?.result_text ||
+        "Generated successfully, but no text result was returned.";
 
-      setStatus("Generated! Redirecting to your job…");
-      router.push(`/jobs/${jobId}`);
+      setResult(text);
     } catch (err: any) {
-      console.error(err);
-      setError("Unexpected error. Please try again.");
+      setError(err.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
@@ -91,7 +59,6 @@ export default function CreatePage() {
         </header>
 
         <div className="create-main-card">
-          {/* Prompt */}
           <div className="create-textarea-wrap">
             <textarea
               name="prompt"
@@ -102,69 +69,19 @@ export default function CreatePage() {
             />
           </div>
 
-          {/* Controls row */}
-          <div className="create-control-row">
-            <div className="control-group">
-              <label className="control-label">Platform</label>
-              <div className="pill-row">
-                {["TikTok", "Reels", "Shorts"].map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setPlatform(p as Platform)}
-                    className={
-                      "pill-button" +
-                      (platform === p ? " pill-button--active" : "")
-                    }
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="control-group">
-              <label className="control-label">Goal</label>
-              <input
-                className="pill-input"
-                value={goal}
-                onChange={(e) => setGoal(e.target.value)}
-              />
-            </div>
-
-            <div className="control-group">
-              <label className="control-label">Length (seconds)</label>
-              <input
-                className="pill-input"
-                value={length}
-                onChange={(e) => setLength(e.target.value)}
-              />
-            </div>
-
-            <div className="control-group">
-              <label className="control-label">Tone</label>
-              <input
-                className="pill-input"
-                value={tone}
-                onChange={(e) => setTone(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* File + Generate */}
           <div className="create-bottom-row">
             <label className="create-file-bar">
               <span className="create-file-label">
                 <span className="create-file-bullet">•</span>
-                {file ? file.name : "Choose File / Drop here"}
+                Choose File / Drop here
               </span>
               <input
                 type="file"
                 name="file"
                 className="create-file-input"
-                onChange={(e) => {
-                  const f = e.target.files?.[0] || null;
-                  setFile(f);
+                // TODO: later – upload this to Supabase and pass fileUrl to /api/generate
+                onChange={() => {
+                  // for now, just ignore until we wire storage
                 }}
               />
             </label>
@@ -175,20 +92,27 @@ export default function CreatePage() {
               onClick={handleGenerate}
               disabled={loading}
             >
-              {loading ? "Generating…" : "Generate"}
+              {loading ? "Generating..." : "Generate"}
             </button>
           </div>
-
-          {/* Status + error */}
-          {error && <p className="create-error">{error}</p>}
-          {status && !error && (
-            <p className="create-status">{status}</p>
-          )}
 
           <p className="create-tip">
             Tip: Drop a video/audio, or just describe what you want.
             We&apos;ll handle the rest.
           </p>
+
+          {error && (
+            <p className="create-error">
+              {error}
+            </p>
+          )}
+
+          {result && (
+            <div className="create-output">
+              <h2>Clip ideas</h2>
+              <pre>{result}</pre>
+            </div>
+          )}
         </div>
       </section>
 
@@ -211,10 +135,10 @@ export default function CreatePage() {
         </div>
       </section>
 
-      {/* Page-scoped styling */}
+      {/* Page-scoped styling – same style you had, plus a couple extra classes */}
       <style jsx>{`
         .create-root {
-          min-height: calc(100vh - 64px);
+          min-height: calc(100vh - 64px); /* account for nav */
           padding: 64px 24px 80px;
           background: radial-gradient(
               circle at top,
@@ -311,84 +235,12 @@ export default function CreatePage() {
           color: #f5f5f7;
           font-size: 14px;
           line-height: 1.5;
-          font-family: system-ui, -apple-system, BlinkMacSystemFont,
-            "SF Pro Text", sans-serif;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+            sans-serif;
         }
 
         .create-textarea::placeholder {
           color: rgba(255, 255, 255, 0.32);
-        }
-
-        .create-control-row {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 12px;
-          margin-bottom: 14px;
-        }
-
-        @media (min-width: 900px) {
-          .create-control-row {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-          }
-        }
-
-        .control-group {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .control-label {
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.14em;
-          color: rgba(255, 255, 255, 0.45);
-        }
-
-        .pill-row {
-          display: flex;
-          gap: 6px;
-        }
-
-        .pill-button,
-        .pill-input {
-          border-radius: 999px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          background: rgba(0, 0, 0, 0.4);
-          padding: 6px 12px;
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.85);
-          outline: none;
-          transition:
-            border-color 0.15s ease-out,
-            background 0.15s ease-out,
-            transform 0.15s ease-out,
-            box-shadow 0.15s ease-out;
-        }
-
-        .pill-button {
-          cursor: pointer;
-        }
-
-        .pill-button--active {
-          border-color: rgba(157, 196, 255, 0.7);
-          background: radial-gradient(
-                circle at top,
-                rgba(157, 196, 255, 0.25),
-                transparent 60%
-              ),
-            #141621;
-        }
-
-        .pill-input {
-          width: 100%;
-        }
-
-        .pill-button:hover,
-        .pill-input:focus {
-          border-color: rgba(157, 196, 255, 0.8);
-          box-shadow: 0 10px 22px rgba(0, 0, 0, 0.8);
-          transform: translateY(-1px);
         }
 
         .create-bottom-row {
@@ -519,13 +371,35 @@ export default function CreatePage() {
         .create-error {
           margin-top: 8px;
           font-size: 12px;
-          color: #ff8080;
+          color: #ff7b7b;
         }
 
-        .create-status {
-          margin-top: 8px;
+        .create-output {
+          margin-top: 18px;
+          border-radius: 18px;
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: rgba(5, 6, 10, 0.88);
+          padding: 14px 16px;
+          max-height: 260px;
+          overflow: auto;
+          box-shadow: 0 14px 40px rgba(0, 0, 0, 0.9);
+        }
+
+        .create-output h2 {
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(245, 245, 247, 0.85);
+          margin-bottom: 8px;
+        }
+
+        .create-output pre {
+          white-space: pre-wrap;
+          word-break: break-word;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+            sans-serif;
           font-size: 12px;
-          color: #9ecfff;
+          line-height: 1.5;
+          color: rgba(245, 245, 247, 0.86);
         }
 
         .create-tiles-section {
