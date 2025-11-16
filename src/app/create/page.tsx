@@ -32,7 +32,6 @@ export default function CreatePage() {
     setIsLoading(true);
 
     try {
-      // For now we just send metadata; backend can later use fileName
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -46,16 +45,26 @@ export default function CreatePage() {
         }),
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      let data: any = null;
+
+      if (contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        // Next.js error HTML, 404 HTML, etc.
+        const text = await res.text();
+        throw new Error(
+          text?.slice(0, 200) ||
+            `Server returned non-JSON (status ${res.status}).`
+        );
+      }
 
       if (!res.ok) {
-        setError(data?.error || "Something went wrong while generating.");
-        setIsLoading(false);
+        setError(data?.error || `Request failed: ${res.status}`);
         return;
       }
 
       if (data?.job?.id) {
-        // Send user to the job page just like before
         router.push(`/jobs/${data.job.id}`);
         return;
       }
@@ -65,7 +74,10 @@ export default function CreatePage() {
       );
     } catch (err: any) {
       console.error(err);
-      setError(err?.message || "Unexpected error while generating.");
+      setError(
+        err?.message ||
+          "Unexpected error while talking to /api/generate. Check server logs."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -101,7 +113,7 @@ export default function CreatePage() {
             />
           </div>
 
-          {/* Controls row (platform / goal / length / tone) */}
+          {/* Controls row */}
           <div className="create-controls-row">
             <div className="create-control">
               <label className="create-control-label">Platform</label>
@@ -215,7 +227,7 @@ export default function CreatePage() {
         </div>
       </section>
 
-      {/* Page-scoped styles */}
+      {/* Styles */}
       <style jsx>{`
         .create-root {
           min-height: calc(100vh - 64px);
@@ -473,10 +485,6 @@ export default function CreatePage() {
             filter 0.18s ease-out,
             background 0.18s ease-out,
             opacity 0.18s ease-out;
-          opacity: ${`${
-            // keep button visually subtle but not disabled
-            1
-          }`};
         }
 
         .create-generate-btn:hover:not(:disabled) {
