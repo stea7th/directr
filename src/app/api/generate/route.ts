@@ -2,52 +2,44 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { createServerClient } from "@/lib/supabase/server";
-import { generateClipIdeas } from "@/lib/ai";
+import { generateClipIdeas, GenerateInput } from "@/lib/ai";
+
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as {
-      prompt?: string;
-      platform?: string;
-    };
+    const body = await req.json().catch(() => null);
 
-    const prompt = (body.prompt || "").trim();
-    const platform = (body.platform || "TikTok").trim();
-
-    if (!prompt) {
-      return NextResponse.json(
-        { error: "Prompt is required" },
-        { status: 400 }
-      );
+    if (!body || typeof body.prompt !== "string") {
+      return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
     }
+
+    const prompt = body.prompt.trim();
+    const platform = (body.platform ?? "TikTok").trim();
+    const goal = (body.goal ?? "Drive sales / grow page, etc.").trim();
+    const length = String(body.length ?? "30");
+    const tone = String(body.tone ?? "Casual");
 
     const supabase = await createServerClient();
-
-    // Who’s creating this job?
     const {
       data: { user },
-      error: authErr,
+      error: authError,
     } = await supabase.auth.getUser();
 
-    if (authErr || !user?.id) {
-      return NextResponse.json(
-        { error: "Not signed in" },
-        { status: 401 }
-      );
+    if (authError || !user) {
+      return NextResponse.json({ error: "Not signed in" }, { status: 401 });
     }
 
-    // 1) Ask AI for ideas (text only for now)
     const aiText = await generateClipIdeas({
       topic: prompt,
       platform,
-      goal: "Generate short-form clip ideas and outlines from this topic",
-      length: "30–60",
-      tone: "natural creator, non-cringe",
-    });
+      goal,
+      length,
+      tone,
+    } as GenerateInput);
 
     const id = randomUUID();
 
-    // 2) Insert into jobs table
     const { data: job, error: dbError } = await supabase
       .from("jobs")
       .insert({
@@ -56,28 +48,21 @@ export async function POST(req: Request) {
         platform,
         prompt,
         result: aiText,
-        status: "complete", // assuming your status enum/check allows this
+        status: "complete",
       })
       .select("*")
       .single();
 
     if (dbError) {
-      console.error("DB insert error", dbError);
-      return NextResponse.json(
-        { error: dbError.message },
-        { status: 500 }
-      );
+      console.error("Supabase insert error", dbError);
+      return NextResponse.json({ error: dbError.message }, { status: 500 });
     }
 
-    // 3) Return job + jobId so the frontend can use it
-    return NextResponse.json(
-      { jobId: id, job },
-      { status: 201 }
-    );
+    return NextResponse.json({ jobId: job.id, job }, { status: 201 });
   } catch (err: any) {
-    console.error("Generate API error", err);
+    console.error("Generate route crash:", err);
     return NextResponse.json(
-      { error: err?.message || "Unknown error" },
+      { error: err?.message ?? "Unknown server error" },
       { status: 500 }
     );
   }
