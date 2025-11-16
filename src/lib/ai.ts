@@ -1,80 +1,77 @@
 // src/lib/ai.ts
 import OpenAI from "openai";
 
+// Make sure you have OPENAI_API_KEY set in Vercel env
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
 export type GenerateInput = {
   topic: string;
-  platform: string;
+  platform?: string;
   goal?: string;
-  length?: string;
+  length?: string; // seconds, like "30–60"
   tone?: string;
 };
 
-export async function generateScriptCopy(input: GenerateInput): Promise<string> {
-  const { topic, platform, goal, length, tone } = input;
+export async function generateClipIdeas(input: GenerateInput): Promise<string> {
+  const {
+    topic,
+    platform = "TikTok",
+    goal = "Generate short-form video ideas and a rough script.",
+    length = "30–60",
+    tone = "natural creator, non-cringe, slightly punchy",
+  } = input;
 
-  const prompt = `
-You are Directr, an AI that designs short-form video concepts.
-
-Make 1 high-performing short-form video script based on:
-
-- Topic: ${topic}
+  const systemPrompt = `
+You are Directr, an assistant that helps creators turn ideas into short-form videos.
 - Platform: ${platform}
-- Goal: ${goal || "general engagement"}
-- Length: ${length || "30"} seconds
-- Tone: ${tone || "casual, natural, creator-style"}
+- Target length: ${length} seconds
+- Tone: ${tone}
+- Goal: ${goal}
 
-Return the answer in this structure:
-
-HOOK:
-- 1–2 punchy hook options
-
-BEATS:
-- Beat 1: ...
-- Beat 2: ...
-- Beat 3: ...
-(Each beat should say what the viewer sees and hears.)
-
-SCRIPT:
-- Line-by-line, like a shooting script
-
-B-ROLL / VISUAL IDEAS:
-- List b-roll ideas and on-screen text moments
+Return:
+1) A short hook.
+2) A simple beat-by-beat script (1 line per shot).
+3) A few on-screen text suggestions.
+Use clear formatting and keep it tight.
 `.trim();
+
+  const userPrompt = `Idea / topic: ${topic}`;
 
   const response = await client.responses.create({
     model: "gpt-4.1-mini",
     input: [
       {
+        role: "system",
+        content: systemPrompt,
+      },
+      {
         role: "user",
-        content: prompt,
+        content: userPrompt,
       },
     ],
   });
 
-  const first = response.output[0];
+  // The Responses API has a rich type, but we’ll keep it simple
+  const anyResponse = response as any;
 
-  if (
-    first &&
-    first.content &&
-    first.content[0] &&
-    first.content[0].type === "output_text"
-  ) {
-    return first.content[0].text;
-  }
+  const firstOutput = anyResponse.output?.[0];
+  const firstContent = firstOutput?.content?.[0];
 
-  // Fallback: dump raw output if format is different
-  return JSON.stringify(response.output, null, 2);
-}
+  // New Responses API usually puts text here:
+  const textFromOutputText =
+    firstContent?.type === "output_text"
+      ? firstContent.output_text?.text
+      : undefined;
 
-/**
- * Backwards-compatible name that your API route imports.
- * This is what ./src/app/api/generate/route.ts is expecting.
- */
-export async function generateClipIdeas(input: GenerateInput): Promise<string> {
-  // For now, reuse the same generator.
-  return generateScriptCopy(input);
+  // Fallback: some shapes use just `.text`
+  const textFromPlain = firstContent?.text;
+
+  const finalText =
+    textFromOutputText ||
+    textFromPlain ||
+    JSON.stringify(response, null, 2);
+
+  return String(finalText);
 }
