@@ -6,13 +6,17 @@ import { generateClipIdeas } from "@/lib/ai";
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as {
+    const body = (await req.json().catch(() => ({}))) as {
       prompt?: string;
       platform?: string;
+      goal?: string;
+      length?: string;
+      tone?: string;
+      fileName?: string;
     };
 
-    const prompt = (body.prompt || "").trim();
-    const platform = (body.platform || "TikTok").trim();
+    const prompt = (body.prompt ?? "").trim();
+    const platform = (body.platform ?? "TikTok").trim() || "TikTok";
 
     if (!prompt) {
       return NextResponse.json(
@@ -40,9 +44,11 @@ export async function POST(req: Request) {
     const aiText = await generateClipIdeas({
       topic: prompt,
       platform,
-      goal: "Generate short-form video ideas and a rough script",
-      length: "30–60",
-      tone: "natural creator, non-cringe",
+      goal:
+        body.goal ??
+        "Generate short-form video ideas and a rough script",
+      length: body.length ?? "30–60",
+      tone: body.tone ?? "natural creator, non-cringe",
     });
 
     const id = randomUUID();
@@ -56,21 +62,27 @@ export async function POST(req: Request) {
         platform,
         prompt,
         result: aiText,
-        status: "complete", // adjust if your jobs_status_check uses different values
+        status: "complete", // or whatever your status enum uses
       })
       .select("*")
       .single();
 
-    if (dbError) {
+    if (dbError || !job) {
       console.error("DB insert error", dbError);
       return NextResponse.json(
-        { error: dbError.message },
+        { error: dbError?.message ?? "Failed to create job" },
         { status: 500 }
       );
     }
 
-    // 3) Return the job to the client
-    return NextResponse.json({ job }, { status: 201 });
+    // 3) Return job + jobId so the UI can redirect
+    return NextResponse.json(
+      {
+        jobId: job.id,
+        job,
+      },
+      { status: 201 }
+    );
   } catch (err: any) {
     console.error("Generate API error", err);
     return NextResponse.json(
