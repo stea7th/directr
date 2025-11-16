@@ -1,77 +1,77 @@
 // src/lib/ai.ts
 import OpenAI from "openai";
 
-// Make sure you have OPENAI_API_KEY set in Vercel env
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export type GenerateInput = {
+type GenerateClipIdeasParams = {
   topic: string;
-  platform?: string;
-  goal?: string;
-  length?: string; // seconds, like "30–60"
-  tone?: string;
+  platform: string;
+  goal: string;
+  length: string;
+  tone: string;
 };
 
-export async function generateClipIdeas(input: GenerateInput): Promise<string> {
-  const {
-    topic,
-    platform = "TikTok",
-    goal = "Generate short-form video ideas and a rough script.",
-    length = "30–60",
-    tone = "natural creator, non-cringe, slightly punchy",
-  } = input;
+export async function generateClipIdeas(
+  params: GenerateClipIdeasParams
+): Promise<string> {
+  const { topic, platform, goal, length, tone } = params;
 
   const systemPrompt = `
-You are Directr, an assistant that helps creators turn ideas into short-form videos.
-- Platform: ${platform}
-- Target length: ${length} seconds
-- Tone: ${tone}
-- Goal: ${goal}
+You are an elite short-form content strategist and video editor.
 
-Return:
-1) A short hook.
-2) A simple beat-by-beat script (1 line per shot).
-3) A few on-screen text suggestions.
-Use clear formatting and keep it tight.
-`.trim();
+You help creators turn long-form content into viral short-form clips.
+You respond in a clean, structured way that is easy to copy into an editor.
 
-  const userPrompt = `Idea / topic: ${topic}`;
+RULES:
+- No cringe marketing speak.
+- No fake “must watch” hooks.
+- Sound like a real, modern creator.
+- Focus on hooks, angles, and what happens in each clip.
+- Do NOT talk about yourself, just give the plan.
+`;
+
+  const userPrompt = `
+Platform: ${platform}
+Goal: ${goal}
+Desired clip length: ${length} seconds
+Tone: ${tone}
+
+Topic / source description:
+${topic}
+
+Return a list like:
+
+1) Title: ...
+   Hook: ...
+   Angle: ...
+   Suggested pacing: ...
+   On-screen text ideas: ...
+   B-roll / overlay ideas: ...
+   CTA (optional): ...
+
+Give 3–5 strong clips. Keep it tight but detailed enough that an editor
+could build the clips from this alone.
+`;
 
   const response = await client.responses.create({
     model: "gpt-4.1-mini",
     input: [
-      {
-        role: "system",
-        content: systemPrompt,
-      },
-      {
-        role: "user",
-        content: userPrompt,
-      },
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
     ],
-  });
+  } as any);
 
-  // The Responses API has a rich type, but we’ll keep it simple
-  const anyResponse = response as any;
+  // The OpenAI "responses" type definitions are a bit strict,
+  // so we keep this loose to avoid TypeScript errors.
+  const first = (response as any).output?.[0];
+  const content = first?.content?.[0];
 
-  const firstOutput = anyResponse.output?.[0];
-  const firstContent = firstOutput?.content?.[0];
+  const text: string =
+    content?.type === "output_text" && typeof content?.text === "string"
+      ? content.text
+      : JSON.stringify(response);
 
-  // New Responses API usually puts text here:
-  const textFromOutputText =
-    firstContent?.type === "output_text"
-      ? firstContent.output_text?.text
-      : undefined;
-
-  // Fallback: some shapes use just `.text`
-  const textFromPlain = firstContent?.text;
-
-  const finalText =
-    textFromOutputText ||
-    textFromPlain ||
-    JSON.stringify(response, null, 2);
-
-  return String(finalText);
+  return text.trim();
 }
