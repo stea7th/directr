@@ -1,37 +1,33 @@
-// src/app/create/page.tsx
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState } from "react";
+
+type Platform = "TikTok" | "Reels" | "Shorts" | "YouTube";
+type Tone = "Casual" | "High energy" | "Storytelling" | "Educational";
 
 export default function CreatePage() {
-  const router = useRouter();
-
   const [prompt, setPrompt] = useState("");
-  const [platform, setPlatform] = useState("TikTok");
-  const [goal, setGoal] = useState("Drive sales / grow page");
+  const [platform, setPlatform] = useState<Platform>("TikTok");
+  const [goal, setGoal] = useState("Drive sales, grow page, etc.");
   const [length, setLength] = useState("30");
-  const [tone, setTone] = useState("Casual");
+  const [tone, setTone] = useState<Tone>("Casual");
   const [fileName, setFileName] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (f) setFileName(f.name);
-  }
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
 
   async function handleGenerate() {
-    setError(null);
+    setErrorMsg(null);
+    setJobId(null);
 
     if (!prompt.trim()) {
-      setError("Add a prompt first.");
+      setErrorMsg("Please type what you want first.");
       return;
     }
 
+    setIsLoading(true);
     try {
-      setLoading(true);
-
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -41,44 +37,48 @@ export default function CreatePage() {
           goal,
           length,
           tone,
-          // file isn’t wired yet – we’ll add upload later
+          fileName,
         }),
       });
 
-      const raw = await res.text();
-      let data: any = null;
+      const text = await res.text();
+      const contentType = res.headers.get("content-type") || "";
 
-      // Try to parse JSON – if it’s HTML (<!DOCTYPE…>)
-      // we give a clean message instead of the crash
-      try {
-        data = JSON.parse(raw);
-      } catch {
-        setError(
-          `Server returned non-JSON (status ${res.status}). First part: ` +
-            raw.slice(0, 120).replace(/\s+/g, " ") +
-            "…"
+      if (!contentType.includes("application/json")) {
+        // This is where your old "<!DOCTYPE html>" error came from
+        console.error("Non-JSON from /api/generate:", text);
+        throw new Error(
+          `Server returned non-JSON (status ${res.status}). First part: ${text.slice(
+            0,
+            120
+          )}`
         );
-        return;
       }
+
+      const data = JSON.parse(text);
 
       if (!res.ok) {
-        setError(data?.error || `Error ${res.status}`);
-        return;
+        throw new Error(data.error || `Request failed with ${res.status}`);
       }
 
-      if (data?.jobId) {
-        router.push(`/jobs/${data.jobId}`);
-      } else {
-        setError(
+      if (!data.job?.id) {
+        throw new Error(
           "Generated successfully, but no job id was returned. Ask your dev (me) to wire this up fully."
         );
       }
+
+      setJobId(data.job.id);
     } catch (err: any) {
       console.error(err);
-      setError(err?.message || "Unexpected error talking to /api/generate.");
+      setErrorMsg(err.message || "Something went wrong.");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setFileName(file ? file.name : null);
   }
 
   return (
@@ -100,57 +100,56 @@ export default function CreatePage() {
             />
           </div>
 
-          {/* TWEAK OPTIONS ROW */}
-          <div className="create-input-row">
-            <div className="create-field">
-              <span className="create-label">Platform</span>
+          {/* OPTIONS ROW */}
+          <div className="create-options-row">
+            <div className="create-option">
+              <label>Platform</label>
               <select
-                className="create-select"
                 value={platform}
-                onChange={(e) => setPlatform(e.target.value)}
+                onChange={(e) => setPlatform(e.target.value as Platform)}
               >
-                <option>TikTok</option>
-                <option>Reels</option>
-                <option>Shorts</option>
-                <option>Twitter</option>
+                <option value="TikTok">TikTok</option>
+                <option value="Reels">Instagram Reels</option>
+                <option value="Shorts">YouTube Shorts</option>
+                <option value="YouTube">YouTube (16:9)</option>
               </select>
             </div>
 
-            <div className="create-field create-field-grow">
-              <span className="create-label">Goal</span>
+            <div className="create-option">
+              <label>Goal</label>
               <input
-                className="create-input"
+                type="text"
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
-                placeholder="Drive sales, grow page, etc."
               />
             </div>
 
-            <div className="create-field">
-              <span className="create-label">Length (seconds)</span>
+            <div className="create-option">
+              <label>Length (seconds)</label>
               <input
-                className="create-input"
+                type="number"
+                min={5}
+                max={180}
                 value={length}
                 onChange={(e) => setLength(e.target.value)}
               />
             </div>
 
-            <div className="create-field">
-              <span className="create-label">Tone</span>
+            <div className="create-option">
+              <label>Tone</label>
               <select
-                className="create-select"
                 value={tone}
-                onChange={(e) => setTone(e.target.value)}
+                onChange={(e) => setTone(e.target.value as Tone)}
               >
-                <option>Casual</option>
-                <option>High-energy</option>
-                <option>Storytelling</option>
-                <option>Authority</option>
+                <option value="Casual">Casual</option>
+                <option value="High energy">High energy</option>
+                <option value="Storytelling">Storytelling</option>
+                <option value="Educational">Educational</option>
               </select>
             </div>
           </div>
 
-          {/* FILE + BUTTON ROW */}
+          {/* FILE + BUTTON */}
           <div className="create-bottom-row">
             <label className="create-file-bar">
               <span className="create-file-label">
@@ -169,21 +168,33 @@ export default function CreatePage() {
               type="button"
               className="create-generate-btn"
               onClick={handleGenerate}
-              disabled={loading}
+              disabled={isLoading}
             >
-              {loading ? "Generating…" : "Generate"}
+              {isLoading ? "Generating…" : "Generate"}
             </button>
           </div>
 
+          {/* STATUS TEXT */}
           <p className="create-tip">
-            Tip: Drop a video/audio, or just describe what you want.
-            We&apos;ll handle the rest.
+            Tip: Drop a video/audio, or just describe what you want. We&apos;ll
+            handle the rest.
           </p>
 
-          {error && <p className="create-error">{error}</p>}
+          {errorMsg && (
+            <p className="create-error">
+              {errorMsg}
+            </p>
+          )}
+
+          {jobId && (
+            <p className="create-success">
+              Generated successfully. Job id: <code>{jobId}</code>
+            </p>
+          )}
         </div>
       </section>
 
+      {/* TILES */}
       <section className="create-tiles-section">
         <div className="create-tiles-grid">
           <article className="create-tile">
@@ -203,7 +214,7 @@ export default function CreatePage() {
         </div>
       </section>
 
-      {/* your original CSS + a few extra classes for the options row */}
+      {/* Styles (same vibe as before, just extended a bit) */}
       <style jsx>{`
         .create-root {
           min-height: calc(100vh - 64px);
@@ -303,16 +314,15 @@ export default function CreatePage() {
           color: #f5f5f7;
           font-size: 14px;
           line-height: 1.5;
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
-            sans-serif;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont,
+            "SF Pro Text", sans-serif;
         }
 
         .create-textarea::placeholder {
           color: rgba(255, 255, 255, 0.32);
         }
 
-        /* new tweaks row */
-        .create-input-row {
+        .create-options-row {
           display: grid;
           grid-template-columns: 1fr;
           gap: 10px;
@@ -320,52 +330,38 @@ export default function CreatePage() {
         }
 
         @media (min-width: 900px) {
-          .create-input-row {
-            grid-template-columns: 0.9fr 1.6fr 0.7fr 0.9fr;
+          .create-options-row {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
           }
         }
 
-        .create-field {
+        .create-option {
           display: flex;
           flex-direction: column;
           gap: 4px;
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.55);
         }
 
-        .create-field-grow {
-          flex: 1;
-        }
-
-        .create-label {
-          font-size: 10px;
+        .create-option label {
           text-transform: uppercase;
-          letter-spacing: 0.12em;
-          color: rgba(255, 255, 255, 0.5);
+          letter-spacing: 0.08em;
         }
 
-        .create-select,
-        .create-input {
+        .create-option input,
+        .create-option select {
           border-radius: 999px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.12);
           background: #050609;
+          color: #f5f5f7;
           padding: 8px 12px;
           font-size: 12px;
-          color: #f5f5f7;
           outline: none;
-          width: 100%;
         }
 
-        .create-select:focus,
-        .create-input:focus {
-          border-color: rgba(157, 196, 255, 0.7);
-        }
-
-        .create-select {
-          appearance: none;
-          background-image: linear-gradient(
-            to bottom,
-            rgba(255, 255, 255, 0.08),
-            rgba(255, 255, 255, 0.02)
-          );
+        .create-option input:focus,
+        .create-option select:focus {
+          border-color: rgba(157, 196, 255, 0.8);
         }
 
         .create-bottom-row {
@@ -467,7 +463,7 @@ export default function CreatePage() {
             background 0.18s ease-out;
         }
 
-        .create-generate-btn:hover:enabled {
+        .create-generate-btn:hover:not(:disabled) {
           transform: translateY(-2px);
           box-shadow:
             0 0 0 1px rgba(148, 202, 255, 0.8),
@@ -476,11 +472,11 @@ export default function CreatePage() {
         }
 
         .create-generate-btn:disabled {
-          opacity: 0.7;
+          opacity: 0.6;
           cursor: default;
         }
 
-        .create-generate-btn:active:enabled {
+        .create-generate-btn:active:not(:disabled) {
           transform: translateY(0);
           box-shadow:
             0 0 0 1px rgba(148, 202, 255, 0.7),
@@ -488,15 +484,26 @@ export default function CreatePage() {
         }
 
         .create-tip {
-          margin-top: 14px;
+          margin-top: 10px;
           font-size: 12px;
           color: rgba(255, 255, 255, 0.45);
         }
 
         .create-error {
-          margin-top: 8px;
+          margin-top: 6px;
           font-size: 12px;
           color: #ff6b6b;
+        }
+
+        .create-success {
+          margin-top: 6px;
+          font-size: 12px;
+          color: #8be58b;
+        }
+
+        .create-success code {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+            "Liberation Mono", "Courier New", monospace;
         }
 
         .create-tiles-section {
