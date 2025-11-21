@@ -2,75 +2,82 @@
 
 import React, { useState } from "react";
 
-type Tab = "basic" | "advanced";
+type Mode = "basic" | "advanced";
 
 export default function CreatePage() {
+  const [mode, setMode] = useState<Mode>("basic");
   const [prompt, setPrompt] = useState("");
-  const [file, setFile] = useState<File | null>(null);
   const [platform, setPlatform] = useState("TikTok");
-  const [clips, setClips] = useState(5);
-  const [style, setStyle] = useState("default");
-  const [tab, setTab] = useState<Tab>("basic");
+  const [goal, setGoal] = useState("Drive sales, grow page, etc.");
+  const [lengthSeconds, setLengthSeconds] = useState("30");
+  const [tone, setTone] = useState("Casual");
+  const [file, setFile] = useState<File | null>(null);
 
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<string | null>(null);
 
   async function handleGenerate() {
     setError(null);
     setResult(null);
 
-    if (!prompt.trim() && !file) {
-      setError("Add a prompt or upload a file first.");
+    if (!prompt.trim()) {
+      setError("Add a quick description or script idea first.");
       return;
     }
 
     setLoading(true);
     try {
-      // For now: only send JSON (we’ll wire file → upload later)
+      // For now we only send metadata; file-upload pipeline comes later
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          prompt: prompt.trim(),
+          prompt,
           platform,
-          clips,
-          style,
+          goal,
+          lengthSeconds,
+          tone,
         }),
       });
 
       const contentType = res.headers.get("content-type") || "";
 
-      // 🔴 This is the error you’ve been seeing:
+      // Protect against HTML / non-JSON responses
       if (!contentType.includes("application/json")) {
         const text = await res.text();
-        const snippet = text.slice(0, 200);
         console.error("Non-JSON response from /api/generate:", {
           status: res.status,
-          snippet,
+          textSnippet: text.slice(0, 200),
         });
         setError(
-          `Server returned non-JSON (status ${res.status}). First part: ${snippet}`
+          `Server returned non-JSON (status ${res.status}). Your route is likely misconfigured.`
         );
-        setLoading(false);
         return;
       }
 
-      const json = await res.json();
-      setResult(JSON.stringify(json, null, 2));
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data?.error || "Something went wrong.");
+        return;
+      }
+
+      // Show the fake AI text for now
+      setResult(data?.text || "No text returned, but request succeeded.");
     } catch (err: any) {
-      console.error("Generate error:", err);
-      setError(err?.message || "Something went wrong.");
+      console.error("Generate error (client):", err);
+      setError(err?.message || "Unexpected error.");
     } finally {
       setLoading(false);
     }
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] || null;
-    setFile(f);
+    const f = e.target.files?.[0];
+    if (f) setFile(f);
   }
 
   return (
@@ -78,25 +85,28 @@ export default function CreatePage() {
       <section className="create-shell">
         <header className="create-header">
           <h1>Type what you want or upload a file</h1>
-        </header>
 
-        {/* Tabs: basic vs advanced */}
-        <div className="create-tabs">
-          <button
-            type="button"
-            className={`create-tab ${tab === "basic" ? "is-active" : ""}`}
-            onClick={() => setTab("basic")}
-          >
-            Basic
-          </button>
-          <button
-            type="button"
-            className={`create-tab ${tab === "advanced" ? "is-active" : ""}`}
-            onClick={() => setTab("advanced")}
-          >
-            Advanced
-          </button>
-        </div>
+          <div className="create-mode-toggle">
+            <button
+              type="button"
+              className={`create-mode-btn ${
+                mode === "basic" ? "create-mode-btn--active" : ""
+              }`}
+              onClick={() => setMode("basic")}
+            >
+              Basic
+            </button>
+            <button
+              type="button"
+              className={`create-mode-btn ${
+                mode === "advanced" ? "create-mode-btn--active" : ""
+              }`}
+              onClick={() => setMode("advanced")}
+            >
+              Advanced
+            </button>
+          </div>
+        </header>
 
         <div className="create-main-card">
           <div className="create-textarea-wrap">
@@ -109,43 +119,53 @@ export default function CreatePage() {
             />
           </div>
 
-          {tab === "advanced" && (
+          {/* Advanced controls row */}
+          {mode === "advanced" && (
             <div className="create-advanced-row">
-              <div className="create-field">
+              <div className="create-adv-field">
                 <label>Platform</label>
                 <select
                   value={platform}
                   onChange={(e) => setPlatform(e.target.value)}
                 >
                   <option value="TikTok">TikTok</option>
-                  <option value="Reels">Reels</option>
+                  <option value="Reels">Instagram Reels</option>
                   <option value="Shorts">YouTube Shorts</option>
-                  <option value="Multi">Multi-platform</option>
+                  <option value="All">All of the above</option>
                 </select>
               </div>
 
-              <div className="create-field">
-                <label># of clips</label>
+              <div className="create-adv-field">
+                <label>Goal</label>
                 <input
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={clips}
-                  onChange={(e) =>
-                    setClips(
-                      Math.min(20, Math.max(1, Number(e.target.value) || 1))
-                    )
-                  }
+                  type="text"
+                  value={goal}
+                  onChange={(e) => setGoal(e.target.value)}
+                  placeholder="Drive sales, grow page, etc."
                 />
               </div>
 
-              <div className="create-field">
-                <label>Style</label>
-                <select value={style} onChange={(e) => setStyle(e.target.value)}>
-                  <option value="default">Default</option>
-                  <option value="aggressive_hooks">Aggressive hooks</option>
-                  <option value="storytime">Storytime</option>
-                  <option value="educational">Educational / value</option>
+              <div className="create-adv-field">
+                <label>Length (seconds)</label>
+                <input
+                  type="number"
+                  min={5}
+                  max={180}
+                  value={lengthSeconds}
+                  onChange={(e) => setLengthSeconds(e.target.value)}
+                />
+              </div>
+
+              <div className="create-adv-field">
+                <label>Tone</label>
+                <select
+                  value={tone}
+                  onChange={(e) => setTone(e.target.value)}
+                >
+                  <option value="Casual">Casual</option>
+                  <option value="High-energy">High-energy</option>
+                  <option value="Storytelling">Storytelling</option>
+                  <option value="Authority">Authority</option>
                 </select>
               </div>
             </div>
@@ -171,7 +191,7 @@ export default function CreatePage() {
               onClick={handleGenerate}
               disabled={loading}
             >
-              {loading ? "Generating…" : "Generate"}
+              {loading ? "Thinking..." : "Generate"}
             </button>
           </div>
 
@@ -180,13 +200,13 @@ export default function CreatePage() {
             We&apos;ll handle the rest.
           </p>
 
-          {/* Error + Result */}
+          {/* Error / result output area */}
           {error && <p className="create-error">{error}</p>}
-
-          {result && (
-            <pre className="create-result">
-              <code>{result}</code>
-            </pre>
+          {result && !error && (
+            <div className="create-result">
+              <h3>AI draft</h3>
+              <pre>{result}</pre>
+            </div>
           )}
         </div>
       </section>
@@ -210,7 +230,7 @@ export default function CreatePage() {
         </div>
       </section>
 
-      {/* Your original styling, plus a couple of small additions */}
+      {/* Page-scoped styling */}
       <style jsx>{`
         .create-root {
           min-height: calc(100vh - 64px);
@@ -238,13 +258,20 @@ export default function CreatePage() {
           width: 100%;
         }
 
+        .create-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          margin-bottom: 20px;
+        }
+
         .create-header h1 {
           font-size: 24px;
           line-height: 1.2;
           font-weight: 600;
           letter-spacing: 0.01em;
           color: #f5f5f7;
-          margin-bottom: 20px;
         }
 
         @media (min-width: 900px) {
@@ -253,28 +280,26 @@ export default function CreatePage() {
           }
         }
 
-        .create-tabs {
+        .create-mode-toggle {
           display: inline-flex;
-          border-radius: 999px;
           padding: 3px;
+          border-radius: 999px;
           background: rgba(255, 255, 255, 0.04);
-          margin-bottom: 16px;
-          gap: 4px;
         }
 
-        .create-tab {
+        .create-mode-btn {
           border: none;
-          border-radius: 999px;
-          padding: 6px 14px;
-          font-size: 12px;
-          cursor: pointer;
           background: transparent;
           color: rgba(255, 255, 255, 0.6);
+          font-size: 12px;
+          padding: 6px 14px;
+          border-radius: 999px;
+          cursor: pointer;
         }
 
-        .create-tab.is-active {
-          background: rgba(255, 255, 255, 0.12);
-          color: #fff;
+        .create-mode-btn--active {
+          background: #11131a;
+          color: #f5f5f7;
         }
 
         .create-main-card {
@@ -334,8 +359,8 @@ export default function CreatePage() {
           color: #f5f5f7;
           font-size: 14px;
           line-height: 1.5;
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
-            sans-serif;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont,
+            "SF Pro Text", sans-serif;
         }
 
         .create-textarea::placeholder {
@@ -344,39 +369,43 @@ export default function CreatePage() {
 
         .create-advanced-row {
           display: grid;
-          grid-template-columns: 1fr;
-          gap: 10px;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px 18px;
           margin-bottom: 16px;
         }
 
         @media (min-width: 900px) {
           .create-advanced-row {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(4, minmax(0, 1fr));
           }
         }
 
-        .create-field {
+        .create-adv-field {
           display: flex;
           flex-direction: column;
-          gap: 4px;
+          gap: 6px;
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.6);
         }
 
-        .create-field label {
-          font-size: 11px;
+        .create-adv-field label {
           text-transform: uppercase;
           letter-spacing: 0.08em;
-          color: rgba(255, 255, 255, 0.5);
         }
 
-        .create-field select,
-        .create-field input {
+        .create-adv-field input,
+        .create-adv-field select {
           border-radius: 999px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          background: #06070a;
-          color: #fff;
-          padding: 6px 10px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(5, 6, 9, 0.9);
+          padding: 8px 12px;
           font-size: 12px;
+          color: #f5f5f7;
           outline: none;
+        }
+
+        .create-adv-field input::placeholder {
+          color: rgba(255, 255, 255, 0.35);
         }
 
         .create-bottom-row {
@@ -487,7 +516,7 @@ export default function CreatePage() {
         }
 
         .create-generate-btn:disabled {
-          opacity: 0.6;
+          opacity: 0.7;
           cursor: default;
         }
 
@@ -505,22 +534,29 @@ export default function CreatePage() {
         }
 
         .create-error {
-          margin-top: 12px;
+          margin-top: 10px;
           font-size: 12px;
-          color: #ff6b81;
+          color: #ff7b7b;
         }
 
         .create-result {
-          margin-top: 14px;
-          padding: 12px;
-          border-radius: 12px;
-          background: #050609;
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          max-height: 260px;
-          overflow: auto;
-          font-size: 11px;
-          line-height: 1.4;
-          color: rgba(255, 255, 255, 0.9);
+          margin-top: 16px;
+          padding: 12px 14px;
+          border-radius: 16px;
+          background: #090b10;
+          border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+
+        .create-result h3 {
+          font-size: 13px;
+          margin-bottom: 6px;
+          color: rgba(255, 255, 255, 0.8);
+        }
+
+        .create-result pre {
+          font-size: 12px;
+          white-space: pre-wrap;
+          color: rgba(255, 255, 255, 0.7);
         }
 
         .create-tiles-section {
