@@ -1,119 +1,144 @@
-// src/app/login/page.tsx
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase =
-  typeof window !== "undefined"
-    ? createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-    : (null as any);
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { createBrowserClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
+  const supabase = createBrowserClient();
+  const searchParams = useSearchParams();
+
+  const callbackError = searchParams.get("error");
+
   const [email, setEmail] = useState("");
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
-  // When you land on /login *from the magic link*,
-  // this checks if Supabase already has a session for you.
-  useEffect(() => {
-    if (!supabase) return;
+  const error = localError || callbackError;
 
-    (async () => {
-      const { data, error } = await supabase.auth.getUser();
-      console.log("Supabase getUser on /login:", { data, error });
+  async function sendMagicLink() {
+    setLocalError(null);
+    setMagicLinkSent(false);
 
-      if (data?.user) {
-        // Already signed in -> send to main app
-        window.location.replace("/create");
-      }
-    })();
-  }, []);
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setMessage(null);
-
-    const trimmed = email.trim();
-    if (!trimmed) {
-      setError("Enter your email first.");
+    if (!email.trim()) {
+      setLocalError("Add your email first.");
       return;
     }
 
-    setSending(true);
+    setLoading(true);
     try {
-      const origin =
-        typeof window !== "undefined" ? window.location.origin : "";
+      const redirectTo = `${window.location.origin}/auth/callback`;
 
       const { error } = await supabase.auth.signInWithOtp({
-        email: trimmed,
-        options: {
-          // ✅ IMPORTANT: send the user through /auth/callback,
-          // which will set the cookie, THEN redirect to /create.
-          emailRedirectTo: `${origin}/auth/callback?next=/create`,
-        },
+        email,
+        options: { emailRedirectTo: redirectTo },
       });
 
       if (error) {
-        setError(error.message);
-      } else {
-        setMessage("Magic link sent. Check your email.");
+        console.error("Magic link error:", error);
+        setLocalError(error.message);
+        return;
       }
+
+      setMagicLinkSent(true);
     } catch (err: any) {
       console.error("Magic link error:", err);
-      setError(err?.message || "Something went wrong.");
+      setLocalError(err?.message || "Something went wrong.");
     } finally {
-      setSending(false);
+      setLoading(false);
+    }
+  }
+
+  async function signInWithGoogle() {
+    setLocalError(null);
+
+    try {
+      const redirectTo = `${window.location.origin}/auth/callback`;
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo },
+      });
+
+      if (error) {
+        console.error("Google sign-in error:", error);
+        setLocalError(error.message);
+      }
+      // Supabase will redirect; no need to do anything else here.
+    } catch (err: any) {
+      console.error("Google sign-in error:", err);
+      setLocalError(err?.message || "Something went wrong.");
     }
   }
 
   return (
     <main className="login-root">
       <section className="login-card">
-        <h1>Sign in</h1>
-        <p className="login-sub">
-          Drop your email and we&apos;ll send you a magic link.
+        <h1 className="login-title">Sign in</h1>
+        <p className="login-subtitle">
+          Use a magic link or Google to get into Directr.
         </p>
 
-        <form onSubmit={handleSubmit} className="login-form">
-          <label className="login-label">
-            Email
-            <input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-            />
-          </label>
+        <div className="login-field">
+          <label>Email</label>
+          <input
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
 
-          <button type="submit" disabled={sending}>
-            {sending ? "Sending..." : "Send Magic Link"}
-          </button>
-        </form>
+        <button
+          type="button"
+          className="login-btn login-btn--primary"
+          onClick={sendMagicLink}
+          disabled={loading}
+        >
+          {loading ? "Sending..." : "Send magic link"}
+        </button>
 
-        {error && <p className="login-error">{error}</p>}
-        {message && !error && <p className="login-message">{message}</p>}
+        <div className="login-divider">
+          <span />
+          <p>or</p>
+          <span />
+        </div>
+
+        <button
+          type="button"
+          className="login-btn login-btn--ghost"
+          onClick={signInWithGoogle}
+        >
+          Continue with Google
+        </button>
+
+        {magicLinkSent && (
+          <p className="login-success">
+            Magic link sent. Check your email on this device.
+          </p>
+        )}
+
+        {error && (
+          <p className="login-error">
+            {error}
+          </p>
+        )}
       </section>
 
       <style jsx>{`
         .login-root {
-          min-height: calc(100vh - 64px);
-          padding: 72px 16px 80px;
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 32px 16px;
           background: radial-gradient(
               circle at top,
               rgba(255, 255, 255, 0.03),
               transparent 55%
             ),
             #050506;
-          display: flex;
-          align-items: center;
-          justify-content: center;
         }
 
         .login-card {
@@ -127,100 +152,130 @@ export default function LoginPage() {
                 transparent 45%
               ),
             #101014;
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.06);
           box-shadow:
-            0 28px 60px rgba(0, 0, 0, 0.85),
+            0 28px 60px rgba(0, 0, 0, 0.9),
             inset 0 0 0 0.5px rgba(255, 255, 255, 0.02);
+          color: #f5f5f7;
         }
 
-        .login-card h1 {
-          font-size: 24px;
+        .login-title {
+          font-size: 22px;
           font-weight: 600;
-          color: #f5f5f7;
           margin-bottom: 6px;
         }
 
-        .login-sub {
+        .login-subtitle {
           font-size: 13px;
           color: rgba(255, 255, 255, 0.6);
-          margin-bottom: 18px;
+          margin-bottom: 20px;
         }
 
-        .login-form {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .login-label {
+        .login-field {
           display: flex;
           flex-direction: column;
           gap: 6px;
+          margin-bottom: 14px;
           font-size: 12px;
           color: rgba(255, 255, 255, 0.7);
         }
 
-        .login-label input {
+        .login-field label {
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+
+        .login-field input {
           border-radius: 999px;
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          background: rgba(5, 6, 9, 0.95);
-          padding: 9px 14px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(5, 6, 9, 0.9);
+          padding: 9px 12px;
           font-size: 13px;
           color: #f5f5f7;
           outline: none;
         }
 
-        .login-label input::placeholder {
-          color: rgba(255, 255, 255, 0.38);
+        .login-field input::placeholder {
+          color: rgba(255, 255, 255, 0.35);
         }
 
-        .login-card button {
-          margin-top: 6px;
+        .login-btn {
+          width: 100%;
           border-radius: 999px;
-          border: 1px solid rgba(139, 187, 255, 0.7);
+          padding: 10px 16px;
+          font-size: 14px;
+          font-weight: 500;
+          border: 1px solid transparent;
+          cursor: pointer;
+          margin-top: 6px;
+          transition:
+            transform 0.18s ease-out,
+            box-shadow 0.18s ease-out,
+            filter 0.18s ease-out,
+            background 0.18s ease-out;
+        }
+
+        .login-btn--primary {
           background: radial-gradient(
                 circle at 0% 0%,
                 rgba(139, 187, 255, 0.45),
                 rgba(50, 80, 130, 0.6)
               ),
             #171c26;
-          color: #f5f7ff;
-          font-weight: 500;
-          font-size: 14px;
-          padding: 10px 20px;
-          cursor: pointer;
+          border-color: rgba(139, 187, 255, 0.7);
           box-shadow:
             0 0 0 1px rgba(20, 40, 70, 0.7),
             0 12px 30px rgba(0, 0, 0, 0.9);
-          transition:
-            transform 0.18s ease-out,
-            box-shadow 0.18s ease-out,
-            filter 0.18s ease-out;
+          color: #f5f7ff;
         }
 
-        .login-card button:hover:not(:disabled) {
+        .login-btn--primary:hover:not(:disabled),
+        .login-btn--ghost:hover:not(:disabled) {
           transform: translateY(-2px);
           box-shadow:
             0 0 0 1px rgba(148, 202, 255, 0.8),
             0 18px 45px rgba(0, 0, 0, 1);
-          filter: brightness(1.03);
+          filter: brightness(1.05);
         }
 
-        .login-card button:disabled {
-          opacity: 0.75;
+        .login-btn--ghost {
+          background: rgba(7, 8, 12, 0.95);
+          border-color: rgba(255, 255, 255, 0.14);
+          color: rgba(255, 255, 255, 0.85);
+        }
+
+        .login-btn:disabled {
+          opacity: 0.7;
           cursor: default;
+          transform: none;
+          box-shadow: none;
+        }
+
+        .login-divider {
+          margin: 18px 0 10px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.45);
+        }
+
+        .login-divider span {
+          flex: 1;
+          height: 1px;
+          background: rgba(255, 255, 255, 0.1);
+        }
+
+        .login-success {
+          margin-top: 10px;
+          font-size: 12px;
+          color: #7ce38b;
         }
 
         .login-error {
           margin-top: 10px;
           font-size: 12px;
           color: #ff7b7b;
-        }
-
-        .login-message {
-          margin-top: 10px;
-          font-size: 12px;
-          color: #8fd68f;
         }
       `}</style>
     </main>
