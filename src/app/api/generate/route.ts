@@ -2,9 +2,8 @@
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-// 👇 If you open https://your-domain.com/api/generate in a browser,
-// this is what will run (GET) and it SHOULD show JSON.
 export async function GET() {
   return NextResponse.json(
     {
@@ -17,7 +16,6 @@ export async function GET() {
   );
 }
 
-// 👇 This is what your frontend should hit when it does fetch("/api/generate", { method: "POST", ... })
 export async function POST(req: Request) {
   try {
     const contentType = req.headers.get("content-type") || "";
@@ -33,8 +31,6 @@ export async function POST(req: Request) {
       const form = await req.formData();
       prompt = ((form.get("prompt") as string | null) ?? "").trim();
       platform = ((form.get("platform") as string | null) ?? "TikTok").trim();
-      // If you later want to handle files:
-      // const file = form.get("file") as File | null;
     } else {
       return NextResponse.json(
         {
@@ -53,7 +49,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // For now: just echo back what we got so the UI can confirm it works.
     return NextResponse.json(
       {
         ok: true,
