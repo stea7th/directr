@@ -1,143 +1,408 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { createBrowserClient } from '@/lib/supabase/client';
+import React, { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createBrowserClient } from "@/lib/supabase/client";
 
-type Tab = 'password' | 'magic' | 'phone';
+type Tab = "password" | "magic";
 
-export default function SignIn() {
-  const supabase = createBrowserClient();
-  const router = useRouter();
-  const qs = useSearchParams();
-  const redirectTo = qs.get('redirect') ?? '/';
+export default function SignInPage() {
+  const [tab, setTab] = useState<Tab>("password");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  const [tab, setTab] = useState<Tab>('password');
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // email/password
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlError = searchParams.get("error");
 
-  async function onPassword(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null); setMsg(null); setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) setErr(error.message);
-    else router.replace(redirectTo);
+  const supabase = createBrowserClient();
+
+  function clearStatus() {
+    setError(null);
+    setMessage(null);
   }
 
-  // magic link (email OTP link)
-  async function onMagic(e: React.FormEvent) {
+  async function handlePasswordSignIn(e: React.FormEvent) {
     e.preventDefault();
-    setErr(null); setMsg(null); setLoading(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirectTo)}`
-      }
-    });
-    setLoading(false);
-    if (error) setErr(error.message);
-    else setMsg('Magic link sent. Check your email.');
-  }
+    clearStatus();
 
-  // phone (SMS)
-  const [phone, setPhone] = useState('');   // +1XXXXXXXXXX
-  const [code, setCode] = useState('');
-  const [phase, setPhase] = useState<'enter' | 'verify'>('enter');
-
-  async function onSendCode(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null); setMsg(null); setLoading(true);
-
-    const value = phone.trim();
-    if (!value.startsWith('+')) {
-      setLoading(false);
-      setErr('Use full phone with country code, e.g. +12065551212');
+    if (!email || !password) {
+      setError("Email and password required.");
       return;
     }
 
-    const { error } = await supabase.auth.signInWithOtp({
-      phone: value,
-      options: { channel: 'sms' }
-    });
+    setLoading(true);
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    setLoading(false);
-    if (error) setErr(error.message);
-    else {
-      setMsg('Code sent via SMS.');
-      setPhase('verify');
+      if (signInError) {
+        setError(signInError.message);
+        return;
+      }
+
+      // ✅ Signed in – go to /create
+      router.push("/create");
+      router.refresh();
+    } catch (err: any) {
+      setError(err?.message || "Unexpected error.");
+    } finally {
+      setLoading(false);
     }
   }
 
-  async function onVerifyCode(e: React.FormEvent) {
+  async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault();
-    setErr(null); setMsg(null); setLoading(true);
+    clearStatus();
 
-    const { error } = await supabase.auth.verifyOtp({
-      phone: phone.trim(),
-      token: code.trim(),
-      type: 'sms'
-    });
+    if (!email) {
+      setError("Add an email first.");
+      return;
+    }
 
-    setLoading(false);
-    if (error) setErr(error.message);
-    else router.replace(redirectTo);
+    setLoading(true);
+    try {
+      const redirectTo = `${window.location.origin}/auth/callback`;
+
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: redirectTo,
+        },
+      });
+
+      if (otpError) {
+        setError(otpError.message);
+        return;
+      }
+
+      setMessage("Magic link sent. Check your email.");
+    } catch (err: any) {
+      setError(err?.message || "Unexpected error.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGoogle() {
+    clearStatus();
+    setLoading(true);
+    try {
+      const redirectTo = `${window.location.origin}/auth/callback`;
+
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+        },
+      });
+
+      if (oauthError) {
+        setError(oauthError.message);
+        setLoading(false);
+      }
+      // If no error: user is redirected out to Google, then back to /auth/callback
+    } catch (err: any) {
+      setError(err?.message || "Unexpected error.");
+      setLoading(false);
+    }
   }
 
   return (
-    <main style={{ maxWidth: 420, margin: '64px auto', padding: 16 }}>
-      <h1 className="title">Sign in</h1>
+    <main className="signin-root">
+      <section className="signin-card">
+        <h1 className="signin-title">Sign in to directr</h1>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <button className={tab==='password'?'btn btn--primary':'btn'} onClick={()=>setTab('password')}>Email + Password</button>
-        <button className={tab==='magic'?'btn btn--primary':'btn'} onClick={()=>setTab('magic')}>Magic Link</button>
-        <button className={tab==='phone'?'btn btn--primary':'btn'} onClick={()=>{setTab('phone'); setPhase('enter'); setErr(null); setMsg(null);}}>Phone (SMS)</button>
-      </div>
+        <div className="signin-tabs">
+          <button
+            type="button"
+            onClick={() => setTab("password")}
+            className={`signin-tab ${
+              tab === "password" ? "signin-tab--active" : ""
+            }`}
+          >
+            Password
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("magic")}
+            className={`signin-tab ${
+              tab === "magic" ? "signin-tab--active" : ""
+            }`}
+          >
+            Magic link
+          </button>
+        </div>
 
-      {tab === 'password' && (
-        <form onSubmit={onPassword} style={{ display:'grid', gap:12 }}>
-          <input className="input" type="email" placeholder="you@example.com" required value={email} onChange={e=>setEmail(e.target.value)} />
-          <input className="input" type="password" placeholder="Your password" required minLength={6} value={password} onChange={e=>setPassword(e.target.value)} />
-          <button className="btn btn--primary" disabled={loading} type="submit">{loading?'Working…':'Continue'}</button>
-        </form>
-      )}
+        {urlError && !error && (
+          <p className="signin-error">Auth error: {urlError}</p>
+        )}
 
-      {tab === 'magic' && (
-        <form onSubmit={onMagic} style={{ display:'grid', gap:12 }}>
-          <input className="input" type="email" placeholder="you@example.com" required value={email} onChange={e=>setEmail(e.target.value)} />
-          <button className="btn btn--primary" disabled={loading} type="submit">{loading?'Sending…':'Send magic link'}</button>
-        </form>
-      )}
+        {tab === "password" && (
+          <form onSubmit={handlePasswordSignIn} className="signin-form">
+            <label className="signin-field">
+              <span>Email</span>
+              <input
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+              />
+            </label>
 
-      {tab === 'phone' && (
-        <>
-          {phase === 'enter' && (
-            <form onSubmit={onSendCode} style={{ display:'grid', gap:12 }}>
-              <input className="input" type="tel" placeholder="+12065551212" required value={phone} onChange={e=>setPhone(e.target.value)} />
-              <button className="btn btn--primary" disabled={loading} type="submit">{loading?'Sending…':'Send code'}</button>
-            </form>
-          )}
-          {phase === 'verify' && (
-            <form onSubmit={onVerifyCode} style={{ display:'grid', gap:12 }}>
-              <input className="input" inputMode="numeric" pattern="[0-9]*" placeholder="6-digit code" required value={code} onChange={e=>setCode(e.target.value)} />
-              <button className="btn btn--primary" disabled={loading} type="submit">{loading?'Verifying…':'Verify & continue'}</button>
-              <button className="btn btn--ghost" type="button" onClick={()=>{ setPhase('enter'); setCode(''); }}>Resend / change number</button>
-            </form>
-          )}
-        </>
-      )}
+            <label className="signin-field">
+              <span>Password</span>
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </label>
 
-      {err && <p style={{ color:'#ef4444', marginTop:12 }}>{err}</p>}
-      {msg && <p style={{ color:'#22c55e', marginTop:12 }}>{msg}</p>}
+            <button
+              type="submit"
+              className="signin-btn"
+              disabled={loading}
+            >
+              {loading ? "Signing in..." : "Sign in"}
+            </button>
+          </form>
+        )}
 
-      <p style={{ marginTop:16, color:'var(--muted)' }}>
-        New here? <a href="/signup">Create an account</a>
-      </p>
+        {tab === "magic" && (
+          <form onSubmit={handleMagicLink} className="signin-form">
+            <label className="signin-field">
+              <span>Email</span>
+              <input
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+              />
+            </label>
+
+            <button
+              type="submit"
+              className="signin-btn"
+              disabled={loading}
+            >
+              {loading ? "Sending link..." : "Send magic link"}
+            </button>
+          </form>
+        )}
+
+        <div className="signin-divider">
+          <span />
+          <p>or</p>
+          <span />
+        </div>
+
+        <button
+          type="button"
+          className="signin-google"
+          onClick={handleGoogle}
+          disabled={loading}
+        >
+          Continue with Google
+        </button>
+
+        {error && <p className="signin-error">{error}</p>}
+        {message && <p className="signin-message">{message}</p>}
+      </section>
+
+      <style jsx>{`
+        .signin-root {
+          min-height: calc(100vh - 64px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 64px 16px;
+          background: radial-gradient(
+              circle at top,
+              rgba(255, 255, 255, 0.03),
+              transparent 55%
+            ),
+            #050506;
+        }
+
+        .signin-card {
+          width: 100%;
+          max-width: 420px;
+          border-radius: 28px;
+          background: #101014;
+          border: 1px solid rgba(255, 255, 255, 0.04);
+          box-shadow:
+            0 28px 60px rgba(0, 0, 0, 0.9),
+            inset 0 0 0 0.5px rgba(255, 255, 255, 0.03);
+          padding: 28px 24px 24px;
+        }
+
+        .signin-title {
+          font-size: 22px;
+          font-weight: 600;
+          color: #f5f5f7;
+          margin-bottom: 16px;
+        }
+
+        .signin-tabs {
+          display: inline-flex;
+          padding: 3px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.04);
+          margin-bottom: 20px;
+        }
+
+        .signin-tab {
+          border: none;
+          background: transparent;
+          color: rgba(255, 255, 255, 0.6);
+          font-size: 12px;
+          padding: 6px 14px;
+          border-radius: 999px;
+          cursor: pointer;
+        }
+
+        .signin-tab--active {
+          background: #11131a;
+          color: #f5f5f7;
+        }
+
+        .signin-form {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .signin-field {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.7);
+        }
+
+        .signin-field span {
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          font-size: 11px;
+        }
+
+        .signin-field input {
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(5, 6, 9, 0.9);
+          padding: 9px 12px;
+          font-size: 13px;
+          color: #f5f5f7;
+          outline: none;
+        }
+
+        .signin-field input::placeholder {
+          color: rgba(255, 255, 255, 0.35);
+        }
+
+        .signin-btn {
+          margin-top: 6px;
+          border-radius: 999px;
+          border: 1px solid rgba(139, 187, 255, 0.7);
+          padding: 10px 18px;
+          background: radial-gradient(
+                circle at 0% 0%,
+                rgba(139, 187, 255, 0.45),
+                rgba(50, 80, 130, 0.6)
+              ),
+            #171c26;
+          color: #f5f7ff;
+          font-weight: 500;
+          font-size: 14px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition:
+            transform 0.18s ease-out,
+            box-shadow 0.18s ease-out,
+            filter 0.18s ease-out;
+        }
+
+        .signin-btn:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.9);
+          filter: brightness(1.05);
+        }
+
+        .signin-btn:disabled {
+          opacity: 0.75;
+          cursor: default;
+        }
+
+        .signin-divider {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin: 18px 0 12px;
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        .signin-divider span {
+          flex: 1;
+          height: 1px;
+          background: rgba(255, 255, 255, 0.08);
+        }
+
+        .signin-google {
+          width: 100%;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.16);
+          background: #0b0c10;
+          padding: 10px 18px;
+          color: #f5f5f7;
+          font-size: 14px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          transition:
+            transform 0.18s ease-out,
+            box-shadow 0.18s ease-out,
+            background 0.18s ease-out;
+        }
+
+        .signin-google:hover:not(:disabled) {
+          transform: translateY(-1px);
+          background: #10121a;
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.9);
+        }
+
+        .signin-google:disabled {
+          opacity: 0.7;
+          cursor: default;
+        }
+
+        .signin-error {
+          margin-top: 10px;
+          font-size: 12px;
+          color: #ff7b7b;
+        }
+
+        .signin-message {
+          margin-top: 10px;
+          font-size: 12px;
+          color: #8fd2ff;
+        }
+      `}</style>
     </main>
   );
 }
