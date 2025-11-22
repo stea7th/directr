@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         method: "POST",
         prompt,
         platform,
-        message: "This is a fake AI response. Route is wired correctly.",
+        message: "Fake AI response. Route is wired correctly.",
       },
       { status: 200 }
     );
