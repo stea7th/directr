@@ -1,3 +1,4 @@
+// src/app/create/page.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -16,10 +17,12 @@ export default function CreatePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  const [editedUrl, setEditedUrl] = useState<string | null>(null);
 
   async function handleGenerate() {
     setError(null);
     setResult(null);
+    setEditedUrl(null);
 
     if (!prompt.trim()) {
       setError("Add a quick description or script idea first.");
@@ -28,62 +31,53 @@ export default function CreatePage() {
 
     setLoading(true);
     try {
-      // NOTE: For now we only send text options. File upload pipeline comes later.
+      const form = new FormData();
+      form.append("prompt", prompt);
+      form.append("platform", platform);
+      form.append("goal", goal);
+      form.append("lengthSeconds", lengthSeconds);
+      form.append("tone", tone);
+      if (file) {
+        form.append("file", file);
+      }
+
       const res = await fetch("/api/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt,
-          platform,
-          goal,
-          lengthSeconds,
-          tone,
-        }),
+        body: form,
       });
 
       const contentType = res.headers.get("content-type") || "";
-      let data: any = null;
-
-      // ✅ Expect JSON. If not, show a CLEAR message.
-      if (contentType.includes("application/json")) {
-        data = await res.json();
-      } else {
+      if (!contentType.includes("application/json")) {
         const text = await res.text();
         console.error("Non-JSON response from /api/generate:", {
           status: res.status,
           textSnippet: text.slice(0, 200),
         });
-
         setError(
-          res.status === 200
-            ? "The backend returned HTML instead of JSON (often this is a redirect to the login page). Make sure /api/generate is not behind auth middleware and that you’re signed in."
-            : `Unexpected ${res.status} response from /api/generate.`
+          `Server returned non-JSON (status ${res.status}). Route might be misconfigured.`
         );
         return;
       }
 
+      const data = await res.json();
       if (!res.ok) {
-        setError(data?.error || `Request failed with ${res.status}.`);
+        setError(data?.error || "Something went wrong.");
         return;
       }
 
-      // ✅ Support multiple possible shapes from the API:
-      // - { job: { result: "..." } }
-      // - { result: "..." }
-      // - { text: "..." }
-      // - { message: "..." }
-      const jobResult =
-        data?.job?.result ||
-        data?.result ||
-        data?.text ||
-        data?.message ||
-        "";
+      const job = data?.job;
+      const notes =
+        job?.result_text ||
+        data?.result_text ||
+        "Generated successfully, but no notes were returned.";
 
-      setResult(
-        jobResult || "No text returned, but the request succeeded."
-      );
+      const url =
+        job?.edited_url ||
+        job?.source_url ||
+        null;
+
+      setResult(notes);
+      setEditedUrl(url);
     } catch (err: any) {
       console.error("Generate error (client):", err);
       setError(err?.message || "Unexpected error.");
@@ -136,7 +130,6 @@ export default function CreatePage() {
             />
           </div>
 
-          {/* Advanced controls row */}
           {mode === "advanced" && (
             <div className="create-advanced-row">
               <div className="create-adv-field">
@@ -217,12 +210,29 @@ export default function CreatePage() {
             We&apos;ll handle the rest.
           </p>
 
-          {/* Error / result output area */}
           {error && <p className="create-error">{error}</p>}
-          {result && !error && (
+
+          {(result || editedUrl) && !error && (
             <div className="create-result">
-              <h3>AI draft</h3>
-              <pre>{result}</pre>
+              <h3>Result</h3>
+              {editedUrl && (
+                <p style={{ marginBottom: 8 }}>
+                  <strong>Edited video:</strong>{" "}
+                  <a
+                    href={editedUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open clip
+                  </a>
+                </p>
+              )}
+              {result && (
+                <>
+                  <strong>AI notes:</strong>
+                  <pre>{result}</pre>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -247,7 +257,7 @@ export default function CreatePage() {
         </div>
       </section>
 
-      {/* Page-scoped styling */}
+      {/* same CSS as before */}
       <style jsx>{`
         .create-root {
           min-height: calc(100vh - 64px);
