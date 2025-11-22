@@ -28,7 +28,7 @@ export default function CreatePage() {
 
     setLoading(true);
     try {
-      // For now we only send metadata; file-upload pipeline comes later
+      // NOTE: For now we only send text options. File upload pipeline comes later.
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: {
@@ -44,29 +44,46 @@ export default function CreatePage() {
       });
 
       const contentType = res.headers.get("content-type") || "";
+      let data: any = null;
 
-      // Protect against HTML / non-JSON responses
-      if (!contentType.includes("application/json")) {
+      // ✅ Expect JSON. If not, show a CLEAR message.
+      if (contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
         const text = await res.text();
         console.error("Non-JSON response from /api/generate:", {
           status: res.status,
           textSnippet: text.slice(0, 200),
         });
+
         setError(
-          `Server returned non-JSON (status ${res.status}). Your route is likely misconfigured.`
+          res.status === 200
+            ? "The backend returned HTML instead of JSON (often this is a redirect to the login page). Make sure /api/generate is not behind auth middleware and that you’re signed in."
+            : `Unexpected ${res.status} response from /api/generate.`
         );
         return;
       }
 
-      const data = await res.json();
-
       if (!res.ok) {
-        setError(data?.error || "Something went wrong.");
+        setError(data?.error || `Request failed with ${res.status}.`);
         return;
       }
 
-      // Show the fake AI text for now
-      setResult(data?.text || "No text returned, but request succeeded.");
+      // ✅ Support multiple possible shapes from the API:
+      // - { job: { result: "..." } }
+      // - { result: "..." }
+      // - { text: "..." }
+      // - { message: "..." }
+      const jobResult =
+        data?.job?.result ||
+        data?.result ||
+        data?.text ||
+        data?.message ||
+        "";
+
+      setResult(
+        jobResult || "No text returned, but the request succeeded."
+      );
     } catch (err: any) {
       console.error("Generate error (client):", err);
       setError(err?.message || "Unexpected error.");
