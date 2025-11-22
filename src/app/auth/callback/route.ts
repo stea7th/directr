@@ -1,32 +1,22 @@
 // src/app/auth/callback/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 
-export async function GET(req: NextRequest) {
-  const url = new URL(req.url);
+export async function GET(request: Request) {
+  const url = new URL(request.url);
   const code = url.searchParams.get("code");
+  const next = url.searchParams.get("next") ?? "/create";
 
-  if (!code) {
-    // No code = nothing to exchange
-    return NextResponse.redirect(
-      new URL("/signin?error=missing_code", req.url)
-    );
+  if (code) {
+    const supabase = await createServerClient();
+
+    // This tells Supabase to turn the "code" in the URL
+    // into a real session and set the auth cookies.
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+    console.log("exchangeCodeForSession", { data, error });
   }
 
-  const supabase = await createServerClient();
-
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-  if (error) {
-    console.error("exchangeCodeForSession error", error);
-    return NextResponse.redirect(
-      new URL(
-        `/signin?error=${encodeURIComponent(error.message)}`,
-        req.url
-      )
-    );
-  }
-
-  // ✅ Session cookie is now set. Send them into the app.
-  return NextResponse.redirect(new URL("/create", req.url));
+  // After we set the session, send user into the app.
+  return NextResponse.redirect(new URL(next, url.origin));
 }
