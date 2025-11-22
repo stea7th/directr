@@ -5,21 +5,22 @@ import type { NextRequest } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ✅ Never touch API routes or static files
+  // 🔒 VERY IMPORTANT:
+  // Do NOT touch API routes, Next internals, or favicon.
   if (
     pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon.ico")
+    pathname === "/favicon.ico"
   ) {
     return NextResponse.next();
   }
 
-  // Example auth protection for app pages (adjust if you want)
-  // Right now this does nothing special, just lets everything through.
+  // If you want auth protection later, we’ll add it here.
+  // For now, let every non-API route through.
   return NextResponse.next();
 }
 
 export const config = {
-  // You can narrow this later, but do NOT include /api here.
+  // This will run on most paths, but we skip API inside the function above.
   matcher: ["/:path*"],
 };
