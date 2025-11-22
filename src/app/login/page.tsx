@@ -52,25 +52,33 @@ export default function LoginPage() {
   }
 
   async function handleGoogle() {
-    setError(null);
-    setMsg(null);
+  setError(null);
+  setMsg(null);
 
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/create`,
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      // no redirectTo – Supabase will use the current URL (/login)
+      options: {
+        queryParams: {
+          // optional but nice for refresh tokens
+          access_type: "offline",
+          prompt: "consent",
         },
-      });
+      },
+    });
 
-      if (error) {
-        setError(error.message);
-      }
-      // No need to manually redirect – Google will take over here.
-    } catch (err: any) {
-      setError(err?.message || "Unexpected error");
+    if (error) {
+      console.error("Google sign-in error:", error);
+      setError(error.message);
+    } else {
+      console.log("Google sign-in started:", data);
     }
+  } catch (err: any) {
+    console.error("Google sign-in unexpected error:", err);
+    setError(err?.message || "Unexpected error");
   }
+}
 
   return (
     <main
