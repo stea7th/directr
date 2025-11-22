@@ -1,7 +1,7 @@
 // src/app/login/page.tsx
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase =
@@ -17,6 +17,21 @@ export default function LoginPage() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  // 🔑 When this page loads, check if the user is already signed in.
+  // This runs right after you click the magic link and land back on /login.
+  useEffect(() => {
+    if (!supabase) return;
+    (async () => {
+      const { data, error } = await supabase.auth.getUser();
+      console.log("Supabase getUser on /login:", { data, error });
+
+      if (data?.user) {
+        // already signed in -> send them to the app
+        window.location.replace("/create");
+      }
+    })();
+  }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -34,8 +49,9 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOtp({
         email: trimmed,
         options: {
-          // After clicking the email link, send them here (change if you want)
-          emailRedirectTo: `${window.location.origin}/create`,
+          // 🔁 IMPORTANT: redirect back to /login (NOT /create)
+          // so this page can complete the auth callback and then redirect.
+          emailRedirectTo: `${window.location.origin}/login`,
         },
       });
 
