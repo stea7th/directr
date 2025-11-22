@@ -1,39 +1,35 @@
 // src/app/layout.tsx
 import "./globals.css";
 import Link from "next/link";
-import { createServerClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "directr" };
-
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const supabase = createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  async function signOut() {
-    "use server";
-    const s = createServerClient();
-    await s.auth.signOut();
-  }
-
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
       <body>
         <nav className="nav">
           <div className="nav__inner">
-            <Link href="/" className="logo">directr<span className="dot">.</span></Link>
+            <Link href="/" className="logo">
+              directr<span className="dot">.</span>
+            </Link>
+
             <div className="menu">
               <Link href="/create">Create</Link>
               <Link href="/clipper">Clipper</Link>
               <Link href="/planner">Planner</Link>
               <Link href="/jobs">Jobs</Link>
-              {user ? (
-                <form action={signOut}><button className="btn btn--ghost" type="submit">Sign out</button></form>
-              ) : (
-                <Link href="/login" className="btn btn--primary">Sign in</Link>
-              )}
+              <Link href="/pricing">Pricing</Link>
+              {/* Sign in stays, but we’re not forcing auth anywhere now */}
+              <Link href="/signin" className="btn btn--primary">
+                Sign in
+              </Link>
             </div>
           </div>
         </nav>
+
         <div className="page">{children}</div>
       </body>
     </html>
