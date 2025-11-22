@@ -18,16 +18,17 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  // 🔑 When this page loads, check if the user is already signed in.
-  // This runs right after you click the magic link and land back on /login.
+  // When you land on /login *from the magic link*,
+  // this checks if Supabase already has a session for you.
   useEffect(() => {
     if (!supabase) return;
+
     (async () => {
       const { data, error } = await supabase.auth.getUser();
       console.log("Supabase getUser on /login:", { data, error });
 
       if (data?.user) {
-        // already signed in -> send them to the app
+        // Already signed in -> send to main app
         window.location.replace("/create");
       }
     })();
@@ -46,12 +47,15 @@ export default function LoginPage() {
 
     setSending(true);
     try {
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : "";
+
       const { error } = await supabase.auth.signInWithOtp({
         email: trimmed,
         options: {
-          // 🔁 IMPORTANT: redirect back to /login (NOT /create)
-          // so this page can complete the auth callback and then redirect.
-          emailRedirectTo: `${window.location.origin}/login`,
+          // ✅ IMPORTANT: send the user through /auth/callback,
+          // which will set the cookie, THEN redirect to /create.
+          emailRedirectTo: `${origin}/auth/callback?next=/create`,
         },
       });
 
