@@ -51,7 +51,7 @@ export default function LoginPage() {
     }
   }
 
- async function handleGoogle() {
+async function handleGoogle() {
   setError(null);
   setMsg(null);
 
@@ -70,13 +70,14 @@ export default function LoginPage() {
     if (error) {
       console.error("Google sign-in error:", error);
       setError(error.message);
+    } else {
+      console.log("Google sign-in started:", data);
     }
   } catch (err: any) {
     console.error("Google sign-in unexpected error:", err);
     setError(err?.message || "Unexpected error");
   }
 }
-
   return (
     <main
       style={{
