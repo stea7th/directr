@@ -51,17 +51,16 @@ export default function LoginPage() {
     }
   }
 
-  async function handleGoogle() {
+ async function handleGoogle() {
   setError(null);
   setMsg(null);
 
   try {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      // no redirectTo – Supabase will use the current URL (/login)
       options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
         queryParams: {
-          // optional but nice for refresh tokens
           access_type: "offline",
           prompt: "consent",
         },
@@ -71,8 +70,6 @@ export default function LoginPage() {
     if (error) {
       console.error("Google sign-in error:", error);
       setError(error.message);
-    } else {
-      console.log("Google sign-in started:", data);
     }
   } catch (err: any) {
     console.error("Google sign-in unexpected error:", err);
