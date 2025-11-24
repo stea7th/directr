@@ -1,11 +1,12 @@
 // src/app/login/page.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+const supabase = createClient();
+
 export default function LoginPage() {
-  const supabase = useMemo(() => createClient(), []);
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -26,7 +27,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          // send them back through the callback route
+          // ✅ both email + OAuth come back through /auth/callback
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
@@ -64,7 +65,7 @@ export default function LoginPage() {
         setError(error.message);
       } else {
         console.log("Google sign-in started:", data);
-        // Supabase will redirect the browser; we don't do anything else here.
+        // Supabase will redirect you, no need to do anything else here
       }
     } catch (err: any) {
       console.error("Google sign-in unexpected error:", err);
