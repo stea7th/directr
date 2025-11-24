@@ -2,6 +2,12 @@
 
 import React, { useState } from "react";
 
+console.log("ENV CHECK:", {
+  creator: process.env.NEXT_PUBLIC_STRIPE_PRICE_CREATOR,
+  studio: process.env.NEXT_PUBLIC_STRIPE_PRICE_STUDIO,
+  agency: process.env.NEXT_PUBLIC_STRIPE_PRICE_AGENCY,
+});
+
 const CREATOR_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PRICE_CREATOR;
 const STUDIO_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PRICE_STUDIO;
 const AGENCY_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PRICE_AGENCY;
