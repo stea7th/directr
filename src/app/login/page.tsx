@@ -1,20 +1,11 @@
 // src/app/login/page.tsx
 "use client";
 
-import { useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    auth: {
-      persistSession: true,
-    },
-  }
-);
+import { useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
+  const supabase = useMemo(() => createClient(), []);
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -33,11 +24,12 @@ export default function LoginPage() {
     setSending(true);
     try {
       const { error } = await supabase.auth.signInWithOtp({
-  email: email.trim(),
-  options: {
-    emailRedirectTo: `${window.location.origin}/auth/callback`,
-  },
-});
+        email: email.trim(),
+        options: {
+          // send them back through the callback route
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
 
       if (error) {
         setError(error.message);
@@ -51,33 +43,35 @@ export default function LoginPage() {
     }
   }
 
-async function handleGoogle() {
-  setError(null);
-  setMsg(null);
+  async function handleGoogle() {
+    setError(null);
+    setMsg(null);
 
-  try {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
-          access_type: "offline",
-          prompt: "consent",
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
         },
-      },
-    });
+      });
 
-    if (error) {
-      console.error("Google sign-in error:", error);
-      setError(error.message);
-    } else {
-      console.log("Google sign-in started:", data);
+      if (error) {
+        console.error("Google sign-in error:", error);
+        setError(error.message);
+      } else {
+        console.log("Google sign-in started:", data);
+        // Supabase will redirect the browser; we don't do anything else here.
+      }
+    } catch (err: any) {
+      console.error("Google sign-in unexpected error:", err);
+      setError(err?.message || "Unexpected error");
     }
-  } catch (err: any) {
-    console.error("Google sign-in unexpected error:", err);
-    setError(err?.message || "Unexpected error");
   }
-}
+
   return (
     <main
       style={{
