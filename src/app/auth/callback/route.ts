@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${url.origin}/login?error=missing_code`);
   }
 
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
@@ -21,6 +21,5 @@ export async function GET(request: Request) {
     );
   }
 
-  // ✅ user cookies are now set
   return NextResponse.redirect(`${url.origin}/create`);
 }
