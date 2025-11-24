@@ -6,12 +6,11 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
 
-  // No code? Go back to login with an error
   if (!code) {
     return NextResponse.redirect(`${url.origin}/login?error=missing_code`);
   }
 
-  const supabase = await createServerClient();
+  const supabase = createServerClient();
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
@@ -22,7 +21,6 @@ export async function GET(request: Request) {
     );
   }
 
-  // ✅ At this point, Supabase should have set the auth cookies.
-  // Send them to wherever you want after login:
+  // ✅ user cookies are now set
   return NextResponse.redirect(`${url.origin}/create`);
 }
