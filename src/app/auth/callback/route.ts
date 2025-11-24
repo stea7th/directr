@@ -1,4 +1,3 @@
-// src/app/auth/callback/route.ts
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 
@@ -21,5 +20,6 @@ export async function GET(request: Request) {
     );
   }
 
+  // user is now in cookies
   return NextResponse.redirect(`${url.origin}/create`);
 }
