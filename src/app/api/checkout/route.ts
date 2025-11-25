@@ -1,49 +1,43 @@
 // src/app/api/checkout/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-export const runtime = "nodejs"; // ensure Node runtime for Stripe
-
-// Make sure STRIPE_SECRET_KEY is set in Vercel env
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
+// Log once on boot so you know if env is missing
 if (!stripeSecretKey) {
-  console.warn(
-    "⚠️ STRIPE_SECRET_KEY is not set. Checkout route will return 500 until you add it in Vercel env."
+  console.error(
+    "❌ STRIPE_SECRET_KEY is not set. Add it in Vercel → Settings → Environment Variables."
   );
 }
 
 const stripe = stripeSecretKey
   ? new Stripe(stripeSecretKey, {
-      apiVersion: "2024-06-20",
+      apiVersion: "2024-06-20" as any,
     })
   : null;
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
     if (!stripe) {
       return NextResponse.json(
-        { error: "Stripe not configured on server." },
+        { error: "Server is missing STRIPE_SECRET_KEY." },
         { status: 500 }
       );
     }
 
-    const body = (await req.json()) as { priceId?: string };
+    const body = await req.json().catch(() => ({} as any));
+    const priceId = body?.priceId as string | undefined;
 
-    const priceId = body.priceId?.trim();
     if (!priceId) {
       return NextResponse.json(
-        { error: "Missing priceId in request body." },
+        { error: "No priceId provided in request body." },
         { status: 400 }
       );
     }
 
-    const successUrl =
-      process.env.STRIPE_SUCCESS_URL ||
-      "https://directr.so/pricing?checkout=success";
-    const cancelUrl =
-      process.env.STRIPE_CANCEL_URL ||
-      "https://directr.so/pricing?checkout=cancelled";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ?? "https://directr-beta.vercel.app";
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -53,9 +47,8 @@ export async function POST(req: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      // You can also attach metadata / customer email later
+      success_url: `${baseUrl}/create?checkout=success`,
+      cancel_url: `${baseUrl}/pricing?checkout=cancelled`,
     });
 
     if (!session.url) {
@@ -67,9 +60,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: session.url }, { status: 200 });
   } catch (err: any) {
-    console.error("Stripe checkout error:", err);
+    console.error("❌ Checkout error:", err);
     return NextResponse.json(
-      { error: err?.message || "Internal server error." },
+      {
+        error: err?.message || "Unknown server error while starting checkout.",
+      },
       { status: 500 }
     );
   }
