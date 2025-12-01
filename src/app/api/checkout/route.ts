@@ -4,40 +4,37 @@ import Stripe from "stripe";
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
-// Log once on boot so you know if env is missing
 if (!stripeSecretKey) {
-  console.error(
-    "❌ STRIPE_SECRET_KEY is not set. Add it in Vercel → Settings → Environment Variables."
+  console.warn(
+    "⚠️ STRIPE_SECRET_KEY is not set. /api/checkout will return 500 until you add it."
   );
 }
 
 const stripe = stripeSecretKey
   ? new Stripe(stripeSecretKey, {
-      apiVersion: "2024-06-20" as any,
+      apiVersion: "2022-11-15",
     })
-  : null;
+  : (null as unknown as Stripe);
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    if (!stripe) {
+    if (!stripeSecretKey || !stripe) {
       return NextResponse.json(
-        { error: "Server is missing STRIPE_SECRET_KEY." },
+        { error: "Stripe not configured on server." },
         { status: 500 }
       );
     }
 
-    const body = await req.json().catch(() => ({} as any));
-    const priceId = body?.priceId as string | undefined;
+    const { priceId } = await request.json();
 
-    if (!priceId) {
+    if (!priceId || typeof priceId !== "string") {
       return NextResponse.json(
-        { error: "No priceId provided in request body." },
+        { error: "Missing or invalid priceId." },
         { status: 400 }
       );
     }
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ?? "https://directr-beta.vercel.app";
+    const origin = new URL(request.url).origin;
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -47,24 +44,24 @@ export async function POST(req: Request) {
           quantity: 1,
         },
       ],
-      success_url: `${baseUrl}/create?checkout=success`,
-      cancel_url: `${baseUrl}/pricing?checkout=cancelled`,
+      success_url: `${origin}/create?checkout=success`,
+      cancel_url: `${origin}/pricing?checkout=cancelled`,
+      billing_address_collection: "auto",
+      allow_promotion_codes: true,
     });
 
     if (!session.url) {
       return NextResponse.json(
-        { error: "Stripe did not return a checkout URL." },
+        { error: "No checkout URL returned from Stripe." },
         { status: 500 }
       );
     }
 
     return NextResponse.json({ url: session.url }, { status: 200 });
   } catch (err: any) {
-    console.error("❌ Checkout error:", err);
+    console.error("Stripe checkout error:", err);
     return NextResponse.json(
-      {
-        error: err?.message || "Unknown server error while starting checkout.",
-      },
+      { error: err?.message || "Unexpected server error." },
       { status: 500 }
     );
   }
