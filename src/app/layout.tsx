@@ -1,20 +1,26 @@
+// src/app/layout.tsx
 import "./globals.css";
 import Link from "next/link";
-import { createServerClient } from "@/lib/supabase/server";
+import {
+  createServerComponentClient,
+  createRouteClient,
+} from "@/lib/supabase/server";
 
 export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createServerClient();
+  // ✅ READ-ONLY supabase client (no cookie writes)
+  const supabase = createServerComponentClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // ✅ This is a Server Action, so it CAN modify cookies
   async function signOut() {
     "use server";
-    const s = await createServerClient();
+    const s = createRouteClient();
     await s.auth.signOut();
   }
 
