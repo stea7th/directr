@@ -3,11 +3,10 @@
 
 import Link from "next/link";
 
-// TODO: replace these with your real Stripe price IDs
-// from Stripe dashboard → Products → [plan] → Prices.
-const CREATOR_PRICE_ID = "price_xxx_creator";
-const STUDIO_PRICE_ID = "price_xxx_studio";
-const AGENCY_PRICE_ID = "price_xxx_agency";
+// Hard-coded Stripe price IDs
+const CREATOR_PRICE_ID = "price_1SVlPD99HXHuQZvrq5b2KMgw";
+const STUDIO_PRICE_ID  = "price_1SVlPZ99HXHuQZvr3b792wls";
+const AGENCY_PRICE_ID  = "price_1SVlPw99HXHuQZvrnxMQPMC8";
 
 async function startCheckout(priceId: string) {
   try {
@@ -26,17 +25,15 @@ async function startCheckout(priceId: string) {
     }
 
     const data = await res.json();
-
     if (!data?.url) {
       alert("No checkout URL returned from server.");
       return;
     }
 
-    // send user to Stripe Checkout
     window.location.href = data.url;
   } catch (err) {
-    console.error("Checkout exception:", err);
-    alert("Unexpected error. Try again.");
+    console.error("Checkout error:", err);
+    alert("Something went wrong starting checkout. Try again.");
   }
 }
 
@@ -53,7 +50,9 @@ export default function PricingPage() {
       <section className="pricing-toggle-row">
         <div className="toggle-pill">
           <button className="toggle-btn toggle-btn--active">Monthly</button>
-          <button className="toggle-btn toggle-btn--ghost">Yearly</button>
+          <button className="toggle-btn toggle-btn--ghost" disabled>
+            Yearly (soon)
+          </button>
         </div>
         <div className="toggle-save-pill">
           <span>Save up to 2 months on yearly</span>
@@ -61,7 +60,7 @@ export default function PricingPage() {
       </section>
 
       <section className="pricing-grid">
-        {/* Starter / Free */}
+        {/* Starter - free */}
         <article className="plan-card plan-card--muted">
           <header className="plan-header">
             <h2>Starter</h2>
@@ -83,7 +82,7 @@ export default function PricingPage() {
             type="button"
             className="plan-cta plan-cta--ghost"
             onClick={() => {
-              window.location.href = "/signin";
+              window.location.href = "/login";
             }}
           >
             Get started free
@@ -115,7 +114,7 @@ export default function PricingPage() {
           </button>
         </article>
 
-        {/* Studio (ex Pro Creator) */}
+        {/* Studio (most popular) */}
         <article className="plan-card plan-card--pro">
           <div className="plan-badge">Most popular</div>
           <header className="plan-header">
@@ -176,13 +175,13 @@ export default function PricingPage() {
       <section className="pricing-faq-hint">
         <p>
           Just testing things?{" "}
-          <Link href="/signin" className="inline-link">
+          <Link href="/login" className="inline-link">
             Start on Starter and upgrade from inside Directr.
           </Link>
         </p>
       </section>
 
-      {/* styles scoped to this page */}
+      {/* styles are same as your old UI, just kept inline so no extra CSS file */}
       <style jsx>{`
         .pricing-root {
           min-height: calc(100vh - 64px);
@@ -358,13 +357,6 @@ export default function PricingPage() {
             0 0 0 1px rgba(35, 59, 100, 0.8);
         }
 
-        .plan-card--pro:hover {
-          transform: translateY(-6px);
-          box-shadow:
-            0 40px 95px rgba(0, 0, 0, 1),
-            0 0 0 1px rgba(180, 220, 255, 0.9);
-        }
-
         .plan-card--edge {
           background: radial-gradient(
                 circle at 100% 0,
@@ -460,36 +452,12 @@ export default function PricingPage() {
             background 0.2s ease-out;
         }
 
-        .plan-cta:hover {
-          transform: translateY(-2px);
-          box-shadow:
-            0 0 0 1px rgba(176, 222, 255, 0.9),
-            0 22px 50px rgba(0, 0, 0, 1);
-          filter: brightness(1.05);
-        }
-
-        .plan-cta:active {
-          transform: translateY(0);
-          box-shadow:
-            0 0 0 1px rgba(148, 202, 255, 0.8),
-            0 10px 22px rgba(0, 0, 0, 0.9);
-        }
-
         .plan-cta--ghost {
           background: transparent;
           border-color: rgba(255, 255, 255, 0.16);
           box-shadow:
             0 0 0 1px rgba(40, 40, 60, 0.7),
             0 10px 24px rgba(0, 0, 0, 0.9);
-        }
-
-        .plan-cta--ghost:hover {
-          background: radial-gradient(
-                circle at 0 0,
-                rgba(157, 196, 255, 0.2),
-                rgba(40, 60, 100, 0.7)
-              ),
-            #10131b;
         }
 
         .plan-cta--pro {
@@ -508,15 +476,6 @@ export default function PricingPage() {
           box-shadow:
             0 0 0 1px rgba(80, 50, 35, 0.9),
             0 14px 30px rgba(0, 0, 0, 0.95);
-        }
-
-        .plan-cta--outline:hover {
-          background: radial-gradient(
-                circle at 0 0,
-                rgba(255, 200, 140, 0.35),
-                rgba(107, 72, 52, 0.9)
-              ),
-            #181014;
         }
 
         .plan-badge {
