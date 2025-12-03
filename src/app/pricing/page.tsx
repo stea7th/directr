@@ -4,9 +4,9 @@
 import Link from "next/link";
 
 // Hard-coded Stripe price IDs
-const CREATOR_PRICE_ID = "price_1SVlPD99HXHuQZvrq5b2KMgw";
-const STUDIO_PRICE_ID  = "price_1SVlPZ99HXHuQZvr3b792wls";
-const AGENCY_PRICE_ID  = "price_1SVlPw99HXHuQZvrnxMQPMC8";
+const CREATOR_PRICE_ID = "price_1SaJGQGPmkdLhZZOj6zwnjxb";
+const STUDIO_PRICE_ID  = "price_1SaJGoGPmkdLhZZOlFe3ljRj";
+const AGENCY_PRICE_ID  = "price_1SaJHBGPmkdLhZZO1jG3jUci";
 
 async function startCheckout(priceId: string) {
   try {
