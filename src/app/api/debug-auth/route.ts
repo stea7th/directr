@@ -1,7 +1,6 @@
 // src/app/api/debug-auth/route.ts
 import { NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
-
+import { createRouteClient } from "@/lib/supabase/server";
 export async function GET() {
   try {
     const supabase = await createServerClient();
