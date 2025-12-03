@@ -1,48 +1,36 @@
 // src/app/api/checkout/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createRouteClient } from "@/lib/supabase/server";
 
-// Read the secret key from env
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
-// Create Stripe client only if key exists
-let stripe: Stripe | null = null;
-if (stripeSecretKey) {
-  stripe = new Stripe(stripeSecretKey, {
-    apiVersion: "2024-06-20",
-  });
-} else {
-  console.error("STRIPE_SECRET_KEY is not set at build time");
+const stripe = stripeSecretKey
+  ? new Stripe(stripeSecretKey, { apiVersion: "2024-06-20" })
+  : (null as unknown as Stripe);
+
+// LIVE price IDs you gave me
+const CREATOR_PRICE_ID = "price_1SVlPD99HXHuQZvrq5b2KMgw";
+const STUDIO_PRICE_ID  = "price_1SVlPZ99HXHuQZvr3b792wls";
+const AGENCY_PRICE_ID  = "price_1SVlPw99HXHuQZvrnxMQPMC8";
+
+function tierFromPrice(priceId: string): "creator" | "studio" | "agency" {
+  if (priceId === CREATOR_PRICE_ID) return "creator";
+  if (priceId === STUDIO_PRICE_ID) return "studio";
+  return "agency";
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    // If there is still no key at runtime, bail
     if (!stripe) {
-      console.error("Checkout error: STRIPE_SECRET_KEY missing");
+      console.error("STRIPE_SECRET_KEY missing");
       return NextResponse.json(
-        { error: "Server misconfigured – Stripe key missing." },
+        { error: "Stripe not configured" },
         { status: 500 }
       );
     }
 
-    // Make sure user is signed in
-    const supabase = await createRouteClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "Not signed in" },
-        { status: 401 }
-      );
-    }
-
-    // Read priceId from the request body
-    const body = await req.json();
-    const priceId = body?.priceId as string | undefined;
+    const { priceId } = await req.json();
 
     if (!priceId) {
       return NextResponse.json(
@@ -51,29 +39,73 @@ export async function POST(req: Request) {
       );
     }
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ?? "https://directr-beta.vercel.app";
+    const supabase = await createRouteClient(req);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-    // Create Stripe Checkout session
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "Not signed in" },
+        { status: 401 }
+      );
+    }
+
+    // Get or create profile row
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id, stripe_customer_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    let customerId = profile?.stripe_customer_id ?? undefined;
+
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email ?? undefined,
+      });
+      customerId = customer.id;
+
+      const { error: upsertError } = await supabase
+        .from("profiles")
+        .upsert(
+          {
+            id: user.id,
+            stripe_customer_id: customerId,
+          },
+          { onConflict: "id" }
+        );
+
+      if (upsertError) {
+        console.error("Error upserting profile:", upsertError);
+      }
+    }
+
+    const origin =
+      req.headers.get("origin") ??
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      "http://localhost:3000";
+
+    const tier = tierFromPrice(priceId);
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      success_url: `${baseUrl}/create?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/pricing`,
-      customer_email: user.email ?? undefined,
+      customer: customerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/pricing?canceled=1`,
+      metadata: {
+        supabase_user_id: user.id,
+        tier,
+      },
     });
 
-    return NextResponse.json({ url: session.url }, { status: 200 });
+    return NextResponse.json({ url: session.url });
   } catch (err: any) {
     console.error("Checkout error:", err);
     return NextResponse.json(
-      { error: "Something went wrong starting checkout." },
+      { error: "Checkout failed" },
       { status: 500 }
     );
   }
