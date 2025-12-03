@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { createRouteClient } from "@/lib/supabase/server";
 export async function GET() {
   try {
-    const supabase = await createServerClient();
+   const supabase = createRouteClient();
     const { data, error } = await supabase.auth.getUser();
 
     return NextResponse.json(
