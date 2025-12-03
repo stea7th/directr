@@ -6,7 +6,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 
-  const supa = await createServerClient(); // ← await
+  const supabase = createRouteClient();
 
   if (!id) {
     return NextResponse.json({ error: "Missing id" }, { status: 400 });
