@@ -86,7 +86,7 @@ Plan the best possible short-form edit that would actually perform on ${platform
 `.trim();
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-5.1-mini", // you can bump to gpt-5.1 if you want
+    model: "gpt-5-mini", // you can bump to gpt-5.1 if you want
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: systemPrompt },
