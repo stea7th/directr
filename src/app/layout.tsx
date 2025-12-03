@@ -34,16 +34,16 @@ export default async function RootLayout({
               <Link href="/jobs">Jobs</Link>
               <Link href="/pricing">Pricing</Link>
               {user ? (
-                <form action={signOut}>
-                  <button className="btn btn--ghost" type="submit">
-                    Sign out
-                  </button>
-                </form>
-              ) : (
-                <Link href="/signin" className="btn btn--primary">
-                  Sign in
-                </Link>
-              )}
+  <form action={signOut}>
+    <button className="btn btn--ghost" type="submit">
+      Sign out
+    </button>
+  </form>
+) : (
+  <Link href="/login" className="btn btn--primary">
+    Sign in
+  </Link>
+)}
             </div>
           </div>
         </nav>
