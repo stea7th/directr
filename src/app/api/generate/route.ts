@@ -1,7 +1,7 @@
 // src/app/api/generate/route.ts
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { createServerClient } from "@/lib/supabase/server";
+import { createRouteClient } from "@/lib/supabase/server";
 import { requestVideoEdit } from "@/lib/videoProvider";
 
 export async function POST(req: Request) {
