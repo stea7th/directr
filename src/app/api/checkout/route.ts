@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = await createRouteClient(req);
+   const supabase = createRouteClient();
     const {
       data: { user },
       error: authError,
