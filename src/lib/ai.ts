@@ -1,102 +1,108 @@
 // src/lib/ai.ts
+import OpenAI from "openai";
 
-export type GenerateInput = {
-  prompt: string;
-  platform: string;
-  goal: string;
-  lengthSeconds: number;
-  tone: string;
+export type EditingBeat = {
+  start: number;
+  end: number;
+  role: "talking_head" | "broll" | "overlay";
+  onScreenText?: string;
+  brollIdea?: string;
 };
 
-/**
- * Calls OpenAI to turn a raw idea + context
- * into a detailed edit plan for the clip.
- */
-export async function generateClipIdeas({
-  prompt,
-  platform,
-  goal,
-  lengthSeconds,
-  tone,
-}: GenerateInput): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
+export type EditingPlan = {
+  hook: {
+    script: string;
+    onScreenText: string;
+  };
+  outline: string[];
+  beats: EditingBeat[];
+  music: {
+    description: string;
+    searchKeywords: string[];
+  };
+  color: {
+    description: string;
+  };
+  caption: string;
+  thumbnailIdea: string;
+  notes: string;
+};
 
-  // If no key set, return a fallback so dev doesn’t break
-  if (!apiKey) {
-    return [
-      `AI is not configured yet (missing OPENAI_API_KEY).`,
-      ``,
-      `Here’s a placeholder plan based on your inputs:`,
-      `- Platform: ${platform}`,
-      `- Goal: ${goal}`,
-      `- Tone: ${tone}`,
-      `- Target length: ~${lengthSeconds}s`,
-      ``,
-      `Hook: Use a strong first 2 seconds calling out your audience.`,
-      `Body: Deliver 2–3 punchy points, cut out silences, keep pacing tight.`,
-      `CTA: End with a clear action aligned to your goal.`,
-    ].join("\n");
-  }
+export type GenerateClipIdeasInput = {
+  idea: string;        // user prompt
+  platform: string;    // "TikTok", "Reels", "YouTube Shorts", etc.
+  goal: string;        // growth/sales/etc
+  lengthSeconds: number;
+  tone: string;        // "Casual", "Serious", etc.
+};
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
+
+export async function generateClipIdeas(
+  input: GenerateClipIdeasInput
+): Promise<EditingPlan> {
+  const { idea, platform, goal, lengthSeconds, tone } = input;
 
   const systemPrompt = `
-You are Directr – an AI editor for creators.
+You are DIRECTR, an elite short-form content director for real creators.
+You do NOT invent fake footage or deepfakes. You ONLY plan edits on the
+creator's real footage: hooks, beats, on-screen text, B-roll ideas,
+music, color grading, captions.
 
-Given:
-- A raw idea / video context (the "prompt")
-- Platform (TikTok, Reels, Shorts, etc.)
-- Goal (grow page, drive sales, book calls, etc.)
-- Tone (casual, educational, cinematic, aggressive, etc.)
-- Target length in seconds
+Always respond with a single valid JSON object matching this TypeScript type:
 
-Return a detailed *edit blueprint* the editor can follow, including:
-- Hook idea (first 1–3 seconds)
-- Structure & pacing notes
-- Caption / text-on-screen ideas
-- B-roll suggestions (what to cut in where)
-- Transitions & sound design notes
-- CTA options
+{
+  "hook": { "script": string, "onScreenText": string },
+  "outline": string[],
+  "beats": Array<{
+    "start": number,
+    "end": number,
+    "role": "talking_head" | "broll" | "overlay",
+    "onScreenText"?: string,
+    "brollIdea"?: string
+  }>,
+  "music": { "description": string, "searchKeywords": string[] },
+  "color": { "description": string },
+  "caption": string,
+  "thumbnailIdea": string,
+  "notes": string
+}
 
-Format it as clear sections with bullet points, not code.
+No explanation, no markdown – JUST JSON.
 `.trim();
 
   const userPrompt = `
-Creator idea / context:
-"${prompt}"
-
 Platform: ${platform}
 Goal: ${goal || "Grow my page and drive sales"}
-Tone: ${tone}
 Target length: ~${lengthSeconds} seconds
+Tone: ${tone}
+Idea from creator:
+"${idea}"
 
-Write this as if you're talking directly to a video editor or an AI editing agent.
+Assume the creator recorded a talking-head video on this topic.
+Plan the best possible short-form edit that would actually perform on ${platform}.
 `.trim();
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-4.1-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.8,
-    }),
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5.1-mini", // you can bump to gpt-5.1 if you want
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    console.error("OpenAI error:", res.status, text);
-    return `Directr AI error (${res.status}). Try again in a minute or contact support.`;
+  const raw = completion.choices[0].message.content || "{}";
+
+  let parsed: EditingPlan;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    console.error("Failed to parse AI JSON, raw:", raw);
+    throw new Error("Directr AI returned invalid JSON");
   }
 
-  const json: any = await res.json();
-  const content =
-    json?.choices?.[0]?.message?.content?.trim() ??
-    "AI returned no content. Try again.";
-
-  return content;
+  return parsed;
 }
