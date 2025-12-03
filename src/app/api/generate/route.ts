@@ -1,10 +1,12 @@
 // src/app/api/generate/route.ts
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
+import { Buffer } from "buffer";
 import { createRouteClient } from "@/lib/supabase/server";
-import { generateClipIdeas } from "@/lib/ai";
+import { requestVideoEdit } from "@/lib/videoProvider";
+import { generateClipIdeas, EditingPlan } from "@/lib/ai";
 
-export const runtime = "nodejs"; // so Buffer / crypto work on Vercel
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
@@ -25,6 +27,11 @@ export async function POST(req: Request) {
       );
     }
 
+    const lengthSeconds = Number.isNaN(Number(lengthSecondsStr))
+      ? 30
+      : Number(lengthSecondsStr);
+
+    // ---------- 1) Auth ----------
     const supabase = createRouteClient();
     const {
       data: { user },
@@ -32,10 +39,13 @@ export async function POST(req: Request) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Not signed in" },
+        { status: 401 }
+      );
     }
 
-    // ---------- 1) Upload video to Supabase Storage (optional) ----------
+    // ---------- 2) Upload video to Supabase Storage ----------
     let fileUrl: string | null = null;
 
     if (file && file.size > 0) {
@@ -65,20 +75,26 @@ export async function POST(req: Request) {
       }
     }
 
-    const lengthSeconds = Number.isNaN(Number(lengthSecondsStr))
-      ? 30
-      : Number(lengthSecondsStr);
-
-    // ---------- 2) Call AI "editor brain" ----------
-    const aiText = await generateClipIdeas({
-      prompt,
+    // ---------- 3) Call AI “editor brain” ----------
+    const aiPlan: EditingPlan = await generateClipIdeas({
+      idea: prompt,
       platform,
       goal: goal || "Grow my page and drive sales",
       lengthSeconds,
       tone,
     });
 
-    // ---------- 3) Insert job into Supabase "jobs" table ----------
+    // ---------- 4) (Stub) Call video provider ----------
+    const providerResult = await requestVideoEdit({
+      inputUrl: fileUrl || "",
+      platform,
+      prompt,
+      goal,
+      lengthSeconds,
+      tone,
+    });
+
+    // ---------- 5) Insert job into Supabase ----------
     const id = randomUUID();
 
     const { data: job, error: dbError } = await supabase
@@ -91,11 +107,11 @@ export async function POST(req: Request) {
         goal,
         tone,
         length_seconds: lengthSeconds,
-        source_url: fileUrl,      // uploaded video (if any)
-        edited_url: null,         // no rendered video yet
-        provider_job_id: null,    // no external provider yet
-        result_text: aiText,      // 🔥 AI edit plan
-        status: "complete",       // AI response is instant
+        source_url: fileUrl,
+        edited_url: providerResult?.editedUrl ?? null,
+        provider_job_id: providerResult?.providerJobId ?? null,
+        result_text: JSON.stringify(aiPlan, null, 2),
+        status: providerResult?.editedUrl ? "complete" : "queued",
       })
       .select("*")
       .single();
@@ -104,23 +120,27 @@ export async function POST(req: Request) {
       console.error("Supabase insert error:", dbError);
     }
 
+    const jobPayload =
+      job ??
+      ({
+        id,
+        user_id: user.id,
+        platform,
+        prompt,
+        goal,
+        tone,
+        length_seconds: lengthSeconds,
+        source_url: fileUrl,
+        edited_url: providerResult?.editedUrl ?? null,
+        provider_job_id: providerResult?.providerJobId ?? null,
+        result_text: JSON.stringify(aiPlan, null, 2),
+        status: providerResult?.editedUrl ? "complete" : "queued",
+      } as any);
+
     return NextResponse.json(
       {
         ok: true,
-        job: job ?? {
-          id,
-          user_id: user.id,
-          platform,
-          prompt,
-          goal,
-          tone,
-          length_seconds: lengthSeconds,
-          source_url: fileUrl,
-          edited_url: null,
-          provider_job_id: null,
-          result_text: aiText,
-          status: "complete",
-        },
+        job: jobPayload,
       },
       { status: 200 }
     );
