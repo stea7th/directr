@@ -1,20 +1,30 @@
 // src/app/api/generate/route.ts
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { Buffer } from "buffer";
+import OpenAI from "openai";
 import { createRouteClient } from "@/lib/supabase/server";
-import { requestVideoEdit } from "@/lib/videoProvider";
-import { generateClipIdeas, EditingPlan } from "@/lib/ai";
 
-export const runtime = "nodejs";
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export async function POST(req: Request) {
   try {
+    if (!process.env.OPENAI_API_KEY) {
+      console.error("OPENAI_API_KEY is missing");
+      return NextResponse.json(
+        { error: "AI is not configured. Contact support." },
+        { status: 500 }
+      );
+    }
+
     const form = await req.formData();
 
     const prompt = (form.get("prompt") as string | null)?.trim() ?? "";
     const platform = (form.get("platform") as string | null)?.trim() || "TikTok";
-    const goal = (form.get("goal") as string | null)?.trim() || "";
+    const goal =
+      (form.get("goal") as string | null)?.trim() ||
+      "Grow my page and drive sales";
     const lengthSecondsStr =
       (form.get("lengthSeconds") as string | null)?.trim() || "30";
     const tone = (form.get("tone") as string | null)?.trim() || "Casual";
@@ -27,11 +37,6 @@ export async function POST(req: Request) {
       );
     }
 
-    const lengthSeconds = Number.isNaN(Number(lengthSecondsStr))
-      ? 30
-      : Number(lengthSecondsStr);
-
-    // ---------- 1) Auth ----------
     const supabase = createRouteClient();
     const {
       data: { user },
@@ -39,19 +44,17 @@ export async function POST(req: Request) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: "Not signed in" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Not signed in." }, { status: 401 });
     }
 
-    // ---------- 2) Upload video to Supabase Storage ----------
+    // ---------- 1) Optional file upload ----------
     let fileUrl: string | null = null;
 
     if (file && file.size > 0) {
       try {
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
+
         const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
         const path = `${user.id}/${randomUUID()}-${safeName}`;
 
@@ -64,8 +67,8 @@ export async function POST(req: Request) {
         if (uploadError) {
           console.error("Supabase upload error:", uploadError);
         } else if (uploaded?.path) {
-          const { data: publicData } = supabase.storage
-            .from("uploads")
+          const { data: publicData } = supabase
+            .storage.from("uploads")
             .getPublicUrl(uploaded.path);
 
           fileUrl = publicData?.publicUrl ?? null;
@@ -75,26 +78,48 @@ export async function POST(req: Request) {
       }
     }
 
-    // ---------- 3) Call AI “editor brain” ----------
-    const aiPlan: EditingPlan = await generateClipIdeas({
-      idea: prompt,
-      platform,
-      goal: goal || "Grow my page and drive sales",
-      lengthSeconds,
-      tone,
+    const lengthSeconds = Number.isNaN(Number(lengthSecondsStr))
+      ? 30
+      : Number(lengthSecondsStr);
+
+    // ---------- 2) Call OpenAI "editor brain" ----------
+    const editorPrompt = `
+You are Directr, an expert short-form content editor.
+
+User info:
+- Platform: ${platform}
+- Goal: ${goal}
+- Desired length: ~${lengthSeconds} seconds
+- Tone: ${tone}
+
+User prompt (their idea / context):
+"${prompt}"
+
+If a source video is provided, assume it's a talking-head / vlog style piece.
+Your job is NOT to fake the video. Instead:
+
+1) Hook
+2) Core structure (beats, timestamps if possible)
+3) Caption style (font vibe, placement)
+4) On-screen text for key moments
+5) B-roll suggestions (realistic clips to overlay, not AI-generated)
+6) Transitions & pacing notes
+7) Color / filter vibe & music direction
+
+Return everything in clean markdown, easy for an editor to follow.
+`;
+
+    const aiRes = await openai.responses.create({
+      model: "gpt-4.1-mini", // change to "gpt-5.1" if you want max quality
+      input: editorPrompt,
     });
 
-    // ---------- 4) (Stub) Call video provider ----------
-    const providerResult = await requestVideoEdit({
-      inputUrl: fileUrl || "",
-      platform,
-      prompt,
-      goal,
-      lengthSeconds,
-      tone,
-    });
+    const aiText =
+      aiRes.output[0].content[0].type === "output_text"
+        ? aiRes.output[0].content[0].text
+        : "AI response format was unexpected.";
 
-    // ---------- 5) Insert job into Supabase ----------
+    // ---------- 3) Store job in Supabase ----------
     const id = randomUUID();
 
     const { data: job, error: dbError } = await supabase
@@ -108,10 +133,10 @@ export async function POST(req: Request) {
         tone,
         length_seconds: lengthSeconds,
         source_url: fileUrl,
-        edited_url: providerResult?.editedUrl ?? null,
-        provider_job_id: providerResult?.providerJobId ?? null,
-        result_text: JSON.stringify(aiPlan, null, 2),
-        status: providerResult?.editedUrl ? "complete" : "queued",
+        edited_url: null,
+        provider_job_id: null,
+        result_text: aiText,
+        status: "draft", // not actually edited yet, just planned
       })
       .select("*")
       .single();
@@ -120,35 +145,42 @@ export async function POST(req: Request) {
       console.error("Supabase insert error:", dbError);
     }
 
-    const jobPayload =
-      job ??
-      ({
-        id,
-        user_id: user.id,
-        platform,
-        prompt,
-        goal,
-        tone,
-        length_seconds: lengthSeconds,
-        source_url: fileUrl,
-        edited_url: providerResult?.editedUrl ?? null,
-        provider_job_id: providerResult?.providerJobId ?? null,
-        result_text: JSON.stringify(aiPlan, null, 2),
-        status: providerResult?.editedUrl ? "complete" : "queued",
-      } as any);
-
     return NextResponse.json(
       {
         ok: true,
-        job: jobPayload,
+        aiNotes: aiText,
+        job: job ?? {
+          id,
+          user_id: user.id,
+          platform,
+          prompt,
+          goal,
+          tone,
+          length_seconds: lengthSeconds,
+          source_url: fileUrl,
+          edited_url: null,
+          provider_job_id: null,
+          result_text: aiText,
+          status: "draft",
+        },
       },
       { status: 200 }
     );
   } catch (err: any) {
-    console.error("Generate route fatal error:", err);
+    console.error("Generate route fatal error:", err?.response || err);
+    const status =
+      err?.response?.status && Number.isInteger(err.response.status)
+        ? err.response.status
+        : 500;
+
     return NextResponse.json(
-      { error: err?.message || "Unknown error" },
-      { status: 500 }
+      {
+        error:
+          err?.response?.data?.error?.message ||
+          err?.message ||
+          "Unknown error from AI.",
+      },
+      { status }
     );
   }
 }
