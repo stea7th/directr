@@ -4,13 +4,20 @@ import OpenAI from "openai";
 
 export const runtime = "nodejs";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// ❗ Do NOT create the client at the top-level.
+// We lazy-create it inside the handler so build doesn't explode if the key is missing.
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    // We throw here and catch it in POST, so we can return a nice JSON error
+    throw new Error("OPENAI_API_KEY is not set on the server.");
+  }
+  return new OpenAI({ apiKey });
+}
 
 export async function POST(req: Request) {
   try {
-    // 1) Read raw body first (so we don't crash on bad JSON)
+    // Read raw body (works whether frontend sends JSON or plain text)
     const rawBody = await req.text();
     let prompt: string | undefined;
 
@@ -21,7 +28,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2) Try to parse as JSON: { prompt: "..." } or "..."
+    // Try JSON first ({ prompt: "..." } or just "...")
     try {
       const parsed = JSON.parse(rawBody);
 
@@ -32,7 +39,7 @@ export async function POST(req: Request) {
         prompt = String(obj.prompt ?? "").trim();
       }
     } catch {
-      // 3) Not JSON → treat raw text as the prompt
+      // Not JSON → treat raw body as the prompt
       prompt = rawBody.trim();
     }
 
@@ -43,19 +50,11 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "OPENAI_API_KEY is not set on the server.",
-        },
-        { status: 500 }
-      );
-    }
+    // 👇 This is the only place we touch OpenAI.
+    const openai = getOpenAIClient();
 
-    // 4) Call OpenAI Responses API
     const aiRes = await openai.responses.create({
-      model: "gpt-4.1-mini",
+      model: "gpt-4o-mini",
       input: [
         {
           role: "user",
@@ -69,7 +68,6 @@ export async function POST(req: Request) {
       ],
     });
 
-    // 5) Safely extract the text
     let aiText = "AI response format was unexpected.";
     const firstOutput: any = (aiRes as any).output?.[0];
 
