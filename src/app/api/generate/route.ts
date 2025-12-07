@@ -28,8 +28,8 @@ export async function POST(req: Request) {
       if (typeof parsed === "string") {
         prompt = parsed.trim();
       } else if (parsed && typeof parsed === "object" && "prompt" in parsed) {
-        // @ts-expect-error – runtime guard is enough
-        prompt = String(parsed.prompt || "").trim();
+        const obj = parsed as { prompt?: unknown };
+        prompt = String(obj.prompt ?? "").trim();
       }
     } catch {
       // 3) Not JSON → treat raw text as the prompt
