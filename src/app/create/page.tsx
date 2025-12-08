@@ -59,12 +59,13 @@ export default function CreatePage() {
         return;
       }
 
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data?.error || "Something went wrong.");
-        return;
-      }
+     const data = await res.json();
 
+if (data.success) {
+  setNotes(data.text || "");
+} else {
+  setNotes("Error: " + data.error);
+}
       const job = data?.job;
       const notes =
         job?.result_text ||
