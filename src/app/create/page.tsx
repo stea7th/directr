@@ -31,19 +31,20 @@ export default function CreatePage() {
 
     setLoading(true);
     try {
-      const form = new FormData();
-      form.append("prompt", prompt);
-      form.append("platform", platform);
-      form.append("goal", goal);
-      form.append("lengthSeconds", lengthSeconds);
-      form.append("tone", tone);
-      if (file) {
-        form.append("file", file);
-      }
-
+      // For now we send JSON; backend uses only `prompt`.
       const res = await fetch("/api/generate", {
         method: "POST",
-        body: form,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt,
+          platform,
+          goal,
+          lengthSeconds,
+          tone,
+          // file upload can be wired to a different endpoint later
+        }),
       });
 
       const contentType = res.headers.get("content-type") || "";
@@ -59,22 +60,27 @@ export default function CreatePage() {
         return;
       }
 
-     const data = await res.json();
+      const data = await res.json();
 
-if (data.success) {
-  setNotes(data.text || "");
-} else {
-  setNotes("Error: " + data.error);
-}
+      // Handle errors from the API
+      if (!data.success) {
+        setError(data.error || "Failed to generate response.");
+        return;
+      }
+
+      // Prefer the new `text` field, but still fall back to old shapes
       const job = data?.job;
-      const notes =
+      const notes: string =
+        data.text ||
         job?.result_text ||
         data?.result_text ||
         "Generated successfully, but no notes were returned.";
 
-      const url =
+      const url: string | null =
         job?.edited_url ||
         job?.source_url ||
+        data?.edited_url ||
+        data?.source_url ||
         null;
 
       setResult(notes);
@@ -219,11 +225,7 @@ if (data.success) {
               {editedUrl && (
                 <p style={{ marginBottom: 8 }}>
                   <strong>Edited video:</strong>{" "}
-                  <a
-                    href={editedUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
+                  <a href={editedUrl} target="_blank" rel="noreferrer">
                     Open clip
                   </a>
                 </p>
