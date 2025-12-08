@@ -1,7 +1,7 @@
 // src/app/api/generate/route.ts
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-import { supabaseServer } from "@/lib/supabaseServer";
+import { createRouteClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
@@ -23,11 +23,13 @@ type GenerateBody = {
 
 export async function POST(req: Request) {
   try {
+    const supabase = createRouteClient();
+
     const rawBody = await req.text();
     let body: GenerateBody = {};
     let userPrompt = "";
 
-    // Try JSON
+    // Try JSON first (from your /create page)
     try {
       const parsed = JSON.parse(rawBody);
       if (parsed && typeof parsed === "object") {
@@ -37,6 +39,7 @@ export async function POST(req: Request) {
         userPrompt = parsed.trim();
       }
     } catch {
+      // Not JSON → treat as plain text
       userPrompt = rawBody.trim();
     }
 
@@ -73,6 +76,7 @@ Return a tight, practical breakdown for ONE short-form video with these sections
    - Dialogue line-by-line that fits ~${lengthSeconds} seconds.
 
 3. **B-roll & visuals plan**
+   - Timeline bullets: 0–3s, 3–7s, etc.
 
 4. **On-screen text & captions**
 
@@ -110,8 +114,8 @@ No explanations. Just the formatted content.
       }
     }
 
-    // 👉 Save as a job (type 'script')
-    const { data: job, error: insertError } = await supabaseServer
+    // Save as a job (type 'script') using your existing Supabase route client
+    const { data: job, error: insertError } = await supabase
       .from("jobs")
       .insert({
         type: "script",
