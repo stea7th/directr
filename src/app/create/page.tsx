@@ -24,6 +24,7 @@ export default function CreatePage() {
     setResult(null);
     setEditedUrl(null);
 
+    // If NO prompt and NO file, nothing to do
     if (!prompt.trim() && !file) {
       setError("Add a quick description or upload a file first.");
       return;
@@ -31,48 +32,38 @@ export default function CreatePage() {
 
     setLoading(true);
     try {
-      const form = new FormData();
-      if (prompt) form.append("prompt", prompt);
-      form.append("platform", platform);
-      form.append("goal", goal);
-      form.append("lengthSeconds", lengthSeconds);
-      form.append("tone", tone);
+      // 🔹 CASE 1: FILE PRESENT → use /api/clipper with FormData
       if (file) {
+        const form = new FormData();
         form.append("file", file);
-      }
+        if (prompt) form.append("prompt", prompt);
 
-      // 🔑 If there's a file, use the clipper API, else use the script generator
-      const endpoint = file ? "/api/clipper" : "/api/generate";
-
-      const res = await fetch(endpoint, {
-        method: "POST",
-        body: form,
-      });
-
-      const contentType = res.headers.get("content-type") || "";
-
-      if (!contentType.includes("application/json")) {
-        const text = await res.text();
-        console.error("Non-JSON response from endpoint:", {
-          endpoint,
-          status: res.status,
-          textSnippet: text.slice(0, 200),
+        const res = await fetch("/api/clipper", {
+          method: "POST",
+          body: form,
         });
-        setError(
-          `Server returned non-JSON (status ${res.status}). The route might be misconfigured.`
-        );
-        return;
-      }
 
-      const data = await res.json();
+        const contentType = res.headers.get("content-type") || "";
 
-      if (!data.success) {
-        setError(data.error || "Failed to generate.");
-        return;
-      }
+        if (!contentType.includes("application/json")) {
+          const text = await res.text();
+          console.error("Non-JSON response from /api/clipper:", {
+            status: res.status,
+            textSnippet: text.slice(0, 200),
+          });
+          setError(
+            `Server returned non-JSON (status ${res.status}). Route might be misconfigured.`
+          );
+          return;
+        }
 
-      if (file) {
-        // 📹 FILE MODE → we hit /api/clipper
+        const data = await res.json();
+
+        if (!data.success) {
+          setError(data.error || "Failed to find hooks.");
+          return;
+        }
+
         const transcript: string = data.transcript || "";
         const clips: any[] = Array.isArray(data.clips) ? data.clips : [];
 
@@ -111,25 +102,63 @@ export default function CreatePage() {
         }
 
         setResult(text);
-        setEditedUrl(null); // no edited video yet in this flow
-      } else {
-        // ✍️ PROMPT-ONLY MODE → /api/generate
-        const job = data?.job;
-        const notes =
-          job?.output_script ||
-          data?.text ||
-          "Generated successfully, but no notes were returned.";
-
-        setResult(notes);
-
-        const url =
-          job?.output_video_url ||
-          job?.edited_url ||
-          job?.source_url ||
-          null;
-
-        setEditedUrl(url);
+        setEditedUrl(null); // we’re not auto-rendering video yet in this flow
+        return;
       }
+
+      // 🔹 CASE 2: NO FILE → use /api/generate with JSON
+      const body = {
+        prompt,
+        platform,
+        goal,
+        lengthSeconds,
+        tone,
+      };
+
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+
+      const contentType = res.headers.get("content-type") || "";
+
+      if (!contentType.includes("application/json")) {
+        const text = await res.text();
+        console.error("Non-JSON response from /api/generate:", {
+          status: res.status,
+          textSnippet: text.slice(0, 200),
+        });
+        setError(
+          `Server returned non-JSON (status ${res.status}). Route might be misconfigured.`
+        );
+        return;
+      }
+
+      const data = await res.json();
+
+      if (!data.success) {
+        setError(data.error || "Failed to generate.");
+        return;
+      }
+
+      const job = data?.job;
+      const notes =
+        job?.output_script ||
+        data?.text ||
+        "Generated successfully, but no notes were returned.";
+
+      setResult(notes);
+
+      const url =
+        job?.output_video_url ||
+        job?.edited_url ||
+        job?.source_url ||
+        null;
+
+      setEditedUrl(url);
     } catch (err: any) {
       console.error("Generate error (client):", err);
       setError(err?.message || "Unexpected error.");
@@ -176,13 +205,17 @@ export default function CreatePage() {
             <textarea
               name="prompt"
               className="create-textarea"
-              placeholder="Example: Turn this podcast into 5 viral TikToks"
+              placeholder={
+                file
+                  ? "Optional: context or goal for the clips"
+                  : "Example: Turn this podcast into 5 viral TikToks"
+              }
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
             />
           </div>
 
-          {mode === "advanced" && (
+          {mode === "advanced" && !file && (
             <div className="create-advanced-row">
               <div className="create-adv-field">
                 <label>Platform</label>
@@ -276,11 +309,7 @@ export default function CreatePage() {
               {editedUrl && (
                 <p style={{ marginBottom: 8 }}>
                   <strong>Edited video:</strong>{" "}
-                  <a
-                    href={editedUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
+                  <a href={editedUrl} target="_blank" rel="noreferrer">
                     Open clip
                   </a>
                 </p>
@@ -315,7 +344,6 @@ export default function CreatePage() {
         </div>
       </section>
 
-      {/* same CSS as before */}
       <style jsx>{`
         .create-root {
           min-height: calc(100vh - 64px);
