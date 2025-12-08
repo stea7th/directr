@@ -24,67 +24,112 @@ export default function CreatePage() {
     setResult(null);
     setEditedUrl(null);
 
-    if (!prompt.trim()) {
-      setError("Add a quick description or script idea first.");
+    if (!prompt.trim() && !file) {
+      setError("Add a quick description or upload a file first.");
       return;
     }
 
     setLoading(true);
     try {
-      // For now we send JSON; backend uses only `prompt`.
-      const res = await fetch("/api/generate", {
+      const form = new FormData();
+      if (prompt) form.append("prompt", prompt);
+      form.append("platform", platform);
+      form.append("goal", goal);
+      form.append("lengthSeconds", lengthSeconds);
+      form.append("tone", tone);
+      if (file) {
+        form.append("file", file);
+      }
+
+      // 🔑 If there's a file, use the clipper API, else use the script generator
+      const endpoint = file ? "/api/clipper" : "/api/generate";
+
+      const res = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt,
-          platform,
-          goal,
-          lengthSeconds,
-          tone,
-          // file upload can be wired to a different endpoint later
-        }),
+        body: form,
       });
 
       const contentType = res.headers.get("content-type") || "";
+
       if (!contentType.includes("application/json")) {
         const text = await res.text();
-        console.error("Non-JSON response from /api/generate:", {
+        console.error("Non-JSON response from endpoint:", {
+          endpoint,
           status: res.status,
           textSnippet: text.slice(0, 200),
         });
         setError(
-          `Server returned non-JSON (status ${res.status}). Route might be misconfigured.`
+          `Server returned non-JSON (status ${res.status}). The route might be misconfigured.`
         );
         return;
       }
 
       const data = await res.json();
 
-      // Handle errors from the API
       if (!data.success) {
-        setError(data.error || "Failed to generate response.");
+        setError(data.error || "Failed to generate.");
         return;
       }
 
-      // Prefer the new `text` field, but still fall back to old shapes
-      const job = data?.job;
-      const notes: string =
-        data.text ||
-        job?.result_text ||
-        data?.result_text ||
-        "Generated successfully, but no notes were returned.";
+      if (file) {
+        // 📹 FILE MODE → we hit /api/clipper
+        const transcript: string = data.transcript || "";
+        const clips: any[] = Array.isArray(data.clips) ? data.clips : [];
 
-      const url: string | null =
-        job?.edited_url ||
-        job?.source_url ||
-        data?.edited_url ||
-        data?.source_url ||
-        null;
+        let text = "";
 
-      setResult(notes);
-      setEditedUrl(url);
+        if (transcript) {
+          text += "TRANSCRIPT\n──────────\n";
+          text += transcript.trim();
+          text += "\n\n";
+        }
+
+        if (clips.length > 0) {
+          text += "CLIPS\n──────\n";
+          text += clips
+            .map((clip, idx) => {
+              const start = clip.start ?? clip.start_seconds ?? 0;
+              const end = clip.end ?? clip.end_seconds ?? 0;
+              const hook = clip.hook_line || "";
+              const desc = clip.description || "";
+
+              return [
+                `Clip ${idx + 1}`,
+                `  Time: ${start.toFixed?.(2) ?? start} → ${
+                  end.toFixed?.(2) ?? end
+                }s`,
+                hook ? `  Hook: ${hook}` : null,
+                desc ? `  Desc: ${desc}` : null,
+              ]
+                .filter(Boolean)
+                .join("\n");
+            })
+            .join("\n\n");
+        } else {
+          text +=
+            "No clips were returned, but transcript is available above.";
+        }
+
+        setResult(text);
+        setEditedUrl(null); // no edited video yet in this flow
+      } else {
+        // ✍️ PROMPT-ONLY MODE → /api/generate
+        const job = data?.job;
+        const notes =
+          job?.output_script ||
+          data?.text ||
+          "Generated successfully, but no notes were returned.";
+
+        setResult(notes);
+
+        const url =
+          job?.output_video_url ||
+          job?.edited_url ||
+          job?.source_url ||
+          null;
+
+        setEditedUrl(url);
+      }
     } catch (err: any) {
       console.error("Generate error (client):", err);
       setError(err?.message || "Unexpected error.");
@@ -208,13 +253,19 @@ export default function CreatePage() {
               onClick={handleGenerate}
               disabled={loading}
             >
-              {loading ? "Thinking..." : "Generate"}
+              {loading
+                ? file
+                  ? "Finding hooks..."
+                  : "Thinking..."
+                : file
+                ? "Find hooks from file"
+                : "Generate script"}
             </button>
           </div>
 
           <p className="create-tip">
-            Tip: Drop a video/audio, or just describe what you want.
-            We&apos;ll handle the rest.
+            Tip: Drop a video/audio to auto-find hooks, or just describe what
+            you want for a script. We&apos;ll handle the rest.
           </p>
 
           {error && <p className="create-error">{error}</p>}
@@ -225,7 +276,11 @@ export default function CreatePage() {
               {editedUrl && (
                 <p style={{ marginBottom: 8 }}>
                   <strong>Edited video:</strong>{" "}
-                  <a href={editedUrl} target="_blank" rel="noreferrer">
+                  <a
+                    href={editedUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     Open clip
                   </a>
                 </p>
