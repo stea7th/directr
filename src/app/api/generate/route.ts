@@ -4,53 +4,79 @@ import OpenAI from "openai";
 
 export const runtime = "nodejs";
 
-// ❗ Do NOT create the client at the top-level.
-// We lazy-create it inside the handler so build doesn't explode if the key is missing.
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    // We throw here and catch it in POST, so we can return a nice JSON error
     throw new Error("OPENAI_API_KEY is not set on the server.");
   }
   return new OpenAI({ apiKey });
 }
 
+type GenerateBody = {
+  prompt?: string;
+  platform?: string;
+  goal?: string;
+  lengthSeconds?: string;
+  tone?: string;
+};
+
 export async function POST(req: Request) {
   try {
-    // Read raw body (works whether frontend sends JSON or plain text)
     const rawBody = await req.text();
-    let prompt: string | undefined;
+    let body: GenerateBody = {};
+    let userPrompt = "";
 
-    if (!rawBody) {
-      return NextResponse.json(
-        { success: false, error: "Empty request body." },
-        { status: 400 }
-      );
-    }
-
-    // Try JSON first ({ prompt: "..." } or just "...")
+    // Try to parse JSON first
     try {
       const parsed = JSON.parse(rawBody);
-
-      if (typeof parsed === "string") {
-        prompt = parsed.trim();
-      } else if (parsed && typeof parsed === "object" && "prompt" in parsed) {
-        const obj = parsed as { prompt?: unknown };
-        prompt = String(obj.prompt ?? "").trim();
+      if (parsed && typeof parsed === "object") {
+        body = parsed as GenerateBody;
+        userPrompt = String(parsed.prompt ?? "").trim();
+      } else if (typeof parsed === "string") {
+        userPrompt = parsed.trim();
       }
     } catch {
-      // Not JSON → treat raw body as the prompt
-      prompt = rawBody.trim();
+      // Not JSON → treat as raw text prompt
+      userPrompt = rawBody.trim();
     }
 
-    if (!prompt) {
+    if (!userPrompt) {
       return NextResponse.json(
         { success: false, error: "No prompt provided in request body." },
         { status: 400 }
       );
     }
 
-    // 👇 This is the only place we touch OpenAI.
+    const platform = body.platform || "TikTok";
+    const goal = body.goal || "Drive followers and authority.";
+    const lengthSeconds = body.lengthSeconds || "30";
+    const tone = body.tone || "Casual";
+
+    const fullPrompt = `
+You are Directr, an editor-minded short-form content strategist.
+
+User idea:
+"${userPrompt}"
+
+Context:
+- Platform: ${platform}
+- Primary goal: ${goal}
+- Ideal length: ~${lengthSeconds} seconds
+- Tone: ${tone}
+
+Return a **tight, practical breakdown** for one short-form video with these sections in Markdown:
+
+1. **Hook options** (3–5 punchy first-line hooks, each as a bullet).
+2. **Full A-roll script** (dialogue line-by-line that fits ${lengthSeconds}s).
+3. **B-roll & visuals plan** (timeline-style bullets: 0–3s, 3–7s, etc.).
+4. **On-screen text & captions** (what appears as big text, lower thirds, etc.).
+5. **Call to action** (1–2 options tailored to the goal).
+6. **Caption + 8–15 hashtags** (caption first, then hashtags on a new line).
+
+Keep it **creator-ready**: no explanations, just the formatted output.
+If the user prompt is vague, make reasonable assumptions and still ship something usable.
+`;
+
     const openai = getOpenAIClient();
 
     const aiRes = await openai.responses.create({
@@ -61,7 +87,7 @@ export async function POST(req: Request) {
           content: [
             {
               type: "input_text",
-              text: prompt,
+              text: fullPrompt,
             },
           ],
         },
