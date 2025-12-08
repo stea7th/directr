@@ -1,6 +1,7 @@
 // src/app/api/generate/route.ts
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
 
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
     let body: GenerateBody = {};
     let userPrompt = "";
 
-    // Try to parse JSON first
+    // Try JSON
     try {
       const parsed = JSON.parse(rawBody);
       if (parsed && typeof parsed === "object") {
@@ -36,7 +37,6 @@ export async function POST(req: Request) {
         userPrompt = parsed.trim();
       }
     } catch {
-      // Not JSON → treat as raw text prompt
       userPrompt = rawBody.trim();
     }
 
@@ -71,24 +71,16 @@ Return a tight, practical breakdown for ONE short-form video with these sections
 
 2. **Full A-roll script**
    - Dialogue line-by-line that fits ~${lengthSeconds} seconds.
-   - Include timing hints only if helpful (e.g., (0–3s), (3–7s)).
 
 3. **B-roll & visuals plan**
-   - Timeline bullets: 0–3s, 3–7s, 7–12s, etc.
-   - For each, describe visuals, camera moves, overlays.
 
 4. **On-screen text & captions**
-   - Big text overlays and any lower-third text.
 
 5. **Call to action**
-   - 1–2 CTA options tailored to the goal and platform.
 
 6. **Caption + 8–15 hashtags**
-   - Caption first.
-   - On a new line, list 8–15 relevant hashtags.
 
-Do NOT explain what you're doing. Just output the formatted content ready for a creator to copy-paste.
-If the user idea is vague, make smart assumptions and still give a usable breakdown.
+No explanations. Just the formatted content.
 `;
 
     const openai = getOpenAIClient();
@@ -118,9 +110,26 @@ If the user idea is vague, make smart assumptions and still give a usable breakd
       }
     }
 
+    // 👉 Save as a job (type 'script')
+    const { data: job, error: insertError } = await supabaseServer
+      .from("jobs")
+      .insert({
+        type: "script",
+        prompt: userPrompt,
+        output_script: aiText,
+        status: "completed",
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("Failed to insert job:", insertError);
+    }
+
     return NextResponse.json({
       success: true,
       text: aiText,
+      job,
     });
   } catch (err: unknown) {
     console.error("Error in /api/generate:", err);
