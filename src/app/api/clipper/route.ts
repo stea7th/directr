@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { createRouteClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
+export const maxDuration = 60; // extra time for transcription + analysis
 
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -61,6 +62,9 @@ You are a short-form content clip finder.
 Transcript:
 ${transcriptText}
 
+User context / goal:
+${prompt}
+
 Task:
 - Find 3–7 of the strongest hook moments for TikTok/Reels/Shorts.
 - Focus on lines that:
@@ -103,14 +107,14 @@ Return ONLY valid JSON in this shape (no backticks, no text before/after):
       ],
     });
 
-    // 🔁 Parse plain-text output as JSON
+    // 🔄 Extract plain text and parse as JSON
     let clips: any[] = [];
-    const firstOutput: any = (clipRes as any).output?.[0];
 
+    const firstOutput: any = (clipRes as any).output?.[0];
     if (firstOutput?.type === "message") {
-      const firstContent = firstOutput?.content?.[0];
+      const firstContent = firstOutput.content?.[0];
       if (firstContent?.type === "output_text") {
-        const raw = (firstContent.text as string).trim();
+        const raw = String(firstContent.text || "").trim();
         try {
           const json = JSON.parse(raw);
           if (Array.isArray(json.clips)) {
