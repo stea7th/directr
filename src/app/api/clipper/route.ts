@@ -28,7 +28,9 @@ export async function POST(req: Request) {
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
-    const prompt = String(formData.get("prompt") || "").trim() || "Find the best hooks for short-form content.";
+    const prompt =
+      String(formData.get("prompt") || "").trim() ||
+      "Find the best hooks for short-form content.";
 
     if (!file) {
       return NextResponse.json(
@@ -38,9 +40,7 @@ export async function POST(req: Request) {
     }
 
     // 1️⃣ TRANSCRIBE AUDIO/VIDEO → TEXT (Whisper)
-    // OpenAI SDK supports File/Blob directly in node runtime
     const transcription = await openai.audio.transcriptions.create({
-      // if you have video, Whisper will handle the audio track
       file: file as any,
       model: "whisper-1",
       response_format: "json",
@@ -74,7 +74,7 @@ For each clip, return:
 - "hook_line": the key line that makes it a hook
 - "description": a short human description (what happens visually / context)
 
-Return ONLY valid JSON in this shape:
+Return ONLY valid JSON in this shape (no backticks, no text before/after):
 
 {
   "clips": [
@@ -101,17 +101,24 @@ Return ONLY valid JSON in this shape:
           ],
         },
       ],
-      response_format: { type: "json_object" },
     });
 
+    // 🔁 Parse plain-text output as JSON
     let clips: any[] = [];
     const firstOutput: any = (clipRes as any).output?.[0];
 
     if (firstOutput?.type === "message") {
       const firstContent = firstOutput?.content?.[0];
-      if (firstContent?.type === "output_json") {
-        const json = JSON.parse(firstContent.json);
-        clips = json.clips || [];
+      if (firstContent?.type === "output_text") {
+        const raw = (firstContent.text as string).trim();
+        try {
+          const json = JSON.parse(raw);
+          if (Array.isArray(json.clips)) {
+            clips = json.clips;
+          }
+        } catch (e) {
+          console.error("Failed to parse clips JSON:", e, raw);
+        }
       }
     }
 
@@ -119,7 +126,7 @@ Return ONLY valid JSON in this shape:
       return NextResponse.json(
         {
           success: false,
-          error: "AI did not return any clips.",
+          error: "AI did not return any clips or JSON was invalid.",
           transcript: transcriptText,
         },
         { status: 500 }
@@ -132,8 +139,7 @@ Return ONLY valid JSON in this shape:
       .insert({
         type: "clipper",
         prompt,
-        // store transcript in output_script for now
-        output_script: transcriptText,
+        output_script: transcriptText, // storing transcript here for now
         output_clips: clips,
         status: "completed",
       })
