@@ -64,17 +64,31 @@ Context:
 - Ideal length: ~${lengthSeconds} seconds
 - Tone: ${tone}
 
-Return a **tight, practical breakdown** for one short-form video with these sections in Markdown:
+Return a tight, practical breakdown for ONE short-form video with these sections in Markdown:
 
-1. **Hook options** (3–5 punchy first-line hooks, each as a bullet).
-2. **Full A-roll script** (dialogue line-by-line that fits ${lengthSeconds}s).
-3. **B-roll & visuals plan** (timeline-style bullets: 0–3s, 3–7s, etc.).
-4. **On-screen text & captions** (what appears as big text, lower thirds, etc.).
-5. **Call to action** (1–2 options tailored to the goal).
-6. **Caption + 8–15 hashtags** (caption first, then hashtags on a new line).
+1. **Hook options**
+   - 3–5 punchy first-line hooks (bulleted list).
 
-Keep it **creator-ready**: no explanations, just the formatted output.
-If the user prompt is vague, make reasonable assumptions and still ship something usable.
+2. **Full A-roll script**
+   - Dialogue line-by-line that fits ~${lengthSeconds} seconds.
+   - Include timing hints only if helpful (e.g., (0–3s), (3–7s)).
+
+3. **B-roll & visuals plan**
+   - Timeline bullets: 0–3s, 3–7s, 7–12s, etc.
+   - For each, describe visuals, camera moves, overlays.
+
+4. **On-screen text & captions**
+   - Big text overlays and any lower-third text.
+
+5. **Call to action**
+   - 1–2 CTA options tailored to the goal and platform.
+
+6. **Caption + 8–15 hashtags**
+   - Caption first.
+   - On a new line, list 8–15 relevant hashtags.
+
+Do NOT explain what you're doing. Just output the formatted content ready for a creator to copy-paste.
+If the user idea is vague, make smart assumptions and still give a usable breakdown.
 `;
 
     const openai = getOpenAIClient();
