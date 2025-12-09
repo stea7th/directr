@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { createRouteClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
-export const maxDuration = 60; // extra time for transcription + analysis
+export const maxDuration = 60;
 
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -19,30 +19,49 @@ export async function POST(req: Request) {
     const supabase = createRouteClient();
     const openai = getOpenAIClient();
 
-    const contentType = req.headers.get("content-type") || "";
-    if (!contentType.includes("multipart/form-data")) {
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
       return NextResponse.json(
-        { success: false, error: "Expected multipart/form-data with a file." },
+        { success: false, error: "Expected JSON body." },
         { status: 400 }
       );
     }
 
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-    const prompt =
-      String(formData.get("prompt") || "").trim() ||
+    const fileUrl: string | undefined = body?.fileUrl;
+    const prompt: string =
+      (body?.prompt && String(body.prompt).trim()) ||
       "Find the best hooks for short-form content.";
 
-    if (!file) {
+    if (!fileUrl) {
       return NextResponse.json(
-        { success: false, error: "No file uploaded (field name 'file')." },
+        { success: false, error: "fileUrl is required." },
         { status: 400 }
       );
     }
 
-    // 1️⃣ TRANSCRIBE AUDIO/VIDEO → TEXT (Whisper)
+    // 1️⃣ Download file from Supabase URL
+    const fileRes = await fetch(fileUrl);
+    if (!fileRes.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Failed to download file from storage (status ${fileRes.status}).`,
+        },
+        { status: 500 }
+      );
+    }
+
+    const arrayBuffer = await fileRes.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // 2️⃣ TRANSCRIBE AUDIO/VIDEO → TEXT (Whisper)
     const transcription = await openai.audio.transcriptions.create({
-      file: file as any,
+      file: {
+        data: buffer,
+        name: "upload.mp4", // name is required but can be anything
+      } as any,
       model: "whisper-1",
       response_format: "json",
     });
@@ -55,7 +74,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2️⃣ ASK AI TO FIND CLIPS (HOOKS) FROM TRANSCRIPT
+    // 3️⃣ ASK AI TO FIND CLIPS (HOOKS) FROM TRANSCRIPT
     const clipPrompt = `
 You are a short-form content clip finder.
 
@@ -107,10 +126,9 @@ Return ONLY valid JSON in this shape (no backticks, no text before/after):
       ],
     });
 
-    // 🔄 Extract plain text and parse as JSON
     let clips: any[] = [];
-
     const firstOutput: any = (clipRes as any).output?.[0];
+
     if (firstOutput?.type === "message") {
       const firstContent = firstOutput.content?.[0];
       if (firstContent?.type === "output_text") {
@@ -137,15 +155,16 @@ Return ONLY valid JSON in this shape (no backticks, no text before/after):
       );
     }
 
-    // 3️⃣ SAVE AS A JOB IN SUPABASE (type='clipper')
+    // 4️⃣ SAVE AS A JOB IN SUPABASE (type='clipper')
     const { data: job, error: insertError } = await supabase
       .from("jobs")
       .insert({
         type: "clipper",
         prompt,
-        output_script: transcriptText, // storing transcript here for now
+        output_script: transcriptText,
         output_clips: clips,
         status: "completed",
+        source_url: fileUrl,
       })
       .select()
       .single();
