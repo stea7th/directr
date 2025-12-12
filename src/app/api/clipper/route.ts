@@ -1,4 +1,3 @@
-// src/app/api/clipper/route.ts
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createRouteClient } from "@/lib/supabase/server";
@@ -8,31 +7,21 @@ export const maxDuration = 60;
 
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is not set on the server.");
-  }
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not set on the server.");
   return new OpenAI({ apiKey });
 }
 
 export async function POST(req: Request) {
   try {
-    const supabase = createRouteClient();
     const openai = getOpenAIClient();
+    const supabase = createRouteClient();
 
-    let body: any;
-    try {
-      body = await req.json();
-    } catch {
-      return NextResponse.json(
-        { success: false, error: "Expected JSON body." },
-        { status: 400 }
-      );
-    }
-
-    const fileUrl: string | undefined = body?.fileUrl;
-    const prompt: string =
-      (body?.prompt && String(body.prompt).trim()) ||
-      "Find the best hooks for short-form content.";
+    const body = await req.json().catch(() => null);
+    const fileUrl = body?.fileUrl ? String(body.fileUrl) : "";
+    const prompt =
+      body?.prompt && String(body.prompt).trim()
+        ? String(body.prompt).trim()
+        : "Find the best short-form hooks.";
 
     if (!fileUrl) {
       return NextResponse.json(
@@ -41,13 +30,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1️⃣ Download file from Supabase URL
+    // Download the file from Supabase
     const fileRes = await fetch(fileUrl);
     if (!fileRes.ok) {
       return NextResponse.json(
         {
           success: false,
-          error: `Failed to download file from storage (status ${fileRes.status}).`,
+          error: `Failed to download file (status ${fileRes.status}).`,
         },
         { status: 500 }
       );
@@ -56,59 +45,40 @@ export async function POST(req: Request) {
     const arrayBuffer = await fileRes.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // 2️⃣ TRANSCRIBE AUDIO/VIDEO → TEXT (Whisper)
+    // Whisper transcription
     const transcription = await openai.audio.transcriptions.create({
-      file: {
-        data: buffer,
-        name: "upload.mp4", // name is required but can be anything
-      } as any,
+      file: { data: buffer, name: "upload.mp4" } as any,
       model: "whisper-1",
       response_format: "json",
     });
 
-    const transcriptText = transcription.text?.trim();
+    const transcriptText = transcription.text?.trim() || "";
     if (!transcriptText) {
       return NextResponse.json(
-        { success: false, error: "Transcription returned no text." },
+        { success: false, error: "No transcript returned." },
         { status: 500 }
       );
     }
 
-    // 3️⃣ ASK AI TO FIND CLIPS (HOOKS) FROM TRANSCRIPT
+    // Ask GPT for hook timestamps (best effort timestamps)
     const clipPrompt = `
-You are a short-form content clip finder.
-
 Transcript:
 ${transcriptText}
 
-User context / goal:
+Goal:
 ${prompt}
 
-Task:
-- Find 3–7 of the strongest hook moments for TikTok/Reels/Shorts.
-- Focus on lines that:
-  - Make people stop scrolling
-  - State a bold claim, pain point, or strong curiosity
-  - Can start a clip cleanly
-
-For each clip, return:
-- "start": number in seconds
-- "end": number in seconds
-- "hook_line": the key line that makes it a hook
-- "description": a short human description (what happens visually / context)
-
-Return ONLY valid JSON in this shape (no backticks, no text before/after):
-
+Return ONLY valid JSON:
 {
   "clips": [
-    {
-      "start": 0.0,
-      "end": 5.2,
-      "hook_line": "...",
-      "description": "..."
-    }
+    { "start": 0.0, "end": 8.0, "hook_line": "...", "description": "..." }
   ]
 }
+
+Rules:
+- 3 to 7 clips
+- start/end are seconds (best estimate)
+- hook_line must be the exact line from transcript (or close)
 `;
 
     const clipRes = await openai.responses.create({
@@ -116,62 +86,49 @@ Return ONLY valid JSON in this shape (no backticks, no text before/after):
       input: [
         {
           role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: clipPrompt,
-            },
-          ],
+          content: [{ type: "input_text", text: clipPrompt }],
         },
       ],
     });
 
     let clips: any[] = [];
     const firstOutput: any = (clipRes as any).output?.[0];
+    const raw =
+      firstOutput?.type === "message"
+        ? String(firstOutput.content?.[0]?.text || "").trim()
+        : "";
 
-    if (firstOutput?.type === "message") {
-      const firstContent = firstOutput.content?.[0];
-      if (firstContent?.type === "output_text") {
-        const raw = String(firstContent.text || "").trim();
-        try {
-          const json = JSON.parse(raw);
-          if (Array.isArray(json.clips)) {
-            clips = json.clips;
-          }
-        } catch (e) {
-          console.error("Failed to parse clips JSON:", e, raw);
-        }
-      }
-    }
-
-    if (!Array.isArray(clips) || clips.length === 0) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed?.clips)) clips = parsed.clips;
+    } catch {
+      // If parsing fails, return transcript so UI still shows something
       return NextResponse.json(
         {
           success: false,
-          error: "AI did not return any clips or JSON was invalid.",
+          error: "AI returned invalid JSON for clips.",
           transcript: transcriptText,
+          raw,
         },
         { status: 500 }
       );
     }
 
-    // 4️⃣ SAVE AS A JOB IN SUPABASE (type='clipper')
+    // Save job
     const { data: job, error: insertError } = await supabase
       .from("jobs")
       .insert({
         type: "clipper",
         prompt,
+        source_url: fileUrl,
         output_script: transcriptText,
         output_clips: clips,
         status: "completed",
-        source_url: fileUrl,
       })
       .select()
       .single();
 
-    if (insertError) {
-      console.error("Failed to insert clipper job:", insertError);
-    }
+    if (insertError) console.error("Job insert error:", insertError);
 
     return NextResponse.json({
       success: true,
@@ -180,13 +137,9 @@ Return ONLY valid JSON in this shape (no backticks, no text before/after):
       job,
     });
   } catch (err: any) {
-    console.error("Error in /api/clipper:", err);
+    console.error("Clipper error:", err);
     return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to find clips.",
-        details: err?.message || "Unknown error",
-      },
+      { success: false, error: "Failed to find hooks.", details: err?.message },
       { status: 500 }
     );
   }
