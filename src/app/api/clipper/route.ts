@@ -16,38 +16,30 @@ export async function POST(req: Request) {
     const openai = getOpenAIClient();
     const supabase = createRouteClient();
 
-    const body = await req.json().catch(() => null);
-    const fileUrl = body?.fileUrl ? String(body.fileUrl) : "";
-    const prompt =
-      body?.prompt && String(body.prompt).trim()
-        ? String(body.prompt).trim()
-        : "Find the best short-form hooks.";
-
-    if (!fileUrl) {
+    const contentType = req.headers.get("content-type") || "";
+    if (!contentType.includes("multipart/form-data")) {
       return NextResponse.json(
-        { success: false, error: "fileUrl is required." },
+        { success: false, error: "Expected multipart/form-data with a file." },
         { status: 400 }
       );
     }
 
-    // Download the file from Supabase
-    const fileRes = await fetch(fileUrl);
-    if (!fileRes.ok) {
+    const formData = await req.formData();
+    const file = formData.get("file") as File | null;
+    const prompt =
+      String(formData.get("prompt") || "").trim() ||
+      "Find the best hooks for short-form content.";
+
+    if (!file) {
       return NextResponse.json(
-        {
-          success: false,
-          error: `Failed to download file (status ${fileRes.status}).`,
-        },
-        { status: 500 }
+        { success: false, error: "No file uploaded (field name must be 'file')." },
+        { status: 400 }
       );
     }
 
-    const arrayBuffer = await fileRes.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    // Whisper transcription
+    // 1) Transcribe
     const transcription = await openai.audio.transcriptions.create({
-      file: { data: buffer, name: "upload.mp4" } as any,
+      file: file as any,
       model: "whisper-1",
       response_format: "json",
     });
@@ -55,30 +47,38 @@ export async function POST(req: Request) {
     const transcriptText = transcription.text?.trim() || "";
     if (!transcriptText) {
       return NextResponse.json(
-        { success: false, error: "No transcript returned." },
+        { success: false, error: "Transcription returned no text." },
         { status: 500 }
       );
     }
 
-    // Ask GPT for hook timestamps (best effort timestamps)
+    // 2) Find clip hooks from transcript (JSON-only output)
     const clipPrompt = `
+You are a short-form content clip finder.
+
 Transcript:
 ${transcriptText}
 
-Goal:
+User context / goal:
 ${prompt}
 
-Return ONLY valid JSON:
+Return ONLY valid JSON (no backticks, no extra text):
+
 {
   "clips": [
-    { "start": 0.0, "end": 8.0, "hook_line": "...", "description": "..." }
+    {
+      "start": 0.0,
+      "end": 7.5,
+      "hook_line": "...",
+      "description": "..."
+    }
   ]
 }
 
 Rules:
 - 3 to 7 clips
 - start/end are seconds (best estimate)
-- hook_line must be the exact line from transcript (or close)
+- hook_line should be a real line from the transcript when possible
 `;
 
     const clipRes = await openai.responses.create({
@@ -91,18 +91,20 @@ Rules:
       ],
     });
 
-    let clips: any[] = [];
+    // Extract text from Responses API
     const firstOutput: any = (clipRes as any).output?.[0];
-    const raw =
-      firstOutput?.type === "message"
-        ? String(firstOutput.content?.[0]?.text || "").trim()
-        : "";
+    let raw = "";
 
+    if (firstOutput?.type === "message") {
+      raw = String(firstOutput.content?.[0]?.text || "").trim();
+    }
+
+    let clips: any[] = [];
     try {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed?.clips)) clips = parsed.clips;
-    } catch {
-      // If parsing fails, return transcript so UI still shows something
+    } catch (e) {
+      console.error("Clip JSON parse failed:", e, raw);
       return NextResponse.json(
         {
           success: false,
@@ -114,21 +116,22 @@ Rules:
       );
     }
 
-    // Save job
+    // 3) Save a job (optional, but kept because you already use jobs)
     const { data: job, error: insertError } = await supabase
       .from("jobs")
       .insert({
         type: "clipper",
         prompt,
-        source_url: fileUrl,
-        output_script: transcriptText,
+        output_script: transcriptText, // storing transcript here
         output_clips: clips,
         status: "completed",
       })
       .select()
       .single();
 
-    if (insertError) console.error("Job insert error:", insertError);
+    if (insertError) {
+      console.error("Failed to insert clipper job:", insertError);
+    }
 
     return NextResponse.json({
       success: true,
@@ -137,9 +140,13 @@ Rules:
       job,
     });
   } catch (err: any) {
-    console.error("Clipper error:", err);
+    console.error("Error in /api/clipper:", err);
     return NextResponse.json(
-      { success: false, error: "Failed to find hooks.", details: err?.message },
+      {
+        success: false,
+        error: "Failed to find clips.",
+        details: err?.message || "Unknown error",
+      },
       { status: 500 }
     );
   }
