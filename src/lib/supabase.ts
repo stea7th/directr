@@ -1,7 +1,8 @@
-// src/lib/supabase.ts
-import { createClient } from '@supabase/supabase-js';
+// TEMP DISABLE – debugging RSC crash
+export function createServerClient() {
+  throw new Error("Supabase disabled for debugging");
+}
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-export const supabase = createClient(url, anon);
+export function createRouteClient() {
+  throw new Error("Supabase disabled for debugging");
+}
