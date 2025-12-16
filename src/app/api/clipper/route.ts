@@ -1,3 +1,10 @@
-export default function Page() {
-  return <main style={{ padding: 48, color: "white" }}>Planner</main>;
+import { NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+
+export async function POST() {
+  return NextResponse.json({
+    success: false,
+    error: "Clipper temporarily disabled",
+  });
 }
