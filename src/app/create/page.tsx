@@ -1,6 +1,6 @@
 // src/app/create/page.tsx
 "use client";
-
+import "./page.css";
 import React, { useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
