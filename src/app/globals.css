@@ -27,21 +27,59 @@ body{
 
 /* -------- Layout shells -------- */
 .site{min-height:100%; display:flex; flex-direction:column}
-.page{flex:1 0 auto}
+
+/* IMPORTANT: page needs spacing + centering, not just flex */
+.page{
+  flex:1 0 auto;
+  max-width:1200px;
+  margin:0 auto;
+  padding:28px 20px 70px;
+}
+
 .container{max-width:1200px; margin:0 auto; padding:24px 20px}
 
 /* -------- Header / Footer -------- */
-.nav{position:sticky; top:0; z-index:20; background:#0b0b0b; border-bottom:1px solid var(--border)}
-.nav__inner{max-width:1200px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; justify-content:space-between}
-.logo{font-weight:700; letter-spacing:.2px; text-decoration:none; color:var(--fg); font-size:18px}
+.nav{
+  position:sticky;
+  top:0;
+  z-index:20;
+  background:#0b0b0b;
+  border-bottom:1px solid var(--border);
+}
+
+.nav__inner{
+  max-width:1200px;
+  margin:0 auto;
+  padding:14px 20px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.logo{
+  font-weight:700;
+  letter-spacing:.2px;
+  text-decoration:none;
+  color:var(--fg);
+  font-size:18px;
+}
 .logo .dot{color:var(--accent)}
+
 .menu{display:flex; gap:18px; align-items:center}
 .menu a{color:var(--muted); text-decoration:none; font-size:14px}
 .menu a:hover{color:var(--fg)}
 .link--muted{opacity:.9}
 
 .footer{border-top:1px solid var(--border); background:#0b0b0b}
-.footer__inner{max-width:1200px; margin:0 auto; padding:22px 20px; display:flex; gap:10px; align-items:center; color:var(--muted)}
+.footer__inner{
+  max-width:1200px;
+  margin:0 auto;
+  padding:22px 20px;
+  display:flex;
+  gap:10px;
+  align-items:center;
+  color:var(--muted);
+}
 .footer__inner a{color:var(--muted); text-decoration:none}
 .footer__inner a:hover{color:var(--fg)}
 .footer .spacer{opacity:.6}
@@ -104,9 +142,14 @@ body{
 
 /* -------- Dropzone -------- */
 .drop{
-  height:180px; border:2px dashed var(--border); border-radius:16px;
-  display:flex; align-items:center; justify-content:center;
-  background:rgba(255,255,255,.02); transition:border-color .15s, background .15s;
+  height:180px;
+  border:2px dashed var(--border);
+  border-radius:16px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(255,255,255,.02);
+  transition:border-color .15s, background .15s;
 }
 .drop--over{border-color:var(--accent); background:rgba(14,165,233,.07)}
 .drop__inner{ text-align:center; color:var(--muted) }
