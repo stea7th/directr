@@ -38,188 +38,122 @@ export default async function RootLayout({
     });
   }
 
-  // ✅ LOCK SCREEN (mini landing page)
+  // ✅ LOCK SCREEN (server-safe: no styled-jsx)
   if (lockEnabled && !unlocked) {
     return (
       <html lang="en">
-        <body>
-          <main className="lock">
-            <div className="lock__top">
-              <div className="lock__brand">
-                <div className="lock__logo">
+        <body style={{ margin: 0 }}>
+          <main
+            style={{
+              minHeight: "100vh",
+              padding: "64px 20px 80px",
+              background:
+                "radial-gradient(circle at 10% 0%, rgba(14,165,233,.18), transparent 55%), radial-gradient(circle at 90% 10%, rgba(255,255,255,.06), transparent 60%), var(--bg)",
+              color: "var(--fg)",
+            }}
+          >
+            <div
+              style={{
+                maxWidth: 1100,
+                margin: "0 auto 38px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 16,
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ fontWeight: 800, letterSpacing: ".2px", fontSize: 18 }}>
                   directr<span className="dot">.</span>
                 </div>
-                <div className="lock__tag">Private build • founder access</div>
+                <div style={{ color: "var(--muted)", fontSize: 12 }}>
+                  Private build • founder access
+                </div>
               </div>
             </div>
 
-            <section className="lock__hero">
-              <h1 className="lock__title">Directr is in private mode.</h1>
-              <p className="lock__sub">
+            <section style={{ maxWidth: 1100, margin: "0 auto" }}>
+              <h1
+                style={{
+                  margin: "0 0 10px",
+                  fontSize: 34,
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1.05,
+                }}
+              >
+                Directr is in private mode.
+              </h1>
+              <p style={{ margin: "0 0 22px", color: "var(--muted)", fontSize: 14, maxWidth: 720 }}>
                 AI-powered creation → clips → captions. We’re shipping fast right now.
               </p>
 
-              <div className="lock__grid">
-                <div className="lock__card">
-                  <div className="lock__kicker">Create</div>
-                  <div className="lock__text">Upload or type a prompt. Get scripts + notes.</div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr",
+                  gap: 12,
+                  margin: "18px 0 18px",
+                }}
+              >
+                <div style={cardStyle}>
+                  <div style={kickerStyle}>Create</div>
+                  <div style={textStyle}>Upload or type a prompt. Get scripts + notes.</div>
                 </div>
-                <div className="lock__card">
-                  <div className="lock__kicker">Clipper</div>
-                  <div className="lock__text">Find hooks & moments and package them.</div>
+                <div style={cardStyle}>
+                  <div style={kickerStyle}>Clipper</div>
+                  <div style={textStyle}>Find hooks & moments and package them.</div>
                 </div>
-                <div className="lock__card">
-                  <div className="lock__kicker">Planner</div>
-                  <div className="lock__text">Turn outputs into a posting plan.</div>
+                <div style={cardStyle}>
+                  <div style={kickerStyle}>Planner</div>
+                  <div style={textStyle}>Turn outputs into a posting plan.</div>
                 </div>
               </div>
 
-              <div className="lock__panel">
-                <div className="lock__panelHead">
-                  <div>
-                    <div className="lock__panelTitle">Enter password</div>
-                    <div className="lock__panelHint">Only you (and whoever you share it with) can get in.</div>
+              <div
+                style={{
+                  marginTop: 18,
+                  background:
+                    "radial-gradient(circle at 10% 0%, rgba(14,165,233,.10), transparent 60%), var(--panel)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 20,
+                  padding: 18,
+                  maxWidth: 560,
+                }}
+              >
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontWeight: 700, marginBottom: 2 }}>Enter password</div>
+                  <div style={{ color: "var(--muted)", fontSize: 12 }}>
+                    Only you (and whoever you share it with) can get in.
                   </div>
                 </div>
 
-                <form action={unlock} className="lock__form">
+                <form action={unlock} style={{ display: "flex", gap: 10, alignItems: "center" }}>
                   <input
-                    className="input lock__input"
+                    className="input"
                     name="password"
                     type="password"
                     placeholder="Password"
                     autoComplete="current-password"
                     required
+                    style={{ flex: 1 }}
                   />
-                  <button className="btn btn--primary lock__btn" type="submit">
+                  <button className="btn btn--primary" type="submit" style={{ whiteSpace: "nowrap" }}>
                     Unlock
                   </button>
                 </form>
 
-                <div className="lock__footer">
-                  <span className="lock__muted">Need access?</span>{" "}
-                  <span className="lock__muted">DM the founder.</span>
+                <div style={{ marginTop: 10, fontSize: 12, color: "var(--muted)" }}>
+                  Need access? DM the founder.
                 </div>
               </div>
             </section>
           </main>
-
-          <style jsx global>{`
-            .lock {
-              min-height: 100vh;
-              padding: 64px 20px 80px;
-              background:
-                radial-gradient(circle at 10% 0%, rgba(14,165,233,.18), transparent 55%),
-                radial-gradient(circle at 90% 10%, rgba(255,255,255,.06), transparent 60%),
-                var(--bg);
-              color: var(--fg);
-            }
-            .lock__top {
-              max-width: 1100px;
-              margin: 0 auto 38px;
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              gap: 16px;
-            }
-            .lock__brand { display: flex; flex-direction: column; gap: 6px; }
-            .lock__logo {
-              font-weight: 800;
-              letter-spacing: .2px;
-              font-size: 18px;
-            }
-            .lock__tag {
-              color: var(--muted);
-              font-size: 12px;
-            }
-            .lock__hero {
-              max-width: 1100px;
-              margin: 0 auto;
-            }
-            .lock__title {
-              margin: 0 0 10px;
-              font-size: 34px;
-              letter-spacing: -0.02em;
-              line-height: 1.05;
-            }
-            .lock__sub {
-              margin: 0 0 22px;
-              color: var(--muted);
-              font-size: 14px;
-              max-width: 720px;
-            }
-            .lock__grid {
-              display: grid;
-              grid-template-columns: 1fr;
-              gap: 12px;
-              margin: 18px 0 18px;
-            }
-            @media (min-width: 900px) {
-              .lock__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-            }
-            .lock__card {
-              background: rgba(255,255,255,.03);
-              border: 1px solid var(--border);
-              border-radius: 18px;
-              padding: 16px;
-              box-shadow: 0 0 0 1px rgba(255,255,255,.02) inset;
-            }
-            .lock__kicker {
-              font-size: 12px;
-              color: rgba(255,255,255,.88);
-              font-weight: 700;
-              letter-spacing: .06em;
-              text-transform: uppercase;
-              margin-bottom: 8px;
-            }
-            .lock__text {
-              color: var(--muted);
-              font-size: 13px;
-              line-height: 1.4;
-            }
-            .lock__panel {
-              margin-top: 18px;
-              background: radial-gradient(circle at 10% 0%, rgba(14,165,233,.10), transparent 60%), var(--panel);
-              border: 1px solid var(--border);
-              border-radius: 20px;
-              padding: 18px;
-              max-width: 560px;
-            }
-            .lock__panelHead {
-              display: flex;
-              align-items: flex-start;
-              justify-content: space-between;
-              gap: 12px;
-              margin-bottom: 12px;
-            }
-            .lock__panelTitle {
-              font-weight: 700;
-              margin-bottom: 2px;
-            }
-            .lock__panelHint {
-              color: var(--muted);
-              font-size: 12px;
-            }
-            .lock__form {
-              display: flex;
-              gap: 10px;
-              align-items: center;
-            }
-            .lock__input { flex: 1; }
-            .lock__btn { white-space: nowrap; }
-            .lock__footer {
-              margin-top: 10px;
-              font-size: 12px;
-              color: var(--muted);
-            }
-            .lock__muted { color: var(--muted); }
-          `}</style>
         </body>
       </html>
     );
   }
 
-  // ✅ NORMAL APP LAYOUT (unlocked)
+  // ✅ NORMAL APP
   const supabase = createServerClient();
   const {
     data: { user },
@@ -239,6 +173,7 @@ export default async function RootLayout({
             <Link href="/" className="logo">
               directr<span className="dot">.</span>
             </Link>
+
             <div className="menu">
               <Link href="/create">Create</Link>
               <Link href="/clipper">Clipper</Link>
@@ -273,3 +208,26 @@ export default async function RootLayout({
     </html>
   );
 }
+
+const cardStyle: React.CSSProperties = {
+  background: "rgba(255,255,255,.03)",
+  border: "1px solid var(--border)",
+  borderRadius: 18,
+  padding: 16,
+  boxShadow: "0 0 0 1px rgba(255,255,255,.02) inset",
+};
+
+const kickerStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: "rgba(255,255,255,.88)",
+  fontWeight: 700,
+  letterSpacing: ".06em",
+  textTransform: "uppercase",
+  marginBottom: 8,
+};
+
+const textStyle: React.CSSProperties = {
+  color: "var(--muted)",
+  fontSize: 13,
+  lineHeight: 1.4,
+};
