@@ -10,7 +10,9 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Supabase auth (your existing pattern)
+  // ----------------------------
+  // Supabase auth (server)
+  // ----------------------------
   const supabase = createServerClient();
   const {
     data: { user },
@@ -20,36 +22,53 @@ export default async function RootLayout({
     "use server";
     const s = createServerClient();
     await s.auth.signOut();
-    redirect("/"); // optional
+    redirect("/");
   }
 
-  // --- SITE LOCK (no middleware, no /lock route) ---
+  // ----------------------------
+  // Site Lock (no middleware)
+  // ----------------------------
   const lockEnabled = process.env.SITE_LOCK_ENABLED === "true";
-  const secret = process.env.SITE_LOCK_KEY || "";
-  const cookieStore = await cookies();
-  const unlocked = cookieStore.get("directr_unlocked")?.value === "true";
+  const secret = process.env.SITE_LOCK_KEY ?? "";
+
+  const store = await cookies();
+  const unlocked = store.get("directr_unlocked")?.value === "true";
 
   async function unlock(formData: FormData) {
     "use server";
+
     const entered = String(formData.get("key") || "").trim();
+    const expected = process.env.SITE_LOCK_KEY ?? "";
 
-    if (!process.env.SITE_LOCK_KEY) {
-      redirect("/?lock=env-missing");
-    }
+    // If you forgot to set the key, don't allow unlock
+    if (!expected) redirect("/?lock=env-missing");
 
-    if (entered && entered === process.env.SITE_LOCK_KEY) {
-      const store = await cookies();
-      store.set("directr_unlocked", "true", {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: true,
-        path: "/",
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-      });
-      redirect("/"); // refresh so the lock disappears
-    }
+    // wrong key -> bounce with flag
+    if (!entered || entered !== expected) redirect("/?lock=wrong");
 
-    redirect("/?lock=wrong");
+    const s = await cookies();
+    s.set("directr_unlocked", "true", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    });
+
+    redirect("/"); // refresh page, lock disappears
+  }
+
+  async function relock() {
+    "use server";
+    const s = await cookies();
+    s.set("directr_unlocked", "", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
+    redirect("/");
   }
 
   const showLock = lockEnabled && !!secret && !unlocked;
@@ -81,22 +100,29 @@ export default async function RootLayout({
                   Sign in
                 </Link>
               )}
+
+              {/* handy dev button (remove later) */}
+              {lockEnabled && (
+                <form action={relock}>
+                  <button className="btn btn--ghost" type="submit">
+                    Relock
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         </nav>
 
-        <div className="page">
-          {showLock ? <LockScreen action={unlock} /> : children}
-        </div>
+        <div className="page">{showLock ? <LockScreen unlock={unlock} /> : children}</div>
       </body>
     </html>
   );
 }
 
 function LockScreen({
-  action,
+  unlock,
 }: {
-  action: (formData: FormData) => Promise<void>;
+  unlock: (formData: FormData) => Promise<void>;
 }) {
   return (
     <main className="lock">
@@ -126,7 +152,7 @@ function LockScreen({
               <div className="lockCard__kicker">CLIPPER</div>
               <div className="lockCard__tag">hooks • moments</div>
             </div>
-            <p className="lockCard__p">Find the best segments and clip plan.</p>
+            <p className="lockCard__p">Find the best segments and plan clips.</p>
           </div>
 
           <div className="lockCard">
@@ -148,7 +174,7 @@ function LockScreen({
             </div>
           </div>
 
-          <form className="lockPanel__form" action={action}>
+          <form className="lockPanel__form" action={unlock}>
             <input
               className="input lockPanel__input"
               name="key"
