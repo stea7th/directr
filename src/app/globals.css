@@ -186,288 +186,195 @@ body{
 /* -------- Links -------- */
 a{color:var(--accent)}
 a:hover{opacity:.9}
-/* =========================
-   Private Lock Screen (Pro)
-   ========================= */
-
-/* smoother UI */
-:root{
-  --ease: cubic-bezier(.2,.8,.2,1);
-  --glass: rgba(10,12,16,.62);
-  --glass2: rgba(255,255,255,.04);
-  --stroke: rgba(255,255,255,.10);
-  --stroke2: rgba(255,255,255,.07);
-}
-
-/* Full-bleed background that looks CLEAN (no muddy blobs) */
+/* -------- Lock Screen -------- */
 .lock{
-  position: relative;
+  position:relative;
   min-height: calc(100vh - 64px);
-  padding: 64px 18px 88px;
-  overflow: hidden;
-  isolation: isolate;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: 48px 20px;
+  overflow:hidden;
 }
 
-.lock::before{
-  content:"";
-  position:absolute; inset:-2px;
-  background:
-    radial-gradient(1200px 700px at 25% 18%, rgba(14,165,233,.22), transparent 55%),
-    radial-gradient(900px 600px at 78% 22%, rgba(99,102,241,.16), transparent 58%),
-    radial-gradient(700px 520px at 55% 88%, rgba(255,255,255,.06), transparent 62%),
-    linear-gradient(#07080a, #050506);
-  z-index:-3;
-}
-
-/* subtle clean grain (makes it feel expensive, not “unclean”) */
-.lock::after{
-  content:"";
-  position:absolute; inset:-20%;
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.28'/%3E%3C/svg%3E");
-  opacity: .08;
-  mix-blend-mode: overlay;
-  transform: rotate(-8deg);
-  z-index:-2;
-  pointer-events:none;
-}
-
-/* vignette */
 .lock__bg{
-  position:absolute; inset:-10%;
-  background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(0,0,0,.55) 78%);
-  z-index:-1;
-  pointer-events:none;
+  position:absolute;
+  inset:-2px;
+  background:
+    radial-gradient(900px 500px at 20% 10%, rgba(14,165,233,.22), transparent 60%),
+    radial-gradient(700px 450px at 80% 20%, rgba(99,102,241,.18), transparent 60%),
+    radial-gradient(900px 550px at 50% 100%, rgba(14,165,233,.10), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,.02), transparent 30%),
+    #07070a;
+  filter: saturate(1.1);
 }
 
-/* Main glass shell */
 .lock__wrap{
-  position: relative;
-  max-width: 980px;
-  margin: 0 auto;
-  padding: 34px 34px 36px;
+  position:relative;
+  width:min(980px, 100%);
   border-radius: 28px;
-  background: var(--glass);
-  border: 1px solid var(--stroke);
-  box-shadow:
-    0 55px 120px rgba(0,0,0,.75),
-    inset 0 0 0 1px rgba(255,255,255,.03);
-  backdrop-filter: blur(22px);
-  transform: translateY(0);
-  transition: transform .45s var(--ease), box-shadow .45s var(--ease);
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(10,10,12,.72);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 40px 90px rgba(0,0,0,.75);
+  padding: 28px;
 }
 
-.lock__wrap:hover{
-  transform: translateY(-2px);
-  box-shadow:
-    0 65px 140px rgba(0,0,0,.78),
-    inset 0 0 0 1px rgba(255,255,255,.04);
-}
-
-/* top pill */
-.lock__pill{
+.lock__badge{
   display:inline-flex;
   align-items:center;
   gap:10px;
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
+  border-radius:999px;
   padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.03);
   color: rgba(255,255,255,.78);
   font-size: 12px;
 }
 
-.lock__dot{
-  width:8px; height:8px; border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 0 0 0 4px rgba(14,165,233,.18), 0 0 18px rgba(14,165,233,.35);
+.lock__badgeDot{
+  width:10px; height:10px; border-radius:999px;
+  background: rgba(14,165,233,.9);
+  box-shadow: 0 0 0 4px rgba(14,165,233,.18);
 }
 
-/* headline */
 .lock__title{
-  margin: 18px 0 8px;
-  font-size: 46px;
-  line-height: 1.04;
-  letter-spacing: -0.03em;
+  margin: 14px 0 6px;
+  font-size: 44px;
+  letter-spacing: -.03em;
 }
 
-.lock__sub{
-  margin: 0 0 22px;
+.lock__subtitle{
+  margin: 0 0 18px;
   color: rgba(255,255,255,.68);
+  max-width: 620px;
   font-size: 14px;
-  max-width: 760px;
+  line-height: 1.5;
 }
 
-/* Feature cards row */
-.lock__cards{
+.lock__grid{
   display:grid;
   grid-template-columns: 1fr;
   gap: 12px;
-  margin-top: 10px;
+  margin: 14px 0 18px;
 }
-
-@media(min-width: 900px){
-  .lock__cards{ grid-template-columns: repeat(3, 1fr); }
+@media (min-width: 900px){
+  .lock__grid{ grid-template-columns: repeat(3, minmax(0,1fr)); }
 }
 
 .lockCard{
   border-radius: 18px;
-  border: 1px solid var(--stroke2);
-  background: rgba(255,255,255,.028);
-  padding: 14px 14px 12px;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.02);
-  transition:
-    transform .35s var(--ease),
-    border-color .35s var(--ease),
-    background .35s var(--ease);
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
+  padding: 14px;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
-
 .lockCard:hover{
   transform: translateY(-3px);
-  border-color: rgba(14,165,233,.25);
-  background: rgba(14,165,233,.04);
+  border-color: rgba(14,165,233,.35);
+  box-shadow: 0 18px 50px rgba(0,0,0,.55);
 }
 
 .lockCard__top{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap:10px;
+  margin-bottom: 10px;
 }
-
 .lockCard__kicker{
-  font-weight: 750;
-  letter-spacing: .10em;
-  text-transform: uppercase;
-  font-size: 11px;
-  color: rgba(255,255,255,.88);
+  font-size: 12px;
+  letter-spacing: .14em;
+  color: rgba(255,255,255,.85);
 }
-
 .lockCard__tag{
   font-size: 11px;
   color: rgba(255,255,255,.55);
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.22);
+  padding: 4px 10px;
+  border-radius: 999px;
 }
-
 .lockCard__p{
-  margin: 0;
-  color: rgba(255,255,255,.70);
+  margin:0;
+  color: rgba(255,255,255,.68);
   font-size: 13px;
+  line-height: 1.45;
 }
 
-/* Unlock panel */
 .lockPanel{
-  margin-top: 16px;
   border-radius: 18px;
-  border: 1px solid rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.10);
   background: rgba(0,0,0,.28);
   padding: 14px;
-  transition: border-color .35s var(--ease), background .35s var(--ease);
-}
-
-.lockPanel:hover{
-  border-color: rgba(255,255,255,.16);
-  background: rgba(0,0,0,.34);
 }
 
 .lockPanel__head{
   display:flex;
-  align-items:flex-start;
+  align-items:flex-end;
   justify-content:space-between;
   gap: 12px;
   margin-bottom: 10px;
 }
 
-.lockPanel__title{
-  font-weight: 650;
-  font-size: 14px;
-}
+.lockPanel__title{ font-weight: 700; }
+.lockPanel__hint{ color: rgba(255,255,255,.55); font-size: 12px; margin-top: 2px; }
 
-.lockPanel__hint{
-  margin-top: 2px;
-  color: rgba(255,255,255,.58);
-  font-size: 12px;
-}
-
-.lockPanel__error{
-  color: #fecaca;
-  background: rgba(239,68,68,.10);
-  border: 1px solid rgba(239,68,68,.25);
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-/* nicer input */
 .lockPanel__form{
   display:flex;
   gap: 10px;
   align-items:center;
+  flex-wrap: wrap;
 }
 
 .lockPanel__input{
-  height: 46px;
+  height: 44px;
   border-radius: 14px;
-  transition: box-shadow .25s var(--ease), border-color .25s var(--ease), transform .25s var(--ease);
+  flex: 1 1 320px;
 }
 
-.lockPanel__input:focus{
-  border-color: rgba(14,165,233,.35);
-  box-shadow: 0 0 0 4px rgba(14,165,233,.16);
-  transform: translateY(-1px);
-}
-
-/* BUTTONS: hover motion + glow */
-.btn{
-  transition:
-    transform .22s var(--ease),
-    box-shadow .22s var(--ease),
-    filter .22s var(--ease),
-    border-color .22s var(--ease),
-    background .22s var(--ease);
-}
-
-.btn:hover{
-  transform: translateY(-2px);
-  box-shadow: 0 14px 35px rgba(0,0,0,.55);
-}
-
-.btn:active{
-  transform: translateY(0px);
-  box-shadow: 0 6px 16px rgba(0,0,0,.55);
-}
-
-.btn--primary{
-  background: linear-gradient(135deg, rgba(14,165,233,1), rgba(59,130,246,1));
-  border-color: transparent;
-}
-
-.btn--primary:hover{
-  filter: brightness(1.06);
-  box-shadow:
-    0 16px 42px rgba(0,0,0,.6),
-    0 0 0 4px rgba(14,165,233,.12);
-}
-
-/* Unlock button fits */
 .lockPanel__btn{
-  height: 46px;
+  height: 44px;
   border-radius: 14px;
-  padding: 0 18px;
-  white-space: nowrap;
+  padding: 0 16px;
+  transition: transform .18s ease, filter .18s ease;
+}
+.lockPanel__btn:hover{
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+}
+.lockPanel__btn:active{
+  transform: translateY(0px);
 }
 
-/* little footer */
-.lockPanel__foot{
-  margin-top: 10px;
-  color: rgba(255,255,255,.45);
-  font-size: 12px;
+.lockPanel__actions{
+  display:flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
 }
 
-.lockPanel__foot code{
-  padding: 2px 6px;
-  border-radius: 8px;
+.lockLink{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.12);
   background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.10);
+  color: rgba(255,255,255,.90);
+  text-decoration:none;
+  transition: transform .18s ease, background .18s ease, border-color .18s ease;
+}
+.lockLink:hover{
+  transform: translateY(-2px);
+  border-color: rgba(14,165,233,.30);
+  background: rgba(14,165,233,.12);
+}
+.lockLink--ghost{
+  background: transparent;
+}
+.lockLink--ghost:hover{
+  background: rgba(255,255,255,.06);
 }
