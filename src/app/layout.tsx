@@ -9,213 +9,42 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const lockEnabled = process.env.SITE_LOCK_ENABLED === "true";
-  const cookieStore = await cookies();
-  const unlocked = cookieStore.get("directr_unlocked")?.value === "true";
-
-  async function unlock(formData: FormData) {
-    "use server";
-    const pass = String(formData.get("password") || "");
-    if (pass && pass === process.env.SITE_PASSWORD) {
-      const c = await cookies();
-      c.set("directr_unlocked", "true", {
-        httpOnly: true,
-        secure: true,
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-      });
-    }
-  }
-
-  async function lock() {
-    "use server";
-    const c = await cookies();
-    c.set("directr_unlocked", "", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 0,
-    });
-  }
-
-  // ----------------------------
-  // LOCK SCREEN (mini landing)
-  // ----------------------------
-  if (lockEnabled && !unlocked) {
-    return (
-      <html lang="en">
-        <body style={{ margin: 0 }}>
-          <main
-            style={{
-              minHeight: "100vh",
-              padding: "72px 20px 88px",
-              background:
-                "radial-gradient(circle at 10% 0%, rgba(14,165,233,.18), transparent 55%), radial-gradient(circle at 90% 10%, rgba(255,255,255,.06), transparent 60%), var(--bg)",
-              color: "var(--fg)",
-            }}
-          >
-            <div
-              style={{
-                maxWidth: 1100,
-                margin: "0 auto",
-                display: "flex",
-                flexDirection: "column",
-                gap: 28,
-              }}
-            >
-              {/* Top bar */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 14,
-                }}
-              >
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <div style={{ fontWeight: 800, letterSpacing: ".2px", fontSize: 18 }}>
-                    directr<span className="dot">.</span>
-                  </div>
-                  <div style={{ color: "var(--muted)", fontSize: 12 }}>
-                    Private build • founder access
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: "inline-flex",
-                    gap: 8,
-                    alignItems: "center",
-                    color: "var(--muted)",
-                    fontSize: 12,
-                    border: "1px solid var(--border)",
-                    background: "rgba(255,255,255,.03)",
-                    borderRadius: 999,
-                    padding: "7px 10px",
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 7,
-                      height: 7,
-                      borderRadius: 999,
-                      background: "rgba(14,165,233,.95)",
-                      boxShadow: "0 0 0 3px rgba(14,165,233,.18)",
-                      display: "inline-block",
-                    }}
-                  />
-                  Shipping updates daily
-                </div>
-              </div>
-
-              {/* Hero */}
-              <section style={{ maxWidth: 980 }}>
-                <h1
-                  style={{
-                    margin: 0,
-                    fontSize: 38,
-                    letterSpacing: "-0.03em",
-                    lineHeight: 1.05,
-                  }}
-                >
-                  Directr is locked.
-                </h1>
-                <p
-                  style={{
-                    margin: "12px 0 0",
-                    color: "var(--muted)",
-                    fontSize: 14,
-                    lineHeight: 1.5,
-                    maxWidth: 720,
-                  }}
-                >
-                  AI-powered creation → clips → captions. We’re in build mode and limiting access
-                  while we stabilize uploads + editing.
-                </p>
-              </section>
-
-              {/* Feature cards */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr",
-                  gap: 12,
-                }}
-              >
-                <div style={lockCard}>
-                  <div style={lockKicker}>Create</div>
-                  <div style={lockText}>Type a prompt or upload. Get scripts, angles, notes.</div>
-                </div>
-                <div style={lockCard}>
-                  <div style={lockKicker}>Clipper</div>
-                  <div style={lockText}>Find hooks & key moments (then generate clip plan).</div>
-                </div>
-                <div style={lockCard}>
-                  <div style={lockKicker}>Planner</div>
-                  <div style={lockText}>Turn outputs into a weekly posting plan + execution list.</div>
-                </div>
-              </div>
-
-              {/* Unlock panel */}
-              <div
-                style={{
-                  maxWidth: 560,
-                  background:
-                    "radial-gradient(circle at 10% 0%, rgba(14,165,233,.10), transparent 60%), var(--panel)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 20,
-                  padding: 18,
-                  boxShadow: "0 0 0 1px rgba(255,255,255,.02) inset",
-                }}
-              >
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontWeight: 700, marginBottom: 2 }}>Enter password</div>
-                  <div style={{ color: "var(--muted)", fontSize: 12 }}>
-                    Your session stays unlocked for 7 days on this device.
-                  </div>
-                </div>
-
-                <form action={unlock} style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  <input
-                    className="input"
-                    name="password"
-                    type="password"
-                    placeholder="Password"
-                    autoComplete="current-password"
-                    required
-                    style={{ flex: 1 }}
-                  />
-                  <button className="btn btn--primary" type="submit" style={{ whiteSpace: "nowrap" }}>
-                    Unlock
-                  </button>
-                </form>
-
-                <div style={{ marginTop: 10, fontSize: 12, color: "var(--muted)" }}>
-                  Tip: set <code>SITE_LOCK_ENABLED=false</code> to disable lock.
-                </div>
-              </div>
-            </div>
-          </main>
-        </body>
-      </html>
-    );
-  }
-
-  // ----------------------------
-  // NORMAL APP
-  // ----------------------------
   const supabase = createServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // ✅ Next 15: cookies() is async in server components
+  const cookieStore = await cookies();
+
+  const lockEnabled = process.env.SITE_LOCK_ENABLED === "true";
+  const unlocked = cookieStore.get("directr_unlocked")?.value === "true";
 
   async function signOut() {
     "use server";
     const s = createServerClient();
     await s.auth.signOut();
   }
+
+  async function unlock(formData: FormData) {
+    "use server";
+    const password = String(formData.get("password") || "");
+    const expected = process.env.SITE_LOCK_PASSWORD || "";
+
+    if (!expected) return; // fail closed if not set
+    if (password !== expected) return;
+
+    const c = await cookies();
+    c.set("directr_unlocked", "true", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    });
+  }
+
+  const showLock = lockEnabled && !unlocked;
 
   return (
     <html lang="en">
@@ -234,18 +63,11 @@ export default async function RootLayout({
               <Link href="/pricing">Pricing</Link>
 
               {user ? (
-                <>
-                  <form action={signOut}>
-                    <button className="btn btn--ghost" type="submit">
-                      Sign out
-                    </button>
-                  </form>
-                  <form action={lock}>
-                    <button className="btn btn--ghost" type="submit">
-                      Lock site
-                    </button>
-                  </form>
-                </>
+                <form action={signOut}>
+                  <button className="btn btn--ghost" type="submit">
+                    Sign out
+                  </button>
+                </form>
               ) : (
                 <Link href="/login" className="btn btn--primary">
                   Sign in
@@ -255,31 +77,85 @@ export default async function RootLayout({
           </div>
         </nav>
 
-        <div className="page">{children}</div>
+        <div className="page">
+          {showLock ? (
+            <main className="lock">
+              <div className="lock__bg" aria-hidden="true" />
+              <div className="lock__wrap">
+                <div className="lock__badge">
+                  <span className="lock__dot" />
+                  Private build • founder access
+                </div>
+
+                <h1 className="lock__title">Directr is in private mode.</h1>
+                <p className="lock__sub">
+                  AI-powered creation → clips → captions. Access is limited while we
+                  stabilize uploads + editing.
+                </p>
+
+                <div className="lock__grid">
+                  <div className="lock__card">
+                    <div className="lock__cardTop">
+                      <span className="lock__pill">CREATE</span>
+                      <span className="lock__mini">Scripts • angles • notes</span>
+                    </div>
+                    <p className="lock__cardText">
+                      Turn a prompt or upload into a clean content plan.
+                    </p>
+                  </div>
+
+                  <div className="lock__card">
+                    <div className="lock__cardTop">
+                      <span className="lock__pill">CLIPPER</span>
+                      <span className="lock__mini">Hooks • moments</span>
+                    </div>
+                    <p className="lock__cardText">
+                      Find the best segments and generate a clip plan.
+                    </p>
+                  </div>
+
+                  <div className="lock__card">
+                    <div className="lock__cardTop">
+                      <span className="lock__pill">PLANNER</span>
+                      <span className="lock__mini">Weekly execution</span>
+                    </div>
+                    <p className="lock__cardText">
+                      Turn outputs into a posting schedule + checklist.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="lock__panel">
+                  <div className="lock__panelHead">
+                    <h3>Enter access key</h3>
+                    <p>Your device stays unlocked for 7 days.</p>
+                  </div>
+
+                  <form action={unlock} className="lock__form">
+                    <input
+                      className="input lock__input"
+                      name="password"
+                      type="password"
+                      placeholder="Access key"
+                      autoComplete="current-password"
+                      required
+                    />
+                    <button className="btn btn--primary lock__btn" type="submit">
+                      Unlock
+                    </button>
+                  </form>
+
+                  <div className="lock__hint">
+                    Tip: set <code>SITE_LOCK_ENABLED=false</code> to disable the lock.
+                  </div>
+                </div>
+              </div>
+            </main>
+          ) : (
+            children
+          )}
+        </div>
       </body>
     </html>
   );
 }
-
-const lockCard: React.CSSProperties = {
-  background: "rgba(255,255,255,.03)",
-  border: "1px solid var(--border)",
-  borderRadius: 18,
-  padding: 16,
-  boxShadow: "0 0 0 1px rgba(255,255,255,.02) inset",
-};
-
-const lockKicker: React.CSSProperties = {
-  fontSize: 12,
-  color: "rgba(255,255,255,.88)",
-  fontWeight: 700,
-  letterSpacing: ".06em",
-  textTransform: "uppercase",
-  marginBottom: 8,
-};
-
-const lockText: React.CSSProperties = {
-  color: "var(--muted)",
-  fontSize: 13,
-  lineHeight: 1.4,
-};
