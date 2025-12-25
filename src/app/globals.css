@@ -186,3 +186,175 @@ body{
 /* -------- Links -------- */
 a{color:var(--accent)}
 a:hover{opacity:.9}
+/* -------- Lock Screen (premium) -------- */
+.lock{
+  position:relative;
+  min-height: calc(100vh - 64px);
+  padding: 56px 20px 80px;
+  overflow:hidden;
+}
+
+.lock__bg{
+  position:absolute;
+  inset:-1px;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(14,165,233,.22), transparent 52%),
+    radial-gradient(circle at 78% 24%, rgba(255,255,255,.06), transparent 55%),
+    radial-gradient(circle at 70% 78%, rgba(14,165,233,.12), transparent 58%),
+    linear-gradient(180deg, rgba(255,255,255,.02), transparent 35%),
+    var(--bg);
+  filter: saturate(1.05);
+}
+
+.lock__wrap{
+  position:relative;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.lock__badge{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+  border-radius: 999px;
+  color: rgba(255,255,255,.72);
+  font-size: 12px;
+  letter-spacing: .02em;
+}
+
+.lock__dot{
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(14,165,233,.18);
+}
+
+.lock__title{
+  margin: 18px 0 6px;
+  font-size: 44px;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+}
+
+.lock__sub{
+  margin: 0 0 26px;
+  color: rgba(255,255,255,.68);
+  max-width: 720px;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.lock__grid{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+@media (min-width: 900px){
+  .lock__grid{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.lock__card{
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.10);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(14,165,233,.10), transparent 55%),
+    rgba(255,255,255,.03);
+  box-shadow:
+    0 18px 50px rgba(0,0,0,.55),
+    inset 0 0 0 1px rgba(255,255,255,.03);
+  padding: 16px 16px 14px;
+  backdrop-filter: blur(14px);
+}
+
+.lock__cardTop{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.lock__pill{
+  font-size: 11px;
+  letter-spacing: .10em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.85);
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.28);
+}
+
+.lock__mini{
+  font-size: 12px;
+  color: rgba(255,255,255,.55);
+}
+
+.lock__cardText{
+  margin:0;
+  color: rgba(255,255,255,.72);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.lock__panel{
+  margin-top: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,.12);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255,255,255,.06), transparent 55%),
+    rgba(0,0,0,.35);
+  box-shadow:
+    0 26px 70px rgba(0,0,0,.70),
+    inset 0 0 0 1px rgba(255,255,255,.03);
+  padding: 16px;
+  max-width: 520px;
+}
+
+.lock__panelHead h3{
+  margin:0;
+  font-size: 14px;
+  letter-spacing: .01em;
+}
+.lock__panelHead p{
+  margin:6px 0 0;
+  color: rgba(255,255,255,.58);
+  font-size: 12px;
+}
+
+.lock__form{
+  display:flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.lock__input{
+  height: 42px;
+  border-radius: 14px;
+}
+
+.lock__btn{
+  height: 42px;
+  border-radius: 14px;
+  padding: 0 16px;
+  white-space: nowrap;
+}
+
+.lock__hint{
+  margin-top: 10px;
+  color: rgba(255,255,255,.45);
+  font-size: 12px;
+}
+.lock__hint code{
+  color: rgba(255,255,255,.75);
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10);
+  padding: 2px 6px;
+  border-radius: 8px;
+}
