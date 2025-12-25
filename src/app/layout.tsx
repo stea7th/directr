@@ -10,7 +10,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // auth (your existing)
+  // Supabase auth (your existing pattern)
   const supabase = createServerClient();
   const {
     data: { user },
@@ -20,21 +20,24 @@ export default async function RootLayout({
     "use server";
     const s = createServerClient();
     await s.auth.signOut();
+    redirect("/"); // optional
   }
 
-  // --- SITE LOCK ---
+  // --- SITE LOCK (no middleware, no /lock route) ---
   const lockEnabled = process.env.SITE_LOCK_ENABLED === "true";
-  const secret = process.env.SITE_LOCK_KEY || ""; // must exist in env
+  const secret = process.env.SITE_LOCK_KEY || "";
   const cookieStore = await cookies();
   const unlocked = cookieStore.get("directr_unlocked")?.value === "true";
 
   async function unlock(formData: FormData) {
     "use server";
-    const key = String(formData.get("key") || "");
+    const entered = String(formData.get("key") || "").trim();
+
     if (!process.env.SITE_LOCK_KEY) {
       redirect("/?lock=env-missing");
     }
-    if (key.trim() && key.trim() === process.env.SITE_LOCK_KEY) {
+
+    if (entered && entered === process.env.SITE_LOCK_KEY) {
       const store = await cookies();
       store.set("directr_unlocked", "true", {
         httpOnly: true,
@@ -43,8 +46,9 @@ export default async function RootLayout({
         path: "/",
         maxAge: 60 * 60 * 24 * 7, // 7 days
       });
-      redirect("/"); // refresh + re-render without lock
+      redirect("/"); // refresh so the lock disappears
     }
+
     redirect("/?lock=wrong");
   }
 
@@ -58,12 +62,14 @@ export default async function RootLayout({
             <Link href="/" className="logo">
               directr<span className="dot">.</span>
             </Link>
+
             <div className="menu">
               <Link href="/create">Create</Link>
               <Link href="/clipper">Clipper</Link>
               <Link href="/planner">Planner</Link>
               <Link href="/jobs">Jobs</Link>
               <Link href="/pricing">Pricing</Link>
+
               {user ? (
                 <form action={signOut}>
                   <button className="btn btn--ghost" type="submit">
@@ -80,56 +86,55 @@ export default async function RootLayout({
         </nav>
 
         <div className="page">
-          {showLock ? (
-            <LockScreen action={unlock} />
-          ) : (
-            children
-          )}
+          {showLock ? <LockScreen action={unlock} /> : children}
         </div>
       </body>
     </html>
   );
 }
 
-function LockScreen({ action }: { action: (fd: FormData) => Promise<void> }) {
-  // This is a Server Component. No client hooks.
+function LockScreen({
+  action,
+}: {
+  action: (formData: FormData) => Promise<void>;
+}) {
   return (
     <main className="lock">
       <div className="lock__bg" />
       <div className="lock__wrap">
-        <div className="lock__pill">
-          <span className="lock__dot" />
+        <div className="lock__badge">
+          <span className="lock__badgeDot" />
           Private build • founder access
         </div>
 
-        <h1 className="lock__title">Directr is in private mode.</h1>
-        <p className="lock__sub">
-          AI-powered creation → clips → captions. Access is limited while we stabilize uploads + editing.
+        <h1 className="lock__title">Directr is locked.</h1>
+        <p className="lock__subtitle">
+          We’re stabilizing uploads + editing. Access is limited while we ship.
         </p>
 
-        <div className="lock__cards">
+        <div className="lock__grid">
           <div className="lockCard">
             <div className="lockCard__top">
-              <div className="lockCard__kicker">Create</div>
+              <div className="lockCard__kicker">CREATE</div>
               <div className="lockCard__tag">scripts • angles • notes</div>
             </div>
-            <p className="lockCard__p">Turn a prompt or upload into a clean content plan.</p>
+            <p className="lockCard__p">Turn an idea into a clean content plan.</p>
           </div>
 
           <div className="lockCard">
             <div className="lockCard__top">
-              <div className="lockCard__kicker">Clipper</div>
+              <div className="lockCard__kicker">CLIPPER</div>
               <div className="lockCard__tag">hooks • moments</div>
             </div>
-            <p className="lockCard__p">Find the best segments and generate a clip plan.</p>
+            <p className="lockCard__p">Find the best segments and clip plan.</p>
           </div>
 
           <div className="lockCard">
             <div className="lockCard__top">
-              <div className="lockCard__kicker">Planner</div>
+              <div className="lockCard__kicker">PLANNER</div>
               <div className="lockCard__tag">weekly execution</div>
             </div>
-            <p className="lockCard__p">Turn outputs into a posting schedule + checklist.</p>
+            <p className="lockCard__p">Ship consistently with a posting system.</p>
           </div>
         </div>
 
@@ -137,11 +142,10 @@ function LockScreen({ action }: { action: (fd: FormData) => Promise<void> }) {
           <div className="lockPanel__head">
             <div>
               <div className="lockPanel__title">Enter access key</div>
-              <div className="lockPanel__hint">This device stays unlocked for 7 days.</div>
+              <div className="lockPanel__hint">
+                This device stays unlocked for 7 days.
+              </div>
             </div>
-
-            {/* show reason via query param */}
-            {/* if you want: remove this */}
           </div>
 
           <form className="lockPanel__form" action={action}>
@@ -156,8 +160,16 @@ function LockScreen({ action }: { action: (fd: FormData) => Promise<void> }) {
             </button>
           </form>
 
-          <div className="lockPanel__foot">
-            Tip: set <code>SITE_LOCK_ENABLED=false</code> to disable.
+          <div className="lockPanel__actions">
+            <a className="lockLink" href="https://forms.gle/">
+              Join waitlist
+            </a>
+            <a
+              className="lockLink lockLink--ghost"
+              href="mailto:you@yourdomain.com?subject=Directr%20Access%20Request"
+            >
+              Request access
+            </a>
           </div>
         </div>
       </div>
