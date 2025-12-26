@@ -1,248 +1,100 @@
-/* src/app/lock/lock.css */
+/* ===== LOCK SCREEN ===== */
 
-/* Full-screen stage */
-.lockStage{
-  min-height: calc(100vh - 64px);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: 36px 20px;
-  position: relative;
-  overflow:hidden;
-}
-
-/* Background: soft moving gradient + vignette + grain */
-.lockStage::before{
-  content:"";
-  position:absolute; inset:-40%;
+.lockShell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background:
-    radial-gradient(900px 520px at 35% 30%, rgba(14,165,233,.18), transparent 60%),
-    radial-gradient(760px 520px at 70% 60%, rgba(99,102,241,.14), transparent 62%),
-    radial-gradient(900px 680px at 50% 110%, rgba(16,185,129,.06), transparent 60%);
-  filter: blur(18px);
-  animation: floaty 12s ease-in-out infinite alternate;
-  pointer-events:none;
+    radial-gradient(1200px 600px at 50% 0%, rgba(80,120,255,0.15), transparent 60%),
+    linear-gradient(180deg, #07090f, #05060a 70%);
 }
 
-.lockStage::after{
-  content:"";
-  position:absolute; inset:0;
-  background:
-    radial-gradient(1200px 700px at 50% 40%, rgba(255,255,255,.05), transparent 55%),
-    radial-gradient(900px 600px at 50% 80%, rgba(0,0,0,.8), rgba(0,0,0,.92));
-  pointer-events:none;
-}
-
-@keyframes floaty{
-  0%{transform: translate3d(-2%, -1%, 0) scale(1.02)}
-  100%{transform: translate3d(2%, 1%, 0) scale(1.06)}
-}
-
-/* Container */
-.lockWrap{
-  width: min(980px, 100%);
-  position: relative;
-  z-index: 1;
-}
-
-/* Main card */
-.lockCard{
-  border-radius: 22px;
-  border: 1px solid rgba(255,255,255,.10);
-  background:
-    linear-gradient(180deg, rgba(17,17,17,.72), rgba(10,10,10,.72));
-  box-shadow:
-    0 25px 70px rgba(0,0,0,.55),
-    inset 0 0 0 1px rgba(255,255,255,.04);
-  overflow:hidden;
-}
-
-.lockCard__inner{
-  padding: 26px;
-}
-
-@media (min-width: 860px){
-  .lockCard__inner{ padding: 34px; }
-}
-
-/* Top pill */
-.lockPill{
-  display:inline-flex;
-  gap:10px;
-  align-items:center;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.03);
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.lockDot{
-  width: 8px; height: 8px;
-  border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 0 0 0 4px rgba(14,165,233,.16);
-}
-
-/* Typography */
-.lockTitle{
-  margin: 14px 0 8px;
-  font-size: clamp(28px, 4vw, 44px);
-  letter-spacing: -0.02em;
-  line-height: 1.05;
-}
-.lockSub{
-  margin: 0 0 18px;
-  color: var(--muted);
-  max-width: 62ch;
-  line-height: 1.5;
-}
-
-/* Feature tiles */
-.lockTiles{
-  display:grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-  margin: 18px 0 22px;
-}
-@media (min-width: 860px){
-  .lockTiles{ grid-template-columns: repeat(3, 1fr); }
-}
-
-.lockTile{
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.03);
-  padding: 14px;
-  transition: transform .18s ease, border-color .18s ease, background .18s ease;
-}
-.lockTile:hover{
-  transform: translateY(-2px);
-  border-color: rgba(14,165,233,.35);
-  background: rgba(14,165,233,.06);
-}
-.lockTile h4{
-  margin: 0 0 6px;
-  font-size: 12px;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,.86);
-}
-.lockTile p{
-  margin:0;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-/* Bottom section: two columns on desktop */
-.lockBottom{
-  display:grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-  margin-top: 6px;
-}
-@media (min-width: 860px){
-  .lockBottom{ grid-template-columns: 1.1fr .9fr; gap: 16px; }
-}
-
-/* Panels inside bottom */
-.lockPanel{
-  border-radius: 18px;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.03);
-  padding: 16px;
-}
-
-.lockPanel h3{
-  margin: 0 0 4px;
-  font-size: 14px;
-}
-.lockPanel p{
-  margin: 0 0 12px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-/* Form row */
-.lockRow{
-  display:flex;
-  gap: 10px;
-  align-items:center;
-}
-
-.lockInput{
+.lockCard {
   width: 100%;
-  height: 40px;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(0,0,0,.30);
-  color: var(--fg);
-  padding: 0 14px;
-  outline:none;
-  transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease;
-}
-.lockInput:focus{
-  border-color: rgba(14,165,233,.45);
-  box-shadow: 0 0 0 4px rgba(14,165,233,.18);
+  max-width: 520px;
+  padding: 36px 36px 40px;
+  border-radius: 16px;
+  background: rgba(10, 12, 18, 0.75);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow:
+    0 20px 60px rgba(0,0,0,0.6),
+    inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
-.lockBtn{
-  height: 40px;
-  padding: 0 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.04);
-  color: rgba(255,255,255,.92);
-  cursor:pointer;
-  transition: transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease;
-  white-space: nowrap;
-}
-.lockBtn:hover{
-  transform: translateY(-1px);
-  border-color: rgba(14,165,233,.38);
-  box-shadow: 0 0 0 4px rgba(14,165,233,.14);
-  background: rgba(14,165,233,.08);
-}
-.lockBtn:active{ transform: translateY(0px) scale(.99); }
-
-.lockBtnPrimary{
-  background: linear-gradient(180deg, rgba(14,165,233,1), rgba(2,132,199,1));
-  border-color: transparent;
-}
-.lockBtnPrimary:hover{
-  box-shadow: 0 10px 30px rgba(14,165,233,.20), 0 0 0 4px rgba(14,165,233,.14);
-}
-
-.lockMeta{
-  margin-top: 10px;
+.lockKicker {
   font-size: 12px;
-  color: var(--muted);
-  display:flex;
-  justify-content:space-between;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(180,190,255,0.7);
+  margin-bottom: 10px;
+}
+
+.lockTitle {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.lockSub {
+  font-size: 14px;
+  color: rgba(255,255,255,0.65);
+  margin-bottom: 26px;
+}
+
+/* ===== FORM ===== */
+
+.lockFormWrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.lockRow {
+  display: flex;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
-.lockError{
-  margin-top: 10px;
-  font-size: 12px;
-  color: #fecaca;
-  background: rgba(239,68,68,.10);
-  border: 1px solid rgba(239,68,68,.25);
-  padding: 10px 12px;
-  border-radius: 14px;
+.lockInput {
+  flex: 1;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: white;
+  outline: none;
 }
 
-/* Secondary actions */
-.lockActions{
-  display:flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 10px;
+.lockInput::placeholder {
+  color: rgba(255,255,255,0.35);
 }
-.lockSmall{
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 8px;
+
+.lockBtn {
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: white;
+  cursor: pointer;
+}
+
+.lockBtnPrimary {
+  background: linear-gradient(
+    180deg,
+    #4f6cff,
+    #3b55ff
+  );
+  border-color: rgba(255,255,255,0.2);
+}
+
+.lockBtn:hover {
+  opacity: 0.9;
+}
+
+.lockError {
+  margin-top: 14px;
+  font-size: 13px;
+  color: #ff6b6b;
 }
