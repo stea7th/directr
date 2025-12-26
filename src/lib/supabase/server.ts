@@ -11,27 +11,26 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 /**
  * For layouts / server components
- * ✅ Only READ cookies (no set/remove) so Next.js doesn't complain.
+ * ✅ read-only cookies
  */
-export function createServerClient() {
-  const cookieStore = cookies() as any;
+export async function createServerClient() {
+  const cookieStore = await cookies();
 
   return createSupabaseClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       get(name: string) {
         return cookieStore.get(name)?.value;
       },
-      // no set/remove here on purpose
     },
   });
 }
 
 /**
  * For Route Handlers (/api/...) and Server Actions
- * ✅ Full read/write cookies allowed.
+ * ✅ full read/write cookies
  */
-export function createRouteClient() {
-  const cookieStore = cookies() as any;
+export async function createRouteClient() {
+  const cookieStore = await cookies();
 
   return createSupabaseClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
