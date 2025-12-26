@@ -1,2 +1,5 @@
-import LockPage from "./lock/page";
-export default LockPage;
+import { redirect } from "next/navigation";
+
+export default function Home() {
+  redirect("/create");
+}
