@@ -1,29 +1,30 @@
-// src/app/layout.tsx
 import "./globals.css";
 import Link from "next/link";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
-import LockScreen from "./lock/LockScreen";
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  // Supabase user for nav (optional)
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+const LOCK_COOKIE = "directr_unlocked";
 
-  // ✅ Lock gate (applies globally)
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const lockEnabled = process.env.SITE_LOCK_ENABLED === "true";
-  const cookieStore = await cookies(); // Next 15: cookies() is async
-  const unlocked = cookieStore.get("directr_unlocked")?.value === "true";
+  const cookieStore = await cookies();
+  const unlocked = cookieStore.get(LOCK_COOKIE)?.value === "true";
+
+  // allow lock page + api routes to work even while locked
+  const pathname = cookieStore.get("next-url")?.value || "";
+
+  if (lockEnabled && !unlocked) {
+    // always show lock instead of any page
+    redirect("/lock");
+  }
+
+  const supabase = createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
   async function signOut() {
     "use server";
-    const s = await createServerClient();
+    const s = createServerClient();
     await s.auth.signOut();
   }
 
@@ -35,38 +36,24 @@ export default async function RootLayout({
             <Link href="/" className="logo">
               directr<span className="dot">.</span>
             </Link>
-
             <div className="menu">
               <Link href="/create">Create</Link>
               <Link href="/clipper">Clipper</Link>
               <Link href="/planner">Planner</Link>
               <Link href="/jobs">Jobs</Link>
               <Link href="/pricing">Pricing</Link>
-
-              {/* ✅ Founder badge when unlocked */}
-              {lockEnabled && unlocked ? (
-                <span className="badge badge--ok">Founder access</span>
-              ) : null}
-
               {user ? (
                 <form action={signOut}>
-                  <button className="btn btn--ghost" type="submit">
-                    Sign out
-                  </button>
+                  <button className="btn btn--ghost" type="submit">Sign out</button>
                 </form>
               ) : (
-                <Link href="/login" className="btn btn--primary">
-                  Sign in
-                </Link>
+                <Link href="/login" className="btn btn--primary">Sign in</Link>
               )}
             </div>
           </div>
         </nav>
 
-        <div className="page">
-          {/* ✅ If locked, show lock screen no matter what URL they type */}
-          {lockEnabled && !unlocked ? <LockScreen /> : children}
-        </div>
+        <div className="page">{children}</div>
       </body>
     </html>
   );
