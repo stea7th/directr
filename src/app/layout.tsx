@@ -37,7 +37,14 @@ export default async function RootLayout({
               <Link href="/planner">Planner</Link>
               <Link href="/jobs">Jobs</Link>
               <Link href="/pricing">Pricing</Link>
-
+              
+{process.env.SITE_LOCK_ENABLED === "true" && (
+  <form action={relockAction}>
+    <button className="btn btn--ghost" type="submit">
+      Relock
+    </button>
+  </form>
+)}
               {user ? (
                 <form action={signOut}>
                   <button className="btn btn--ghost" type="submit">
