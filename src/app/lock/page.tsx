@@ -1,3 +1,4 @@
+import "./lock.css";
 import LockForm from "./LockForm";
 
 export default function LockPage() {
