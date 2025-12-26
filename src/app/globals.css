@@ -186,195 +186,72 @@ body{
 /* -------- Links -------- */
 a{color:var(--accent)}
 a:hover{opacity:.9}
-/* -------- Lock Screen -------- */
-.lock{
-  position:relative;
-  min-height: calc(100vh - 64px);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: 48px 20px;
-  overflow:hidden;
-}
-
+/* -------- Lock screen -------- */
+.lock{min-height:100vh; position:relative; display:flex; align-items:center; justify-content:center; padding:42px 20px}
 .lock__bg{
-  position:absolute;
-  inset:-2px;
+  position:absolute; inset:0;
   background:
-    radial-gradient(900px 500px at 20% 10%, rgba(14,165,233,.22), transparent 60%),
-    radial-gradient(700px 450px at 80% 20%, rgba(99,102,241,.18), transparent 60%),
-    radial-gradient(900px 550px at 50% 100%, rgba(14,165,233,.10), transparent 60%),
-    linear-gradient(180deg, rgba(255,255,255,.02), transparent 30%),
-    #07070a;
-  filter: saturate(1.1);
+    radial-gradient(1200px 600px at 25% 25%, rgba(14,165,233,.18), transparent 60%),
+    radial-gradient(900px 600px at 70% 30%, rgba(99,102,241,.12), transparent 55%),
+    radial-gradient(900px 700px at 50% 80%, rgba(16,185,129,.08), transparent 60%),
+    linear-gradient(#070707, #0a0a0a);
+  filter:saturate(1.05);
 }
-
-.lock__wrap{
-  position:relative;
-  width:min(980px, 100%);
-  border-radius: 28px;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(10,10,12,.72);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 40px 90px rgba(0,0,0,.75);
-  padding: 28px;
+.lock__wrap{position:relative; width:min(980px, 100%); border-radius:22px; border:1px solid rgba(255,255,255,.10);
+  background:rgba(15,15,15,.55); backdrop-filter: blur(18px);
+  box-shadow: 0 25px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.04) inset;
+  padding:26px;
 }
-
+.lock__head{margin-bottom:18px}
+.lock__brand{display:flex; align-items:center; gap:12px; margin-bottom:14px}
+.lock__logo{font-weight:800; letter-spacing:.2px; font-size:18px}
 .lock__badge{
-  display:inline-flex;
-  align-items:center;
-  gap:10px;
+  font-size:12px; color:var(--muted);
   border:1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.04);
-  border-radius:999px;
-  padding: 8px 12px;
-  color: rgba(255,255,255,.78);
-  font-size: 12px;
+  padding:6px 10px; border-radius:999px;
+  background:rgba(255,255,255,.03);
 }
+.lock__title{font-size:44px; line-height:1.05; margin:0 0 10px}
+.lock__desc{margin:0; color:var(--muted); max-width:70ch}
 
-.lock__badgeDot{
-  width:10px; height:10px; border-radius:999px;
-  background: rgba(14,165,233,.9);
-  box-shadow: 0 0 0 4px rgba(14,165,233,.18);
-}
+.lock__grid{display:grid; gap:12px; margin:18px 0 16px}
+@media (min-width: 860px){ .lock__grid{grid-template-columns:1fr 1fr 1fr} }
 
-.lock__title{
-  margin: 14px 0 6px;
-  font-size: 44px;
-  letter-spacing: -.03em;
-}
-
-.lock__subtitle{
-  margin: 0 0 18px;
-  color: rgba(255,255,255,.68);
-  max-width: 620px;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.lock__grid{
-  display:grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-  margin: 14px 0 18px;
-}
-@media (min-width: 900px){
-  .lock__grid{ grid-template-columns: repeat(3, minmax(0,1fr)); }
-}
-
-.lockCard{
-  border-radius: 18px;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.04);
-  padding: 14px;
+.lock__card{
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.03);
+  border-radius:16px;
+  padding:14px 14px 12px;
   transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
-.lockCard:hover{
-  transform: translateY(-3px);
+.lock__card:hover{
+  transform: translateY(-2px);
   border-color: rgba(14,165,233,.35);
-  box-shadow: 0 18px 50px rgba(0,0,0,.55);
+  box-shadow: 0 0 0 3px rgba(14,165,233,.12);
 }
+.lock__cardTop{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px}
+.lock__cardTop span{font-size:12px; letter-spacing:.12em; font-weight:700; color:#e5e7eb}
+.lock__cardTop em{font-style:normal; font-size:12px; color:var(--muted-2)}
+.lock__card p{margin:0; color:var(--muted); font-size:13px}
 
-.lockCard__top{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom: 10px;
+.lock__panel{
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(10,10,10,.55);
+  border-radius:18px;
+  padding:14px;
 }
-.lockCard__kicker{
-  font-size: 12px;
-  letter-spacing: .14em;
-  color: rgba(255,255,255,.85);
+.lock__panelHead{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:10px}
+.lock__panelTitle{font-weight:700}
+.lock__panelSub{color:var(--muted); font-size:12px; margin-top:2px}
+.lock__pill{
+  font-size:12px; color:#fecaca;
+  border:1px solid rgba(239,68,68,.35);
+  background:rgba(239,68,68,.10);
+  padding:6px 10px; border-radius:999px;
 }
-.lockCard__tag{
-  font-size: 11px;
-  color: rgba(255,255,255,.55);
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(0,0,0,.22);
-  padding: 4px 10px;
-  border-radius: 999px;
-}
-.lockCard__p{
-  margin:0;
-  color: rgba(255,255,255,.68);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.lockPanel{
-  border-radius: 18px;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(0,0,0,.28);
-  padding: 14px;
-}
-
-.lockPanel__head{
-  display:flex;
-  align-items:flex-end;
-  justify-content:space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
-.lockPanel__title{ font-weight: 700; }
-.lockPanel__hint{ color: rgba(255,255,255,.55); font-size: 12px; margin-top: 2px; }
-
-.lockPanel__form{
-  display:flex;
-  gap: 10px;
-  align-items:center;
-  flex-wrap: wrap;
-}
-
-.lockPanel__input{
-  height: 44px;
-  border-radius: 14px;
-  flex: 1 1 320px;
-}
-
-.lockPanel__btn{
-  height: 44px;
-  border-radius: 14px;
-  padding: 0 16px;
-  transition: transform .18s ease, filter .18s ease;
-}
-.lockPanel__btn:hover{
-  transform: translateY(-2px);
-  filter: brightness(1.05);
-}
-.lockPanel__btn:active{
-  transform: translateY(0px);
-}
-
-.lockPanel__actions{
-  display:flex;
-  gap: 10px;
-  margin-top: 12px;
-  flex-wrap: wrap;
-}
-
-.lockLink{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  height: 40px;
-  padding: 0 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.06);
-  color: rgba(255,255,255,.90);
-  text-decoration:none;
-  transition: transform .18s ease, background .18s ease, border-color .18s ease;
-}
-.lockLink:hover{
-  transform: translateY(-2px);
-  border-color: rgba(14,165,233,.30);
-  background: rgba(14,165,233,.12);
-}
-.lockLink--ghost{
-  background: transparent;
-}
-.lockLink--ghost:hover{
-  background: rgba(255,255,255,.06);
-}
+.lock__form{display:flex; gap:10px; align-items:center}
+.lock__input{height:42px; border-radius:14px}
+.lock__form .btn{height:42px; border-radius:14px; transition: transform .12s ease, filter .12s ease}
+.lock__form .btn:hover{transform: translateY(-1px); filter:brightness(1.05)}
+.lock__ctaRow{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap}
+.lock__foot{margin-top:14px; color:var(--muted-2); font-size:12px; display:flex; justify-content:space-between}
