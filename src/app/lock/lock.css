@@ -1,0 +1,192 @@
+/* src/app/lock/lock.css */
+
+.lockWrap{
+  min-height: calc(100vh - 56px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:32px 16px;
+  position:relative;
+  overflow:hidden;
+}
+
+.lockBg{
+  position:absolute; inset:-40px;
+  background:
+    radial-gradient(900px 500px at 25% 25%, rgba(14,165,233,.22), transparent 60%),
+    radial-gradient(800px 520px at 75% 30%, rgba(99,102,241,.18), transparent 60%),
+    radial-gradient(900px 650px at 50% 85%, rgba(16,185,129,.10), transparent 65%),
+    linear-gradient(180deg, rgba(255,255,255,.03), transparent 35%),
+    linear-gradient(180deg, #070707, #050505);
+  filter:saturate(1.08);
+}
+
+.lockNoise{
+  position:absolute; inset:0;
+  opacity:.06;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.45'/%3E%3C/svg%3E");
+  mix-blend-mode:overlay;
+  pointer-events:none;
+}
+
+.lockCard{
+  width:min(980px, 100%);
+  position:relative;
+  border-radius:24px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(15,15,15,.55);
+  box-shadow:
+    0 30px 90px rgba(0,0,0,.55),
+    0 0 0 1px rgba(255,255,255,.05) inset;
+  backdrop-filter: blur(16px);
+  padding:28px;
+  animation: pop .45s ease-out both;
+}
+
+@keyframes pop{
+  from{ transform: translateY(10px) scale(.99); opacity:.0 }
+  to{ transform: translateY(0) scale(1); opacity:1 }
+}
+
+.lockTop{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:14px;
+}
+
+.lockPill{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:8px 12px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.03);
+  color:rgba(255,255,255,.75);
+  font-size:12px;
+}
+
+.lockDot{
+  width:10px; height:10px; border-radius:999px;
+  background:var(--accent);
+  box-shadow:0 0 0 6px rgba(14,165,233,.12);
+}
+
+.lockH1{
+  font-size:44px;
+  line-height:1.06;
+  margin:10px 0 8px;
+  letter-spacing:-.6px;
+}
+
+.lockSub{
+  color:var(--muted);
+  margin:0 0 18px;
+  font-size:14px;
+  max-width:70ch;
+}
+
+.lockGrid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:14px;
+  margin-top:18px;
+}
+@media (min-width: 920px){
+  .lockGrid{ grid-template-columns: 1.1fr .9fr; align-items:start; }
+}
+
+.lockFeatures{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+}
+@media(min-width: 720px){
+  .lockFeatures{ grid-template-columns:1fr 1fr 1fr; }
+}
+.lockFeat{
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  background:rgba(255,255,255,.03);
+  padding:14px;
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+.lockFeat:hover{
+  transform: translateY(-2px);
+  border-color: rgba(14,165,233,.32);
+  background: rgba(14,165,233,.06);
+}
+.lockFeat b{
+  display:flex; align-items:center; justify-content:space-between;
+  font-size:12px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:rgba(255,255,255,.78);
+}
+.lockFeat p{
+  margin:10px 0 0;
+  color:rgba(255,255,255,.72);
+  font-size:13px;
+}
+
+.lockPanel{
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:18px;
+  background:rgba(0,0,0,.25);
+  padding:16px;
+}
+
+.lockRow{
+  display:flex;
+  gap:10px;
+  margin-top:10px;
+}
+.lockRow .input{
+  height:40px;
+  border-radius:14px;
+  background: rgba(0,0,0,.25);
+}
+.lockRow .btn{
+  height:40px;
+  border-radius:14px;
+  transition: transform .12s ease, filter .12s ease, box-shadow .12s ease;
+}
+.lockRow .btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 3px rgba(14,165,233,.22);
+}
+
+.lockHint{
+  margin-top:10px;
+  color:rgba(255,255,255,.45);
+  font-size:12px;
+}
+
+.lockActions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:12px;
+}
+
+.lockMini{
+  margin-top:10px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+  color:rgba(255,255,255,.55);
+  font-size:12px;
+}
+
+.lockToast{
+  margin-top:10px;
+  border:1px solid rgba(239,68,68,.30);
+  background: rgba(239,68,68,.10);
+  color:#fecaca;
+  padding:10px 12px;
+  border-radius:14px;
+  font-size:13px;
+}
