@@ -1,13 +1,17 @@
 import "./lock.css";
 import { unlockAction } from "./actions";
 
-export default async function LockPage({
-  searchParams,
-}: {
-  searchParams?: { from?: string; error?: string };
+type LockSearchParams = {
+  from?: string;
+  error?: string;
+};
+
+export default async function LockPage(props: {
+  searchParams?: Promise<LockSearchParams>;
 }) {
-  const from = searchParams?.from || "/create";
-  const isError = searchParams?.error === "1";
+  const sp = (await props.searchParams) || {};
+  const from = sp.from || "/create";
+  const isError = sp.error === "1";
 
   return (
     <div className="lock">
@@ -23,7 +27,8 @@ export default async function LockPage({
 
           <h1 className="lock__title">Directr is in private mode.</h1>
           <p className="lock__sub">
-            AI-powered creation → clips → captions. Access is limited while we stabilize uploads + editing.
+            AI-powered creation → clips → captions. Access is limited while we
+            stabilize uploads + editing.
           </p>
 
           <div className="lock__grid">
@@ -78,10 +83,16 @@ export default async function LockPage({
           {isError && <div className="lock__error">Wrong key. Try again.</div>}
 
           <div className="lock__cta">
-            <a className="lock__btn lock__btn--ghost" href="mailto:founder@directr.so?subject=Directr%20Waitlist&body=Name%3A%0AEmail%3A%0AUse%20case%3A">
+            <a
+              className="lock__btn lock__btn--ghost"
+              href="mailto:founder@directr.so?subject=Directr%20Waitlist&body=Name%3A%0AEmail%3A%0AUse%20case%3A"
+            >
               Join waitlist
             </a>
-            <a className="lock__btn lock__btn--ghost" href="mailto:founder@directr.so?subject=Request%20Directr%20Access&body=Name%3A%0AEmail%3A%0AWhy%20you%3A%0A">
+            <a
+              className="lock__btn lock__btn--ghost"
+              href="mailto:founder@directr.so?subject=Request%20Directr%20Access&body=Name%3A%0AEmail%3A%0AWhy%20you%3A%0A"
+            >
               Request access
             </a>
           </div>
