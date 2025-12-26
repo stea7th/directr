@@ -5,14 +5,14 @@ export function middleware(req: NextRequest) {
   const lockEnabled = process.env.SITE_LOCK_ENABLED === "true";
   if (!lockEnabled) return NextResponse.next();
 
-  const { pathname } = req.nextUrl;
+  const { pathname, search } = req.nextUrl;
 
-  // allow lock page + lock APIs + next assets
+  // allow Next internals + api + lock page
   if (
-    pathname === "/lock" ||
-    pathname.startsWith("/api/lock") ||
     pathname.startsWith("/_next") ||
-    pathname === "/favicon.ico"
+    pathname.startsWith("/api") ||
+    pathname === "/favicon.ico" ||
+    pathname === "/lock"
   ) {
     return NextResponse.next();
   }
@@ -22,10 +22,10 @@ export function middleware(req: NextRequest) {
 
   const url = req.nextUrl.clone();
   url.pathname = "/lock";
-  url.searchParams.set("from", pathname);
+  url.searchParams.set("from", pathname + search);
   return NextResponse.redirect(url);
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next|api|favicon.ico).*)"],
 };
