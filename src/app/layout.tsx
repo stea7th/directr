@@ -11,16 +11,16 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   // ----------------------------
-  // Supabase auth (server)
+  // Supabase user (server)
   // ----------------------------
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   async function signOut() {
     "use server";
-    const s = createServerClient();
+    const s = await createServerClient();
     await s.auth.signOut();
     redirect("/");
   }
@@ -29,22 +29,19 @@ export default async function RootLayout({
   // Site Lock (no middleware)
   // ----------------------------
   const lockEnabled = process.env.SITE_LOCK_ENABLED === "true";
-  const secret = process.env.SITE_LOCK_KEY ?? "";
+  const expectedKey = process.env.SITE_LOCK_KEY ?? "";
 
   const store = await cookies();
   const unlocked = store.get("directr_unlocked")?.value === "true";
 
+  const showLock = lockEnabled && !!expectedKey && !unlocked;
+
   async function unlock(formData: FormData) {
     "use server";
-
     const entered = String(formData.get("key") || "").trim();
-    const expected = process.env.SITE_LOCK_KEY ?? "";
 
-    // If you forgot to set the key, don't allow unlock
-    if (!expected) redirect("/?lock=env-missing");
-
-    // wrong key -> bounce with flag
-    if (!entered || entered !== expected) redirect("/?lock=wrong");
+    if (!expectedKey) redirect("/?lock=env-missing");
+    if (!entered || entered !== expectedKey) redirect("/?lock=wrong");
 
     const s = await cookies();
     s.set("directr_unlocked", "true", {
@@ -55,7 +52,7 @@ export default async function RootLayout({
       maxAge: 60 * 60 * 24 * 7, // 7 days
     });
 
-    redirect("/"); // refresh page, lock disappears
+    redirect("/"); // refresh -> lock disappears
   }
 
   async function relock() {
@@ -70,8 +67,6 @@ export default async function RootLayout({
     });
     redirect("/");
   }
-
-  const showLock = lockEnabled && !!secret && !unlocked;
 
   return (
     <html lang="en">
@@ -101,7 +96,7 @@ export default async function RootLayout({
                 </Link>
               )}
 
-              {/* handy dev button (remove later) */}
+              {/* dev-only convenience: remove later */}
               {lockEnabled && (
                 <form action={relock}>
                   <button className="btn btn--ghost" type="submit">
