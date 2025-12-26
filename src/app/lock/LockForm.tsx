@@ -12,11 +12,19 @@ export default function LockForm() {
     setErr(null);
     setLoading(true);
     try {
-      const res = await unlockAction(key);
-      if (!res?.ok) setErr(res?.error || "Wrong key. Try again.");
-      else window.location.href = "/create";
+      const fd = new FormData();
+      fd.set("key", key); // <-- must match what your server action reads
+
+      const res = await unlockAction(fd);
+
+      // support either {ok,error} OR redirect behavior
+      if (res && typeof res === "object" && "ok" in res && !res.ok) {
+        setErr((res as any).error || "Wrong key. Try again.");
+      } else {
+        window.location.href = "/create";
+      }
     } catch {
-      setErr("Something failed. Try again.");
+      setErr("Wrong key. Try again.");
     } finally {
       setLoading(false);
     }
@@ -26,7 +34,10 @@ export default function LockForm() {
     setErr(null);
     setLoading(true);
     try {
-      await relockAction();
+      const fd = new FormData();
+      await relockAction(fd as any); // if relockAction also expects FormData
+      window.location.href = "/lock";
+    } catch {
       window.location.href = "/lock";
     } finally {
       setLoading(false);
@@ -44,6 +55,7 @@ export default function LockForm() {
           type="password"
           autoComplete="off"
         />
+
         <button
           className="lockBtn lockBtnPrimary"
           type="button"
@@ -52,6 +64,7 @@ export default function LockForm() {
         >
           {loading ? "…" : "Unlock"}
         </button>
+
         <button
           className="lockBtn"
           type="button"
