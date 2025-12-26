@@ -8,15 +8,16 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // keep layout dumb: NO lock checks, NO redirects here
-  const supabase = createServerClient();
+  // ✅ your helper returns a Promise, so await it
+  const supabase = await createServerClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   async function signOut() {
     "use server";
-    const s = createServerClient();
+    const s = await createServerClient(); // ✅ await here too
     await s.auth.signOut();
   }
 
