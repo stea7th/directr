@@ -1,6 +1,7 @@
 // src/app/layout.tsx
 import "./globals.css";
 import Link from "next/link";
+import { relockAction } from "@/app/lock/actions";
 import { createServerClient } from "@/lib/supabase/server";
 
 export default async function RootLayout({
