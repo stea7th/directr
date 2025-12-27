@@ -1,0 +1,88 @@
+/* Create page scoped styles (only affects /create) */
+
+.createShell {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 120px 24px 64px;
+}
+
+.createInner {
+  width: min(880px, 100%);
+}
+
+.createTitle {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 14px;
+}
+
+.createSub {
+  margin: 0 0 22px;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.createCard {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(10, 12, 16, 0.55);
+  border-radius: 16px;
+  padding: 18px;
+  backdrop-filter: blur(14px);
+  box-shadow:
+    0 20px 60px rgba(0,0,0,0.55),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.input {
+  flex: 1 1 420px;
+  height: 40px;
+  border-radius: 12px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.92);
+  outline: none;
+}
+
+.input:focus {
+  border-color: rgba(120, 170, 255, 0.55);
+  box-shadow: 0 0 0 4px rgba(80, 140, 255, 0.12);
+}
+
+.btn {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.btnPrimary {
+  background: rgba(80, 140, 255, 0.22);
+  border-color: rgba(120, 170, 255, 0.28);
+}
+
+.btnPrimary:hover {
+  background: rgba(80, 140, 255, 0.30);
+  border-color: rgba(120, 170, 255, 0.38);
+}
