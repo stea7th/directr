@@ -240,7 +240,30 @@
 }
 
 .lockLinkBtn:hover { opacity: 0.9; transform: translateY(-1px); }
+/* --- Lock page: enter animation (only) --- */
 
+.lockCard {
+  animation: lockEnter 420ms cubic-bezier(.2,.8,.2,1);
+  will-change: transform, opacity;
+}
+
+@keyframes lockEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .lockCard {
+    animation: none;
+  }
+}
 .lockError {
   margin-top: 10px;
   font-size: 13px;
