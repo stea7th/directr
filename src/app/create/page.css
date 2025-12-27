@@ -198,11 +198,6 @@
   max-width: 420px;
 }
 
-.create-file-bullet {
-  opacity: 0.7;
-  margin-right: 6px;
-}
-
 /* hide native input but keep clickable */
 .create-file-input {
   position: absolute;
@@ -216,7 +211,11 @@
   padding: 0 18px;
   border-radius: 999px;
   border: 1px solid rgba(150, 190, 255, 0.35);
-  background: linear-gradient(180deg, rgba(120, 170, 255, 0.40), rgba(85, 130, 255, 0.18));
+  background: linear-gradient(
+    180deg,
+    rgba(120, 170, 255, 0.40),
+    rgba(85, 130, 255, 0.18)
+  );
   color: rgba(255, 255, 255, 0.92);
   font-weight: 600;
   cursor: pointer;
@@ -292,7 +291,7 @@
 .create-tiles-section {
   max-width: 980px;
   margin: 22px auto 0;
-  padding: 0 0;
+  padding: 0;
 }
 
 .create-tiles-grid {
