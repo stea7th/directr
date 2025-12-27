@@ -1,8 +1,8 @@
 // src/app/create/page.tsx
 "use client";
 
-import React, { useMemo, useState } from "react";
-import styles from "./create.module.css";
+import React, { useState } from "react";
+import styles from "./page.module.css";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 type Mode = "basic" | "advanced";
@@ -21,13 +21,6 @@ export default function CreatePage() {
   const [result, setResult] = useState<string | null>(null);
   const [editedUrl, setEditedUrl] = useState<string | null>(null);
 
-  const canShowAdvanced = useMemo(() => mode === "advanced" && !file, [mode, file]);
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] ?? null;
-    setFile(f);
-  }
-
   async function handleGenerate() {
     setError(null);
     setResult(null);
@@ -39,9 +32,8 @@ export default function CreatePage() {
     }
 
     setLoading(true);
-
     try {
-      // ✅ CASE 1: FILE PRESENT → upload to Supabase → call /api/clipper
+      // CASE 1: FILE PRESENT → upload to Supabase → send URL to /api/clipper
       if (file) {
         const path = `${Date.now()}-${file.name}`;
 
@@ -74,7 +66,7 @@ export default function CreatePage() {
             status: res.status,
             textSnippet: text.slice(0, 200),
           });
-          setError(`Server returned non-JSON (status ${res.status}).`);
+          setError(`Server returned non-JSON (status ${res.status}). Route might be misconfigured.`);
           return;
         }
 
@@ -107,7 +99,7 @@ export default function CreatePage() {
 
               return [
                 `Clip ${idx + 1}`,
-                `  Time: ${Number(start).toFixed(2)} → ${Number(end).toFixed(2)}s`,
+                `  Time: ${start?.toFixed?.(2) ?? start} → ${end?.toFixed?.(2) ?? end}s`,
                 hook ? `  Hook: ${hook}` : null,
                 desc ? `  Desc: ${desc}` : null,
               ]
@@ -124,7 +116,7 @@ export default function CreatePage() {
         return;
       }
 
-      // ✅ CASE 2: NO FILE → /api/generate
+      // CASE 2: NO FILE → classic script generator
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -138,7 +130,7 @@ export default function CreatePage() {
           status: res.status,
           textSnippet: text.slice(0, 200),
         });
-        setError(`Server returned non-JSON (status ${res.status}).`);
+        setError(`Server returned non-JSON (status ${res.status}). Route might be misconfigured.`);
         return;
       }
 
@@ -157,12 +149,7 @@ export default function CreatePage() {
 
       setResult(notes);
 
-      const url =
-        job?.output_video_url ||
-        job?.edited_url ||
-        job?.source_url ||
-        null;
-
+      const url = job?.output_video_url || job?.edited_url || job?.source_url || null;
       setEditedUrl(url);
     } catch (err: any) {
       console.error("Generate error (client):", err);
@@ -172,65 +159,60 @@ export default function CreatePage() {
     }
   }
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (f) setFile(f);
+  }
+
   return (
-    <main className={styles.createShell}>
-      <div className={styles.createInner}>
-        <h1 className={styles.createTitle}>Type what you want or upload a file</h1>
-        <p className={styles.createSub}>
-          Drop a video/audio to auto-find hooks, or describe what you want for a script.
-        </p>
+    <main className={styles.createRoot}>
+      <section className={styles.createShell}>
+        <header className={styles.createHeader}>
+          <h1>Type what you want or upload a file</h1>
 
-        {/* Mode toggle (kept but simpler UI) */}
-        <div className={styles.row} style={{ marginBottom: 12 }}>
-          <button
-            type="button"
-            className={styles.btn}
-            onClick={() => setMode("basic")}
-            aria-pressed={mode === "basic"}
-          >
-            Basic
-          </button>
-          <button
-            type="button"
-            className={styles.btn}
-            onClick={() => setMode("advanced")}
-            aria-pressed={mode === "advanced"}
-          >
-            Advanced
-          </button>
-        </div>
+          <div className={styles.createModeToggle}>
+            <button
+              type="button"
+              className={`${styles.createModeBtn} ${
+                mode === "basic" ? styles.createModeBtnActive : ""
+              }`}
+              onClick={() => setMode("basic")}
+            >
+              Basic
+            </button>
 
-        <div className={styles.createCard} style={{ marginBottom: 16 }}>
-          <textarea
-            style={{
-              width: "100%",
-              minHeight: 140,
-              resize: "vertical",
-              borderRadius: 12,
-              padding: 12,
-              border: "1px solid rgba(255,255,255,0.12)",
-              background: "rgba(0,0,0,0.25)",
-              color: "rgba(255,255,255,0.92)",
-              outline: "none",
-            }}
-            placeholder={
-              file
-                ? "Optional: context or goal for the clips"
-                : "Example: Turn this podcast into 5 viral TikToks"
-            }
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-          />
+            <button
+              type="button"
+              className={`${styles.createModeBtn} ${
+                mode === "advanced" ? styles.createModeBtnActive : ""
+              }`}
+              onClick={() => setMode("advanced")}
+            >
+              Advanced
+            </button>
+          </div>
+        </header>
 
-          {canShowAdvanced && (
-            <div style={{ marginTop: 12, display: "grid", gap: 10, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-              <div>
-                <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Platform</div>
-                <select
-                  className={styles.input}
-                  value={platform}
-                  onChange={(e) => setPlatform(e.target.value)}
-                >
+        <div className={styles.createMainCard}>
+          <div className={styles.createTextareaWrap}>
+            <textarea
+              name="prompt"
+              className={styles.createTextarea}
+              placeholder={
+                file
+                  ? "Optional: context or goal for the clips"
+                  : "Example: Turn this podcast into 5 viral TikToks"
+              }
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+            />
+          </div>
+
+          {mode === "advanced" && !file && (
+            <div className={styles.createAdvancedRow}>
+              <div className={styles.createAdvField}>
+                <label>Platform</label>
+                <select value={platform} onChange={(e) => setPlatform(e.target.value)}>
                   <option value="TikTok">TikTok</option>
                   <option value="Reels">Instagram Reels</option>
                   <option value="Shorts">YouTube Shorts</option>
@@ -238,34 +220,19 @@ export default function CreatePage() {
                 </select>
               </div>
 
-              <div>
-                <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Tone</div>
-                <select
-                  className={styles.input}
-                  value={tone}
-                  onChange={(e) => setTone(e.target.value)}
-                >
-                  <option value="Casual">Casual</option>
-                  <option value="High-energy">High-energy</option>
-                  <option value="Storytelling">Storytelling</option>
-                  <option value="Authority">Authority</option>
-                </select>
-              </div>
-
-              <div>
-                <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Goal</div>
+              <div className={styles.createAdvField}>
+                <label>Goal</label>
                 <input
-                  className={styles.input}
+                  type="text"
                   value={goal}
                   onChange={(e) => setGoal(e.target.value)}
                   placeholder="Drive sales, grow page, etc."
                 />
               </div>
 
-              <div>
-                <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Length (seconds)</div>
+              <div className={styles.createAdvField}>
+                <label>Length (seconds)</label>
                 <input
-                  className={styles.input}
                   type="number"
                   min={5}
                   max={180}
@@ -273,64 +240,91 @@ export default function CreatePage() {
                   onChange={(e) => setLengthSeconds(e.target.value)}
                 />
               </div>
+
+              <div className={styles.createAdvField}>
+                <label>Tone</label>
+                <select value={tone} onChange={(e) => setTone(e.target.value)}>
+                  <option value="Casual">Casual</option>
+                  <option value="High-energy">High-energy</option>
+                  <option value="Storytelling">Storytelling</option>
+                  <option value="Authority">Authority</option>
+                </select>
+              </div>
             </div>
           )}
 
-          <div className={styles.row} style={{ marginTop: 12 }}>
-            <input className={styles.input} type="file" onChange={handleFileChange} />
+          <div className={styles.createBottomRow}>
+            <label className={styles.createFileBar}>
+              <span className={styles.createFileLabel}>
+                <span className={styles.createFileBullet}>•</span>
+                {file ? file.name : "Choose File / Drop here"}
+              </span>
+              <input
+                type="file"
+                name="file"
+                className={styles.createFileInput}
+                onChange={handleFileChange}
+              />
+            </label>
+
             <button
               type="button"
-              className={`${styles.btn} ${styles.btnPrimary}`}
+              className={styles.createGenerateBtn}
               onClick={handleGenerate}
               disabled={loading}
             >
-              {loading
-                ? file
-                  ? "Finding hooks..."
-                  : "Thinking..."
-                : file
-                ? "Find hooks from file"
-                : "Generate script"}
+              {loading ? (file ? "Finding hooks..." : "Thinking...") : file ? "Find hooks from file" : "Generate script"}
             </button>
           </div>
 
-          {error && (
-            <div style={{ marginTop: 12, color: "rgba(255,120,120,0.9)", fontSize: 13 }}>
-              {error}
+          <p className={styles.createTip}>
+            Tip: Drop a video/audio to auto-find hooks, or just describe what you want for a script. We&apos;ll handle the rest.
+          </p>
+
+          {error && <p className={styles.createError}>{error}</p>}
+
+          {(result || editedUrl) && !error && (
+            <div className={styles.createResult}>
+              <h3>Result</h3>
+
+              {editedUrl && (
+                <p style={{ marginBottom: 8 }}>
+                  <strong>Edited video:</strong>{" "}
+                  <a href={editedUrl} target="_blank" rel="noreferrer">
+                    Open clip
+                  </a>
+                </p>
+              )}
+
+              {result && (
+                <>
+                  <strong>AI notes:</strong>
+                  <pre>{result}</pre>
+                </>
+              )}
             </div>
           )}
         </div>
+      </section>
 
-        {(result || editedUrl) && !error && (
-          <div className={styles.createCard}>
-            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 10 }}>Result</div>
+      <section className={styles.createTilesSection}>
+        <div className={styles.createTilesGrid}>
+          <article className={styles.createTile}>
+            <h2>Create</h2>
+            <p>Upload → get captioned clips</p>
+          </article>
 
-            {editedUrl && (
-              <p style={{ marginTop: 0, marginBottom: 10 }}>
-                <strong>Edited video:</strong>{" "}
-                <a href={editedUrl} target="_blank" rel="noreferrer">
-                  Open clip
-                </a>
-              </p>
-            )}
+          <article className={styles.createTile}>
+            <h2>Clipper</h2>
+            <p>Auto-find hooks &amp; moments</p>
+          </article>
 
-            {result && (
-              <pre
-                style={{
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  margin: 0,
-                  fontSize: 13,
-                  lineHeight: 1.5,
-                  color: "rgba(255,255,255,0.90)",
-                }}
-              >
-                {result}
-              </pre>
-            )}
-          </div>
-        )}
-      </div>
+          <article className={styles.createTile}>
+            <h2>Planner</h2>
+            <p>Plan posts &amp; deadlines</p>
+          </article>
+        </div>
+      </section>
     </main>
   );
 }
