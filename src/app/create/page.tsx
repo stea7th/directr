@@ -1,7 +1,9 @@
-// src/app/create/page.tsx
 "use client";
-import styles from "./page.module.css";
+
 import React, { useState } from "react";
+import styles from "./page.module.css";
+import { supabaseBrowser } from "@/lib/supabase/browser";
+
 type Mode = "basic" | "advanced";
 
 export default function CreatePage() {
@@ -30,7 +32,7 @@ export default function CreatePage() {
 
     setLoading(true);
     try {
-      // CASE 1: FILE PRESENT → upload to Supabase → send URL to /api/clipper
+      // FILE MODE → upload to Supabase → /api/clipper
       if (file) {
         const path = `${Date.now()}-${file.name}`;
 
@@ -59,16 +61,12 @@ export default function CreatePage() {
         const contentType = res.headers.get("content-type") || "";
         if (!contentType.includes("application/json")) {
           const text = await res.text();
-          console.error("Non-JSON response from /api/clipper:", {
-            status: res.status,
-            textSnippet: text.slice(0, 200),
-          });
-          setError(`Server returned non-JSON (status ${res.status}). Route might be misconfigured.`);
+          console.error("Non-JSON response from /api/clipper:", res.status, text.slice(0, 200));
+          setError(`Server returned non-JSON (status ${res.status}).`);
           return;
         }
 
         const data = await res.json();
-
         if (!data.success) {
           setError(data.error || "Failed to find hooks.");
           return;
@@ -78,11 +76,8 @@ export default function CreatePage() {
         const clips: any[] = Array.isArray(data.clips) ? data.clips : [];
 
         let text = "";
-
         if (transcript) {
-          text += "TRANSCRIPT\n──────────\n";
-          text += transcript.trim();
-          text += "\n\n";
+          text += "TRANSCRIPT\n──────────\n" + transcript.trim() + "\n\n";
         }
 
         if (clips.length > 0) {
@@ -93,10 +88,9 @@ export default function CreatePage() {
               const end = clip.end ?? clip.end_seconds ?? 0;
               const hook = clip.hook_line || "";
               const desc = clip.description || "";
-
               return [
                 `Clip ${idx + 1}`,
-                `  Time: ${start?.toFixed?.(2) ?? start} → ${end?.toFixed?.(2) ?? end}s`,
+                `  Time: ${start} → ${end}s`,
                 hook ? `  Hook: ${hook}` : null,
                 desc ? `  Desc: ${desc}` : null,
               ]
@@ -109,11 +103,10 @@ export default function CreatePage() {
         }
 
         setResult(text);
-        setEditedUrl(null);
         return;
       }
 
-      // CASE 2: NO FILE → classic script generator
+      // NO FILE → /api/generate
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -123,16 +116,12 @@ export default function CreatePage() {
       const contentType = res.headers.get("content-type") || "";
       if (!contentType.includes("application/json")) {
         const text = await res.text();
-        console.error("Non-JSON response from /api/generate:", {
-          status: res.status,
-          textSnippet: text.slice(0, 200),
-        });
-        setError(`Server returned non-JSON (status ${res.status}). Route might be misconfigured.`);
+        console.error("Non-JSON response from /api/generate:", res.status, text.slice(0, 200));
+        setError(`Server returned non-JSON (status ${res.status}).`);
         return;
       }
 
       const data = await res.json();
-
       if (!data.success) {
         setError(data.error || "Failed to generate.");
         return;
@@ -140,9 +129,7 @@ export default function CreatePage() {
 
       const job = data?.job;
       const notes =
-        job?.output_script ||
-        data?.text ||
-        "Generated successfully, but no notes were returned.";
+        job?.output_script || data?.text || "Generated successfully, but no notes were returned.";
 
       setResult(notes);
 
@@ -156,32 +143,26 @@ export default function CreatePage() {
     }
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (f) setFile(f);
-  }
-
   return (
-    <main className={styles.createRoot}>
-      <section className={styles.createShell}>
-        <header className={styles.createHeader}>
+    <main className={styles["create-root"]}>
+      <section className={styles["create-shell"]}>
+        <header className={styles["create-header"]}>
           <h1>Type what you want or upload a file</h1>
 
-          <div className={styles.createModeToggle}>
+          <div className={styles["create-mode-toggle"]}>
             <button
               type="button"
-              className={`${styles.createModeBtn} ${
-                mode === "basic" ? styles.createModeBtnActive : ""
+              className={`${styles["create-mode-btn"]} ${
+                mode === "basic" ? styles["create-mode-btn--active"] : ""
               }`}
               onClick={() => setMode("basic")}
             >
               Basic
             </button>
-
             <button
               type="button"
-              className={`${styles.createModeBtn} ${
-                mode === "advanced" ? styles.createModeBtnActive : ""
+              className={`${styles["create-mode-btn"]} ${
+                mode === "advanced" ? styles["create-mode-btn--active"] : ""
               }`}
               onClick={() => setMode("advanced")}
             >
@@ -190,15 +171,12 @@ export default function CreatePage() {
           </div>
         </header>
 
-        <div className={styles.createMainCard}>
-          <div className={styles.createTextareaWrap}>
+        <div className={styles["create-main-card"]}>
+          <div className={styles["create-textarea-wrap"]}>
             <textarea
-              name="prompt"
-              className={styles.createTextarea}
+              className={styles["create-textarea"]}
               placeholder={
-                file
-                  ? "Optional: context or goal for the clips"
-                  : "Example: Turn this podcast into 5 viral TikToks"
+                file ? "Optional: context or goal for the clips" : "Example: Turn this podcast into 5 viral TikToks"
               }
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
@@ -206,8 +184,8 @@ export default function CreatePage() {
           </div>
 
           {mode === "advanced" && !file && (
-            <div className={styles.createAdvancedRow}>
-              <div className={styles.createAdvField}>
+            <div className={styles["create-advanced-row"]}>
+              <div className={styles["create-adv-field"]}>
                 <label>Platform</label>
                 <select value={platform} onChange={(e) => setPlatform(e.target.value)}>
                   <option value="TikTok">TikTok</option>
@@ -217,17 +195,12 @@ export default function CreatePage() {
                 </select>
               </div>
 
-              <div className={styles.createAdvField}>
+              <div className={styles["create-adv-field"]}>
                 <label>Goal</label>
-                <input
-                  type="text"
-                  value={goal}
-                  onChange={(e) => setGoal(e.target.value)}
-                  placeholder="Drive sales, grow page, etc."
-                />
+                <input value={goal} onChange={(e) => setGoal(e.target.value)} />
               </div>
 
-              <div className={styles.createAdvField}>
+              <div className={styles["create-adv-field"]}>
                 <label>Length (seconds)</label>
                 <input
                   type="number"
@@ -238,7 +211,7 @@ export default function CreatePage() {
                 />
               </div>
 
-              <div className={styles.createAdvField}>
+              <div className={styles["create-adv-field"]}>
                 <label>Tone</label>
                 <select value={tone} onChange={(e) => setTone(e.target.value)}>
                   <option value="Casual">Casual</option>
@@ -250,23 +223,21 @@ export default function CreatePage() {
             </div>
           )}
 
-          <div className={styles.createBottomRow}>
-            <label className={styles.createFileBar}>
-              <span className={styles.createFileLabel}>
-                <span className={styles.createFileBullet}>•</span>
+          <div className={styles["create-bottom-row"]}>
+            <label className={styles["create-file-bar"]}>
+              <span className={styles["create-file-label"]}>
                 {file ? file.name : "Choose File / Drop here"}
               </span>
               <input
                 type="file"
-                name="file"
-                className={styles.createFileInput}
-                onChange={handleFileChange}
+                className={styles["create-file-input"]}
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />
             </label>
 
             <button
               type="button"
-              className={styles.createGenerateBtn}
+              className={styles["create-generate-btn"]}
               onClick={handleGenerate}
               disabled={loading}
             >
@@ -274,16 +245,15 @@ export default function CreatePage() {
             </button>
           </div>
 
-          <p className={styles.createTip}>
-            Tip: Drop a video/audio to auto-find hooks, or just describe what you want for a script. We&apos;ll handle the rest.
+          <p className={styles["create-tip"]}>
+            Tip: Drop a video/audio to auto-find hooks, or just describe what you want for a script.
           </p>
 
-          {error && <p className={styles.createError}>{error}</p>}
+          {error && <p className={styles["create-error"]}>{error}</p>}
 
           {(result || editedUrl) && !error && (
-            <div className={styles.createResult}>
+            <div className={styles["create-result"]}>
               <h3>Result</h3>
-
               {editedUrl && (
                 <p style={{ marginBottom: 8 }}>
                   <strong>Edited video:</strong>{" "}
@@ -292,7 +262,6 @@ export default function CreatePage() {
                   </a>
                 </p>
               )}
-
               {result && (
                 <>
                   <strong>AI notes:</strong>
@@ -304,19 +273,17 @@ export default function CreatePage() {
         </div>
       </section>
 
-      <section className={styles.createTilesSection}>
-        <div className={styles.createTilesGrid}>
-          <article className={styles.createTile}>
+      <section className={styles["create-tiles-section"]}>
+        <div className={styles["create-tiles-grid"]}>
+          <article className={styles["create-tile"]}>
             <h2>Create</h2>
             <p>Upload → get captioned clips</p>
           </article>
-
-          <article className={styles.createTile}>
+          <article className={styles["create-tile"]}>
             <h2>Clipper</h2>
             <p>Auto-find hooks &amp; moments</p>
           </article>
-
-          <article className={styles.createTile}>
+          <article className={styles["create-tile"]}>
             <h2>Planner</h2>
             <p>Plan posts &amp; deadlines</p>
           </article>
