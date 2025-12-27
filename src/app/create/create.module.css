@@ -1,7 +1,7 @@
-/* src/app/create/page.css */
+/* src/app/create/page.module.css */
 
 /* --- base --- */
-.create-root {
+.createRoot {
   min-height: 100vh;
   width: 100%;
   padding: 88px 24px 64px;
@@ -11,7 +11,7 @@
 }
 
 /* subtle full-screen “premium” backdrop */
-.create-root::before {
+.createRoot::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -25,14 +25,14 @@
   opacity: 0.9;
 }
 
-.create-shell {
+.createShell {
   position: relative;
   max-width: 980px;
   margin: 0 auto;
 }
 
 /* --- header --- */
-.create-header {
+.createHeader {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -40,7 +40,7 @@
   margin-bottom: 18px;
 }
 
-.create-header h1 {
+.createHeader h1 {
   margin: 0;
   font-size: 34px;
   font-weight: 650;
@@ -50,7 +50,7 @@
 }
 
 /* toggle pill (top right) */
-.create-mode-toggle {
+.createModeToggle {
   display: inline-flex;
   padding: 6px;
   border-radius: 999px;
@@ -59,7 +59,7 @@
   backdrop-filter: blur(10px);
 }
 
-.create-mode-btn {
+.createModeBtn {
   appearance: none;
   border: 0;
   background: transparent;
@@ -71,19 +71,19 @@
   transition: transform 120ms ease, background 160ms ease, color 160ms ease;
 }
 
-.create-mode-btn:hover {
+.createModeBtn:hover {
   color: rgba(255, 255, 255, 0.9);
   transform: translateY(-1px);
 }
 
-.create-mode-btn--active {
+.createModeBtnActive {
   background: rgba(255, 255, 255, 0.10);
   color: rgba(255, 255, 255, 0.92);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
 }
 
 /* --- main glass card --- */
-.create-main-card {
+.createMainCard {
   position: relative;
   border-radius: 26px;
   padding: 22px;
@@ -100,7 +100,7 @@
 }
 
 /* inner “textarea well” */
-.create-textarea-wrap {
+.createTextareaWrap {
   border-radius: 20px;
   background: rgba(0, 0, 0, 0.38);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -108,7 +108,7 @@
   padding: 16px;
 }
 
-.create-textarea {
+.createTextarea {
   width: 100%;
   min-height: 140px;
   resize: vertical;
@@ -120,31 +120,31 @@
   line-height: 1.55;
 }
 
-.create-textarea::placeholder {
+.createTextarea::placeholder {
   color: rgba(255, 255, 255, 0.45);
 }
 
 /* --- advanced row --- */
-.create-advanced-row {
+.createAdvancedRow {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-top: 14px;
 }
 
-.create-adv-field {
+.createAdvField {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.create-adv-field label {
+.createAdvField label {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.55);
 }
 
-.create-adv-field input,
-.create-adv-field select {
+.createAdvField input,
+.createAdvField select {
   height: 40px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.10);
@@ -154,14 +154,14 @@
   outline: none;
 }
 
-.create-adv-field input:focus,
-.create-adv-field select:focus {
+.createAdvField input:focus,
+.createAdvField select:focus {
   border-color: rgba(120, 170, 255, 0.45);
   box-shadow: 0 0 0 3px rgba(120, 170, 255, 0.12);
 }
 
 /* --- bottom row: file chip + generate pill --- */
-.create-bottom-row {
+.createBottomRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -169,7 +169,7 @@
   margin-top: 14px;
 }
 
-.create-file-bar {
+.createFileBar {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -184,13 +184,13 @@
   user-select: none;
 }
 
-.create-file-bar:hover {
+.createFileBar:hover {
   transform: translateY(-1px);
   border-color: rgba(160, 195, 255, 0.35);
   background: rgba(255, 255, 255, 0.05);
 }
 
-.create-file-label {
+.createFileLabel {
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
@@ -198,20 +198,20 @@
   max-width: 420px;
 }
 
-.create-file-bullet {
+.createFileBullet {
   opacity: 0.7;
   margin-right: 6px;
 }
 
 /* hide native input but keep clickable */
-.create-file-input {
+.createFileInput {
   position: absolute;
   inset: 0;
   opacity: 0;
   cursor: pointer;
 }
 
-.create-generate-btn {
+.createGenerateBtn {
   height: 44px;
   padding: 0 18px;
   border-radius: 999px;
@@ -226,7 +226,7 @@
   transition: transform 130ms ease, filter 160ms ease, box-shadow 160ms ease;
 }
 
-.create-generate-btn:hover {
+.createGenerateBtn:hover {
   transform: translateY(-1px);
   filter: brightness(1.06);
   box-shadow:
@@ -234,26 +234,26 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
-.create-generate-btn:disabled {
+.createGenerateBtn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
   transform: none;
 }
 
 /* --- misc text --- */
-.create-tip {
+.createTip {
   margin: 12px 0 0;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.55);
 }
 
-.create-error {
+.createError {
   margin: 10px 0 0;
   font-size: 12px;
   color: rgba(255, 120, 120, 0.9);
 }
 
-.create-result {
+.createResult {
   margin-top: 14px;
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.10);
@@ -261,13 +261,13 @@
   padding: 14px;
 }
 
-.create-result h3 {
+.createResult h3 {
   margin: 0 0 10px;
   font-size: 13px;
   color: rgba(255, 255, 255, 0.9);
 }
 
-.create-result pre {
+.createResult pre {
   margin: 8px 0 0;
   padding: 12px;
   border-radius: 14px;
@@ -280,28 +280,29 @@
   line-height: 1.55;
 }
 
-.create-result a {
+.createResult a {
   color: rgba(150, 190, 255, 0.95);
   text-decoration: none;
 }
-.create-result a:hover {
+
+.createResult a:hover {
   text-decoration: underline;
 }
 
 /* --- tiles --- */
-.create-tiles-section {
+.createTilesSection {
   max-width: 980px;
   margin: 22px auto 0;
-  padding: 0 0;
+  padding: 0;
 }
 
-.create-tiles-grid {
+.createTilesGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 
-.create-tile {
+.createTile {
   border-radius: 22px;
   padding: 16px 16px 18px;
   background: rgba(255, 255, 255, 0.04);
@@ -310,20 +311,20 @@
   transition: transform 140ms ease, background 160ms ease, border-color 160ms ease;
 }
 
-.create-tile:hover {
+.createTile:hover {
   transform: translateY(-2px);
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.12);
 }
 
-.create-tile h2 {
+.createTile h2 {
   margin: 0 0 6px;
   font-size: 14px;
   font-weight: 650;
   color: rgba(255, 255, 255, 0.92);
 }
 
-.create-tile p {
+.createTile p {
   margin: 0;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.60);
@@ -331,42 +332,49 @@
 
 /* --- responsive --- */
 @media (max-width: 980px) {
-  .create-header {
+  .createHeader {
     flex-direction: column;
     align-items: flex-start;
   }
-  .create-mode-toggle {
+
+  .createModeToggle {
     align-self: flex-start;
   }
 }
 
 @media (max-width: 860px) {
-  .create-advanced-row {
+  .createAdvancedRow {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .create-tiles-grid {
+
+  .createTilesGrid {
     grid-template-columns: 1fr;
   }
-  .create-file-label {
+
+  .createFileLabel {
     max-width: 230px;
   }
 }
 
 @media (max-width: 520px) {
-  .create-root {
+  .createRoot {
     padding-top: 78px;
   }
-  .create-header h1 {
+
+  .createHeader h1 {
     font-size: 26px;
   }
-  .create-bottom-row {
+
+  .createBottomRow {
     flex-direction: column;
     align-items: stretch;
   }
-  .create-generate-btn {
+
+  .createGenerateBtn {
     width: 100%;
   }
-  .create-file-bar {
+
+  .createFileBar {
     width: 100%;
     justify-content: center;
   }
