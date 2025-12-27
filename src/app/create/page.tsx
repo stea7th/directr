@@ -1,10 +1,7 @@
 // src/app/create/page.tsx
 "use client";
-
-import React, { useState } from "react";
 import styles from "./page.module.css";
-import { supabaseBrowser } from "@/lib/supabase/browser";
-
+import React, { useState } from "react";
 type Mode = "basic" | "advanced";
 
 export default function CreatePage() {
