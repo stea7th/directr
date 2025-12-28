@@ -383,3 +383,82 @@ a:hover{opacity:.9}
   padding:2px 6px;
   border-radius:8px;
 }
+/* ---------- Responsive foundation ---------- */
+:root{
+  --max: 1200px;
+
+  /* fluid spacing */
+  --px: clamp(14px, 3.2vw, 22px);
+  --py: clamp(18px, 3.4vw, 28px);
+
+  /* nav height */
+  --nav-h: 58px;
+
+  /* type scale */
+  --h1: clamp(22px, 3.8vw, 34px);
+  --h2: clamp(16px, 2.6vw, 20px);
+  --p: clamp(13px, 1.8vw, 14px);
+}
+
+/* keep your base styles, then ensure: */
+.page{
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: calc(var(--nav-h) + var(--py)) var(--px) 70px;
+}
+
+.container{
+  width: 100%;
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: var(--py) var(--px);
+}
+
+/* Make all inputs/buttons behave on mobile */
+input, select, textarea, button{
+  font: inherit;
+}
+textarea{ min-width: 0; }
+pre{ overflow-x: auto; }
+
+/* ---------- Nav responsiveness ---------- */
+.nav{
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  backdrop-filter: blur(12px);
+  background: rgba(11,11,11,.75);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav__inner{
+  height: var(--nav-h);
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 0 var(--px);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+}
+
+/* Desktop menu stays inline */
+.menu{
+  display:flex;
+  gap: 16px;
+  align-items:center;
+}
+
+/* Mobile: hide links by default (we’ll add a hamburger in layout.tsx) */
+@media (max-width: 860px){
+  .menu a:not(.btn){ display:none; }
+  .menu{ gap: 10px; }
+}
+
+/* Better tap targets on mobile */
+@media (max-width: 520px){
+  .btn{ height: 40px; border-radius: 14px; }
+  .menu{ gap: 8px; }
+}
