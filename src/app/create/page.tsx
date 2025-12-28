@@ -1,7 +1,8 @@
+// src/app/create/page.tsx
 "use client";
 
 import "./page.css";
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 type Mode = "basic" | "advanced";
@@ -19,17 +20,6 @@ export default function CreatePage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [editedUrl, setEditedUrl] = useState<string | null>(null);
-
-  const primaryCtaLabel = useMemo(() => {
-    if (loading) return file ? "Finding hooks..." : "Thinking...";
-    return file ? "Find hooks from file" : "Generate script";
-  }, [loading, file]);
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] ?? null;
-    setFile(f);
-    // keep prompt; prompt becomes “optional context” when file exists
-  }
 
   async function handleGenerate() {
     setError(null);
@@ -72,14 +62,18 @@ export default function CreatePage() {
         const contentType = res.headers.get("content-type") || "";
         if (!contentType.includes("application/json")) {
           const text = await res.text();
-          console.error("Non-JSON response from /api/clipper:", res.status, text);
-          setError(`Server returned non-JSON (status ${res.status}).`);
+          console.error("Non-JSON response from /api/clipper:", {
+            status: res.status,
+            textSnippet: text.slice(0, 200),
+          });
+          setError(`Server returned non-JSON (status ${res.status}). Route might be misconfigured.`);
           return;
         }
 
         const data = await res.json();
-        if (!data?.success) {
-          setError(data?.error || "Failed to find hooks.");
+
+        if (!data.success) {
+          setError(data.error || "Failed to find hooks.");
           return;
         }
 
@@ -87,12 +81,14 @@ export default function CreatePage() {
         const clips: any[] = Array.isArray(data.clips) ? data.clips : [];
 
         let text = "";
+
         if (transcript) {
           text += "TRANSCRIPT\n──────────\n";
-          text += transcript.trim() + "\n\n";
+          text += transcript.trim();
+          text += "\n\n";
         }
 
-        if (clips.length) {
+        if (clips.length > 0) {
           text += "CLIPS\n──────\n";
           text += clips
             .map((clip, idx) => {
@@ -100,9 +96,10 @@ export default function CreatePage() {
               const end = clip.end ?? clip.end_seconds ?? 0;
               const hook = clip.hook_line || "";
               const desc = clip.description || "";
+
               return [
                 `Clip ${idx + 1}`,
-                `  Time: ${Number(start).toFixed?.(2) ?? start} → ${Number(end).toFixed?.(2) ?? end}s`,
+                `  Time: ${start.toFixed?.(2) ?? start} → ${end.toFixed?.(2) ?? end}s`,
                 hook ? `  Hook: ${hook}` : null,
                 desc ? `  Desc: ${desc}` : null,
               ]
@@ -115,33 +112,34 @@ export default function CreatePage() {
         }
 
         setResult(text);
+        setEditedUrl(null);
         return;
       }
 
-      // CASE 2: NO FILE → /api/generate
+      // CASE 2: NO FILE → script generator
+      const body = { prompt, platform, goal, lengthSeconds, tone };
+
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt,
-          platform,
-          goal,
-          lengthSeconds,
-          tone,
-        }),
+        body: JSON.stringify(body),
       });
 
       const contentType = res.headers.get("content-type") || "";
       if (!contentType.includes("application/json")) {
         const text = await res.text();
-        console.error("Non-JSON response from /api/generate:", res.status, text);
-        setError(`Server returned non-JSON (status ${res.status}).`);
+        console.error("Non-JSON response from /api/generate:", {
+          status: res.status,
+          textSnippet: text.slice(0, 200),
+        });
+        setError(`Server returned non-JSON (status ${res.status}). Route might be misconfigured.`);
         return;
       }
 
       const data = await res.json();
-      if (!data?.success) {
-        setError(data?.error || "Failed to generate.");
+
+      if (!data.success) {
+        setError(data.error || "Failed to generate.");
         return;
       }
 
@@ -153,12 +151,7 @@ export default function CreatePage() {
 
       setResult(notes);
 
-      const url =
-        job?.output_video_url ||
-        job?.edited_url ||
-        job?.source_url ||
-        null;
-
+      const url = job?.output_video_url || job?.edited_url || job?.source_url || null;
       setEditedUrl(url);
     } catch (err: any) {
       console.error("Generate error (client):", err);
@@ -166,6 +159,11 @@ export default function CreatePage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (f) setFile(f);
   }
 
   return (
@@ -186,23 +184,18 @@ export default function CreatePage() {
               type="button"
               className={`create-mode-btn ${mode === "advanced" ? "create-mode-btn--active" : ""}`}
               onClick={() => setMode("advanced")}
-              disabled={!!file}
-              title={file ? "Advanced options are disabled while a file is selected." : undefined}
             >
               Advanced
             </button>
           </div>
         </header>
 
-        <div className="create-main-card">
+        <div className={`create-main-card ${loading ? "is-loading" : ""}`}>
           <div className="create-textarea-wrap">
             <textarea
+              name="prompt"
               className="create-textarea"
-              placeholder={
-                file
-                  ? "Optional: add context (what should the hooks be optimized for?)"
-                  : "Example: Turn this podcast into 5 viral TikToks"
-              }
+              placeholder={file ? "Optional: context or goal for the clips" : "Example: Turn this podcast into 5 viral TikToks"}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
             />
@@ -223,6 +216,7 @@ export default function CreatePage() {
               <div className="create-adv-field">
                 <label>Goal</label>
                 <input
+                  type="text"
                   value={goal}
                   onChange={(e) => setGoal(e.target.value)}
                   placeholder="Drive sales, grow page, etc."
@@ -255,23 +249,19 @@ export default function CreatePage() {
           <div className="create-bottom-row">
             <label className="create-file-bar">
               <span className="create-file-label">
+                <span className="create-file-bullet">•</span>
                 {file ? file.name : "Choose File / Drop here"}
               </span>
-              <input className="create-file-input" type="file" onChange={handleFileChange} />
+              <input type="file" name="file" className="create-file-input" onChange={handleFileChange} />
             </label>
 
-            <button
-              type="button"
-              className="create-generate-btn"
-              onClick={handleGenerate}
-              disabled={loading}
-            >
-              {primaryCtaLabel}
+            <button type="button" className="create-generate-btn" onClick={handleGenerate} disabled={loading}>
+              {loading ? (file ? "Finding hooks..." : "Thinking...") : file ? "Find hooks from file" : "Generate script"}
             </button>
           </div>
 
           <p className="create-tip">
-            Tip: Drop a video/audio to auto-find hooks, or just describe what you want for a script.
+            Tip: Drop a video/audio to auto-find hooks, or just describe what you want for a script. We&apos;ll handle the rest.
           </p>
 
           {error && <p className="create-error">{error}</p>}
@@ -279,6 +269,7 @@ export default function CreatePage() {
           {(result || editedUrl) && !error && (
             <div className="create-result">
               <h3>Result</h3>
+
               {editedUrl && (
                 <p style={{ marginBottom: 8 }}>
                   <strong>Edited video:</strong>{" "}
@@ -287,6 +278,7 @@ export default function CreatePage() {
                   </a>
                 </p>
               )}
+
               {result && (
                 <>
                   <strong>AI notes:</strong>
@@ -304,10 +296,12 @@ export default function CreatePage() {
             <h2>Create</h2>
             <p>Upload → get captioned clips</p>
           </article>
+
           <article className="create-tile">
             <h2>Clipper</h2>
             <p>Auto-find hooks &amp; moments</p>
           </article>
+
           <article className="create-tile">
             <h2>Planner</h2>
             <p>Plan posts &amp; deadlines</p>
