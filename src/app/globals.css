@@ -462,3 +462,26 @@ pre{ overflow-x: auto; }
   .btn{ height: 40px; border-radius: 14px; }
   .menu{ gap: 8px; }
 }
+@media (max-width: 640px){
+  .lock{
+    padding: 28px 14px;
+  }
+
+  .lock__wrap{
+    width: 100%;
+  }
+
+  .lock__content{
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .lock__h1{
+    font-size: clamp(26px, 7vw, 34px);
+    line-height: 1.1;
+  }
+
+  .lock__p{
+    font-size: 14px;
+  }
+}
