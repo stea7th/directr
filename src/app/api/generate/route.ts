@@ -11,7 +11,6 @@ function safeStr(v: unknown) {
 
 function extractOutputText(res: any): string {
   try {
-    // Prefer SDK helper if present
     if (typeof res?.output_text === "string" && res.output_text.trim()) {
       return res.output_text.trim();
     }
@@ -35,6 +34,14 @@ function extractOutputText(res: any): string {
   }
 }
 
+type GenerateBody = {
+  prompt?: string;
+  platform?: string;
+  goal?: string;
+  lengthSeconds?: string | number;
+  tone?: string;
+};
+
 export async function POST(req: Request) {
   try {
     if (!process.env.OPENAI_API_KEY) {
@@ -44,21 +51,59 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ Next 15: this MUST be awaited
+    // ✅ Next 15: createRouteClient returns a Promise
     const supabase = await createRouteClient();
 
-    // (Optional) tie to user if logged in
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const form = await req.formData();
+    const contentType = req.headers.get("content-type") || "";
 
-    const prompt = safeStr(form.get("prompt")).trim();
-    const platform = safeStr(form.get("platform")).trim() || "TikTok";
-    const goal = safeStr(form.get("goal")).trim() || "Drive sales, grow page, etc.";
-    const lengthSeconds = safeStr(form.get("lengthSeconds")).trim() || "30";
-    const tone = safeStr(form.get("tone")).trim() || "Casual";
+    // ---- Read input (JSON OR FormData) ----
+    let prompt = "";
+    let platform = "TikTok";
+    let goal = "Drive sales, grow page, etc.";
+    let lengthSeconds = "30";
+    let tone = "Casual";
+    let fileMeta: { name: string; type: string; size: number } | null = null;
+
+    if (contentType.includes("application/json")) {
+      const body = (await req.json()) as GenerateBody;
+
+      prompt = safeStr(body.prompt).trim();
+      platform = safeStr(body.platform).trim() || platform;
+      goal = safeStr(body.goal).trim() || goal;
+      lengthSeconds = safeStr(body.lengthSeconds).trim() || lengthSeconds;
+      tone = safeStr(body.tone).trim() || tone;
+    } else if (
+      contentType.includes("multipart/form-data") ||
+      contentType.includes("application/x-www-form-urlencoded")
+    ) {
+      const form = await req.formData();
+
+      prompt = safeStr(form.get("prompt")).trim();
+      platform = safeStr(form.get("platform")).trim() || platform;
+      goal = safeStr(form.get("goal")).trim() || goal;
+      lengthSeconds = safeStr(form.get("lengthSeconds")).trim() || lengthSeconds;
+      tone = safeStr(form.get("tone")).trim() || tone;
+
+      const file = form.get("file");
+      fileMeta =
+        file instanceof File
+          ? { name: file.name, type: file.type, size: file.size }
+          : null;
+    } else {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to generate response.",
+          details:
+            'Content-Type was not one of "application/json", "multipart/form-data" or "application/x-www-form-urlencoded".',
+        },
+        { status: 415 }
+      );
+    }
 
     if (!prompt) {
       return NextResponse.json(
@@ -67,16 +112,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // File is optional (you can wire this into real transcription later)
-    const file = form.get("file");
-    const fileMeta =
-      file instanceof File
-        ? { name: file.name, type: file.type, size: file.size }
-        : null;
-
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const system = `You are Directr, an expert content director. Return clean, actionable output.`;
+
     const userMsg = `
 PROMPT:
 ${prompt}
@@ -107,7 +146,7 @@ Return plain text (not JSON).
 
     const text = extractOutputText(aiRes);
 
-    // Store as a job in Supabase
+    // ---- Save job to Supabase (best-effort) ----
     const insertPayload: any = {
       type: "script",
       prompt,
@@ -130,7 +169,6 @@ Return plain text (not JSON).
 
     if (jobError) {
       console.error("Supabase insert error:", jobError);
-      // Still return the AI text so UI works even if DB fails
       return NextResponse.json({
         success: true,
         text,
@@ -139,15 +177,15 @@ Return plain text (not JSON).
       });
     }
 
-    return NextResponse.json({
-      success: true,
-      text,
-      job,
-    });
+    return NextResponse.json({ success: true, text, job });
   } catch (err: any) {
     console.error("generate error:", err);
     return NextResponse.json(
-      { success: false, error: "Failed to generate response.", details: err?.message || String(err) },
+      {
+        success: false,
+        error: "Failed to generate response.",
+        details: err?.message || String(err),
+      },
       { status: 500 }
     );
   }
