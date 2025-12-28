@@ -1,5 +1,6 @@
 // src/app/layout.tsx
 import "./globals.css";
+import NavMobile from "@/components/NavMobile";
 import Link from "next/link";
 import { relockAction } from "@/app/lock/actions";
 import { createServerClient } from "@/lib/supabase/server";
