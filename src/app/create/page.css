@@ -8,7 +8,9 @@
   color: rgba(255, 255, 255, 0.92);
   background: #06070a;
   overflow-x: hidden;
-  font-family: var(--font-inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial);
+
+  /* Inter (from globals font vars) */
+  font-family: var(--font-sans);
 }
 
 /* subtle full-screen “premium” backdrop */
@@ -24,24 +26,6 @@
     radial-gradient(800px 600px at 50% 100%, rgba(255, 255, 255, 0.04), transparent 60%);
   filter: blur(18px);
   opacity: 0.9;
-}
-
-/* optional subtle grain (no image required) */
-.create-root::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background:
-    repeating-linear-gradient(
-      0deg,
-      rgba(255,255,255,0.018),
-      rgba(255,255,255,0.018) 1px,
-      transparent 1px,
-      transparent 3px
-    );
-  opacity: 0.18;
-  mix-blend-mode: overlay;
 }
 
 .create-shell {
@@ -116,14 +100,40 @@
   box-shadow:
     0 28px 80px rgba(0, 0, 0, 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+
   transition: box-shadow 200ms ease, border-color 200ms ease, transform 200ms ease;
 }
 
-/* loading pulse */
+/* tiny sheen sweep (idle, subtle) */
+.create-main-card::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  pointer-events: none;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(255,255,255,0.06) 18%,
+    transparent 38%,
+    transparent 100%
+  );
+  transform: translateX(-60%);
+  opacity: 0.35;
+  animation: cardSheen 7.5s ease-in-out infinite;
+}
+
+@keyframes cardSheen {
+  0%, 55% { transform: translateX(-60%); opacity: 0.0; }
+  70%     { opacity: 0.35; }
+  100%    { transform: translateX(60%); opacity: 0.0; }
+}
+
+/* breathing glow while generating */
 @keyframes pulseGlow {
-  0% { box-shadow: 0 28px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06); }
-  50% { box-shadow: 0 36px 110px rgba(0,0,0,0.65), 0 0 80px rgba(120,170,255,0.18), inset 0 1px 0 rgba(255,255,255,0.07); }
-  100% { box-shadow: 0 28px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06); }
+  0%   { box-shadow: 0 28px 80px rgba(0,0,0,.55), 0 0 0 rgba(120,170,255,0), inset 0 1px 0 rgba(255,255,255,.06); }
+  50%  { box-shadow: 0 28px 80px rgba(0,0,0,.55), 0 0 80px rgba(120,170,255,.22), inset 0 1px 0 rgba(255,255,255,.06); }
+  100% { box-shadow: 0 28px 80px rgba(0,0,0,.55), 0 0 0 rgba(120,170,255,0), inset 0 1px 0 rgba(255,255,255,.06); }
 }
 
 .create-main-card.is-loading {
@@ -137,6 +147,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   padding: 16px;
+
   transition: box-shadow 200ms ease, border-color 200ms ease;
 }
 
@@ -157,9 +168,13 @@
   outline: none;
   background: transparent;
   color: rgba(255, 255, 255, 0.92);
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  line-height: 1.6;
+
+  /* Mono for input (feels like a tool) */
+  font-family: var(--font-mono-stack);
   font-size: 13px;
-  line-height: 1.65;
+
+  /* nice detail */
   caret-color: rgb(140, 180, 255);
 }
 
@@ -296,10 +311,10 @@
   color: rgba(255, 120, 120, 0.9);
 }
 
-/* --- result --- */
+/* --- result reveal --- */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .create-result {
@@ -308,6 +323,7 @@
   border: 1px solid rgba(255, 255, 255, 0.10);
   background: rgba(0, 0, 0, 0.22);
   padding: 14px;
+
   animation: fadeUp 280ms ease-out;
 }
 
@@ -326,9 +342,11 @@
   overflow: auto;
   white-space: pre-wrap;
   color: rgba(255, 255, 255, 0.85);
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  line-height: 1.6;
+
+  /* Mono for output */
+  font-family: var(--font-mono-stack);
   font-size: 12.5px;
-  line-height: 1.65;
 }
 
 .create-result a {
@@ -343,7 +361,7 @@
 .create-tiles-section {
   max-width: 980px;
   margin: 22px auto 0;
-  padding: 0;
+  padding: 0 0;
 }
 
 .create-tiles-grid {
