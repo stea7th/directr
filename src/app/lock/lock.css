@@ -5,18 +5,18 @@
   inset: 0;
   z-index: 9999;
   overflow: hidden;
-  color: #fff;
   background: #05060a;
+  color: #fff;
 }
 
+/* ---------- Background ---------- */
 .lockBg {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(900px 500px at 55% 10%, rgba(90, 120, 255, 0.18), transparent 60%),
-    radial-gradient(700px 420px at 20% 75%, rgba(120, 80, 255, 0.12), transparent 55%),
+    radial-gradient(900px 500px at 55% 10%, rgba(90,120,255,.18), transparent 60%),
+    radial-gradient(700px 420px at 20% 75%, rgba(120,80,255,.12), transparent 55%),
     linear-gradient(180deg, #060712, #04040a 70%);
-  filter: saturate(1.05);
 }
 
 .lockBg::after {
@@ -24,10 +24,11 @@
   position: absolute;
   inset: -2px;
   background:
-    radial-gradient(1200px 600px at 50% -20%, rgba(255,255,255,0.06), transparent 55%);
-  opacity: 0.9;
+    radial-gradient(1200px 600px at 50% -20%, rgba(255,255,255,.06), transparent 55%);
+  opacity: .9;
 }
 
+/* ---------- Layout ---------- */
 .lockWrap {
   position: relative;
   height: 100%;
@@ -39,35 +40,43 @@
 
 .lockCard {
   width: min(980px, 100%);
-  border-radius: 18px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(10, 12, 18, 0.72);
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(10,12,18,.72);
   backdrop-filter: blur(16px);
   box-shadow:
-    0 30px 90px rgba(0,0,0,0.65),
-    inset 0 1px 0 rgba(255,255,255,0.05);
-  overflow: hidden;
+    0 30px 90px rgba(0,0,0,.65),
+    inset 0 1px 0 rgba(255,255,255,.05);
+  animation: lockEnter 420ms cubic-bezier(.2,.8,.2,1);
+}
+
+@keyframes lockEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .lockInner {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
+  grid-template-columns: 1.2fr .8fr;
   gap: 22px;
   padding: 34px;
 }
 
-@media (max-width: 880px) {
-  .lockInner { grid-template-columns: 1fr; padding: 22px; }
-}
-
+/* ---------- Text ---------- */
 .lockKicker {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  letter-spacing: 0.08em;
+  letter-spacing: .08em;
   text-transform: uppercase;
-  color: rgba(190, 200, 255, 0.78);
+  color: rgba(190,200,255,.78);
   margin-bottom: 10px;
 }
 
@@ -75,8 +84,8 @@
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: rgba(90, 120, 255, 0.9);
-  box-shadow: 0 0 18px rgba(90, 120, 255, 0.6);
+  background: rgba(90,120,255,.9);
+  box-shadow: 0 0 18px rgba(90,120,255,.6);
 }
 
 .lockTitle {
@@ -88,77 +97,55 @@
 
 .lockSub {
   font-size: 15px;
-  color: rgba(255,255,255,0.62);
-  margin: 0 0 18px;
+  color: rgba(255,255,255,.62);
+  margin-bottom: 18px;
 }
 
+/* ---------- Feature tiles ---------- */
 .lockTiles {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3,1fr);
   gap: 10px;
-  margin-top: 14px;
-}
-
-@media (max-width: 880px) {
-  .lockTiles { grid-template-columns: 1fr; }
 }
 
 .lockTile {
   border-radius: 14px;
-  padding: 12px 12px 14px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
-  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
-}
-
-.lockTile:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.055);
-}
-
-.lockTileTop {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
+  padding: 12px 14px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.07);
 }
 
 .lockTileLabel {
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: .08em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.78);
-}
-
-.lockTileMeta {
-  font-size: 11px;
-  color: rgba(255,255,255,0.45);
+  color: rgba(255,255,255,.8);
+  margin-bottom: 4px;
 }
 
 .lockTileDesc {
   font-size: 13px;
-  color: rgba(255,255,255,0.58);
+  color: rgba(255,255,255,.6);
   line-height: 1.35;
 }
 
+/* ---------- Right panel ---------- */
 .lockPanel {
   border-radius: 16px;
   padding: 16px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.08);
 }
 
 .lockPanelTitle {
   font-size: 13px;
-  color: rgba(255,255,255,0.75);
+  color: rgba(255,255,255,.75);
   margin-bottom: 10px;
 }
 
 .lockRow {
   display: flex;
   gap: 10px;
-  align-items: center;
 }
 
 .lockInput {
@@ -166,35 +153,28 @@
   height: 44px;
   border-radius: 12px;
   padding: 0 14px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.1);
   color: #fff;
   outline: none;
-  transition: border-color 180ms ease, background 180ms ease;
 }
 
 .lockInput:focus {
-  border-color: rgba(110, 140, 255, 0.55);
-  background: rgba(255,255,255,0.06);
+  border-color: rgba(110,140,255,.55);
 }
 
 .lockBtn {
   height: 44px;
   padding: 0 16px;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
   color: #fff;
   cursor: pointer;
-  transition: transform 140ms ease, opacity 140ms ease, background 140ms ease;
 }
 
-.lockBtn:hover { opacity: 0.92; transform: translateY(-1px); }
-.lockBtn:active { transform: translateY(0px); }
-
 .lockBtnPrimary {
-  background: linear-gradient(180deg, #5b7cff, #3b55ff);
-  border-color: rgba(255,255,255,0.2);
+  background: linear-gradient(180deg,#5b7cff,#3b55ff);
 }
 
 .lockActions {
@@ -204,102 +184,46 @@
   flex-wrap: wrap;
 }
 
-/* --- Lock page: enter animation (only) --- */
-
-.lockCard {
-  animation: lockEnter 420ms cubic-bezier(.2,.8,.2,1);
-  will-change: transform, opacity;
-}
-
-@keyframes lockEnter {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* Respect reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .lockCard {
-    animation: none;
-  }
-}
-.lockLinkBtn {
-  height: 36px;
-  padding: 0 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.04);
-  color: rgba(255,255,255,0.85);
-  cursor: pointer;
-  transition: transform 140ms ease, opacity 140ms ease;
-}
-
-.lockLinkBtn:hover { opacity: 0.9; transform: translateY(-1px); }
-/* --- Lock page: enter animation (only) --- */
-
-.lockCard {
-  animation: lockEnter 420ms cubic-bezier(.2,.8,.2,1);
-  will-change: transform, opacity;
-}
-
-@keyframes lockEnter {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* Respect reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .lockCard {
-    animation: none;
-  }
-}
 .lockError {
   margin-top: 10px;
   font-size: 13px;
   color: #ff6b6b;
 }
-@media (max-width: 640px){
-  .lock{
-    padding: 28px 14px;
+
+/* ---------- MOBILE (THIS WAS THE PROBLEM) ---------- */
+@media (max-width: 880px) {
+  .lockInner {
+    grid-template-columns: 1fr;
+    padding: 22px;
   }
 
-  .lock__wrap{
-    width: 100%;
+  .lockTiles {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .lockWrap {
+    padding: 16px;
   }
 
-  .lock__content{
-    padding: 18px;
-    border-radius: 18px;
+  .lockTitle {
+    font-size: 28px;
   }
 
-  .lock__h1{
-    font-size: clamp(26px, 7vw, 34px);
-    line-height: 1.1;
-  }
-
-  .lock__p{
-    font-size: 14px;
-  }
-
-  /* ✅ this is the main fix */
-  .lock-form{
+  .lockRow {
     flex-direction: column;
-    align-items: stretch;
   }
 
-  .lock-form .input,
-  .lock-form .btn{
+  .lockInput,
+  .lockBtn {
     width: 100%;
+  }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .lockCard {
+    animation: none;
   }
 }
