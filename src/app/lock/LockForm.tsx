@@ -1,3 +1,4 @@
+// src/app/lock/LockForm.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -23,8 +24,9 @@ export default function LockForm() {
       const fd = new FormData();
       fd.set("key", key);
 
-      await unlockAction(fd);
-      // if your unlockAction redirects, you’ll never hit the next line — that’s fine.
+      const res: any = await unlockAction(fd);
+      // If unlockAction redirects, this never runs — that’s fine.
+      if (res && res.ok === false) setUnlockErr(res.error || "Wrong key.");
     } catch (e: any) {
       setUnlockErr(e?.message || "Failed to unlock.");
     } finally {
@@ -59,8 +61,9 @@ export default function LockForm() {
   }
 
   return (
-    <div>
-      {/* Unlock */}
+    <div className="lockPanel">
+      <div className="lockPanelTitle">Founder access</div>
+
       <form onSubmit={onUnlock} className="lockRow">
         <input
           className="lockInput"
@@ -68,31 +71,35 @@ export default function LockForm() {
           value={key}
           onChange={(e) => setKey(e.target.value)}
         />
-        <button className="lockBtn lockBtnPrimary" disabled={unlocking}>
+        <button className="lockBtn lockBtnPrimary" type="submit" disabled={unlocking}>
           {unlocking ? "Unlocking..." : "Unlock"}
         </button>
       </form>
+
       {unlockErr && <div className="lockError">{unlockErr}</div>}
 
-      {/* Waitlist */}
-      <div style={{ height: 12 }} />
+      <div style={{ height: 14 }} />
+
+      <div className="lockPanelTitle">Waitlist</div>
 
       <form onSubmit={onWaitlist} className="lockRow">
         <input
           className="lockInput"
-          placeholder="Email for waitlist"
+          placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <button className="lockBtn" disabled={waitlisting}>
-          {waitlisting ? "Joining..." : "Join waitlist"}
+        <button className="lockBtn" type="submit" disabled={waitlisting}>
+          {waitlisting ? "Joining..." : "Join"}
         </button>
       </form>
 
       {waitErr && <div className="lockError">{waitErr}</div>}
-      {waitOk && <div style={{ marginTop: 10, color: "rgba(255,255,255,.75)" }}>
-        You’re on the list ✅
-      </div>}
+      {waitOk && (
+        <div style={{ marginTop: 10, fontSize: 13, color: "rgba(255,255,255,.75)" }}>
+          You’re on the list ✅
+        </div>
+      )}
     </div>
   );
 }
