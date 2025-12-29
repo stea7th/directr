@@ -23,7 +23,8 @@
   content: "";
   position: absolute;
   inset: -2px;
-  background: radial-gradient(1200px 600px at 50% -20%, rgba(255,255,255,0.06), transparent 55%);
+  background:
+    radial-gradient(1200px 600px at 50% -20%, rgba(255,255,255,0.06), transparent 55%);
   opacity: 0.9;
 }
 
@@ -51,11 +52,30 @@
   will-change: transform, opacity;
 }
 
+@keyframes lockEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lockCard { animation: none; }
+}
+
 .lockInner {
   display: grid;
   grid-template-columns: 1.2fr 0.8fr;
   gap: 22px;
   padding: 34px;
+}
+
+@media (max-width: 880px) {
+  .lockInner { grid-template-columns: 1fr; padding: 22px; }
 }
 
 .lockKicker {
@@ -95,6 +115,10 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-top: 14px;
+}
+
+@media (max-width: 880px) {
+  .lockTiles { grid-template-columns: 1fr; }
 }
 
 .lockTile {
@@ -149,95 +173,14 @@
   margin-bottom: 10px;
 }
 
-.lockRow {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.lockInput {
-  flex: 1;
-  height: 44px;
-  border-radius: 12px;
-  padding: 0 14px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: #fff;
-  outline: none;
-  transition: border-color 180ms ease, background 180ms ease;
-}
-
-.lockInput:focus {
-  border-color: rgba(110, 140, 255, 0.55);
-  background: rgba(255,255,255,0.06);
-}
-
-.lockBtn {
-  height: 44px;
-  padding: 0 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.06);
-  color: #fff;
-  cursor: pointer;
-  transition: transform 140ms ease, opacity 140ms ease, background 140ms ease;
-}
-
-.lockBtn:hover { opacity: 0.92; transform: translateY(-1px); }
-.lockBtn:active { transform: translateY(0px); }
-
-.lockBtnPrimary {
-  background: linear-gradient(180deg, #5b7cff, #3b55ff);
-  border-color: rgba(255,255,255,0.2);
-}
-
-.lockActions {
-  display: flex;
-  gap: 10px;
+.lockFine {
   margin-top: 12px;
-  flex-wrap: wrap;
-}
-
-.lockLinkBtn {
-  height: 44px;
-  padding: 0 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.04);
-  color: rgba(255,255,255,0.85);
-  cursor: pointer;
-  transition: transform 140ms ease, opacity 140ms ease;
-  width: 100%;
-}
-
-.lockLinkBtn:hover { opacity: 0.9; transform: translateY(-1px); }
-
-.lockError {
-  margin-top: 10px;
   font-size: 13px;
-  color: #ff6b6b;
+  color: rgba(255,255,255,0.55);
 }
 
-@keyframes lockEnter {
-  from { opacity: 0; transform: translateY(12px) scale(0.985); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .lockCard { animation: none; }
-}
-
-/* responsive */
-@media (max-width: 880px) {
-  .lockInner { grid-template-columns: 1fr; padding: 22px; }
-  .lockTiles { grid-template-columns: 1fr; }
-}
-
+/* Mobile tightening */
 @media (max-width: 640px) {
-  .lockWrap { padding: 16px; }
-  .lockTitle { font-size: 26px; }
-  .lockSub { font-size: 14px; }
-  .lockRow { flex-direction: column; align-items: stretch; }
-  .lockInput, .lockBtn { width: 100%; }
-  .lockActions { flex-direction: column; align-items: stretch; }
+  .lockWrap { padding: 14px; }
+  .lockTitle { font-size: clamp(26px, 7vw, 34px); }
 }
