@@ -1,29 +1,35 @@
 // src/middleware.ts
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 export function middleware(req: NextRequest) {
-  const enabled = process.env.SITE_LOCK_ENABLED === "true";
-  if (!enabled) return NextResponse.next();
+  const { pathname } = req.nextUrl;
 
-  const { pathname, search } = req.nextUrl;
-
-  // allow Next assets + lock page
+  // ✅ Never lock API or Next internals
   if (
+    pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
-    pathname === "/lock" ||
     pathname === "/favicon.ico" ||
-    pathname === "/robots.txt" ||
-    pathname === "/sitemap.xml"
+    pathname.startsWith("/lock") ||
+    pathname.startsWith("/login")
   ) {
     return NextResponse.next();
   }
 
-  const unlocked = req.cookies.get("directr_unlocked")?.value === "true";
+  // ✅ Never redirect non-GET (prevents 307 on POST)
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    return NextResponse.next();
+  }
+
+  if (process.env.SITE_LOCK_ENABLED !== "true") {
+    return NextResponse.next();
+  }
+
+  const unlocked = req.cookies.get("directr_unlocked")?.value === "1";
   if (unlocked) return NextResponse.next();
 
   const url = req.nextUrl.clone();
   url.pathname = "/lock";
-  url.searchParams.set("from", pathname + search);
   return NextResponse.redirect(url);
 }
 
