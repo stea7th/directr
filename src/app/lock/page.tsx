@@ -8,9 +8,10 @@ export default function LockPage() {
       <div className={styles.lockBg} />
 
       <div className={styles.lockWrap}>
-        <div className={styles.lockCard}>
+        <section className={styles.lockCard}>
           <div className={styles.lockInner}>
-            <section>
+            {/* LEFT */}
+            <div>
               <div className={styles.lockKicker}>
                 <span className={styles.lockDot} />
                 Private build · founder access
@@ -21,21 +22,23 @@ export default function LockPage() {
                 Access is limited while we stabilize uploads + editing.
               </p>
 
+              <LockForm />
+
               <div className={styles.lockTiles}>
                 <div className={styles.lockTile}>
                   <div className={styles.lockTileTop}>
                     <div className={styles.lockTileLabel}>Create</div>
-                    <div className={styles.lockTileMeta}>v0</div>
+                    <div className={styles.lockTileMeta}>v0.1</div>
                   </div>
-                  <div className={styles.lockTileDesc}>Generate scripts + hooks</div>
+                  <div className={styles.lockTileDesc}>Prompt → script → output</div>
                 </div>
 
                 <div className={styles.lockTile}>
                   <div className={styles.lockTileTop}>
                     <div className={styles.lockTileLabel}>Clipper</div>
-                    <div className={styles.lockTileMeta}>beta</div>
+                    <div className={styles.lockTileMeta}>soon</div>
                   </div>
-                  <div className={styles.lockTileDesc}>Auto-find moments</div>
+                  <div className={styles.lockTileDesc}>Auto-find hooks & moments</div>
                 </div>
 
                 <div className={styles.lockTile}>
@@ -43,17 +46,25 @@ export default function LockPage() {
                     <div className={styles.lockTileLabel}>Planner</div>
                     <div className={styles.lockTileMeta}>soon</div>
                   </div>
-                  <div className={styles.lockTileDesc}>Plan posts + schedule</div>
+                  <div className={styles.lockTileDesc}>Plan posts & deadlines</div>
                 </div>
               </div>
-            </section>
+            </div>
 
+            {/* RIGHT */}
             <aside className={styles.lockPanel}>
-              <div className={styles.lockPanelTitle}>Enter access key</div>
-              <LockForm />
+              <div className={styles.lockPanelTitle}>Founder access</div>
+              <p className={styles.lockSub} style={{ marginTop: 0 }}>
+                Enter your key to unlock the Create page.
+              </p>
+
+              {/* LockForm already includes the input/button UI. This panel is just “context”. */}
+              <div className={styles.lockFine}>
+                Tip: Keep your key private. This is a temporary gate while we ship stability updates.
+              </div>
             </aside>
           </div>
-        </div>
+        </section>
       </div>
     </main>
   );
