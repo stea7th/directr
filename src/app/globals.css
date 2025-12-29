@@ -1,6 +1,8 @@
 /* src/app/globals.css */
 
-/* -------- Theme -------- */
+/* =========================
+   Theme
+   ========================= */
 :root{
   --bg:#0a0a0a;
   --panel:#111;
@@ -18,121 +20,108 @@
   /* Fonts (set by next/font in layout.tsx) */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   --font-mono-stack: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  /* Responsive foundation */
+  --max: 1200px;
+  --px: clamp(14px, 3.2vw, 22px);
+  --py: clamp(18px, 3.4vw, 28px);
+  --nav-h: 58px;
 }
 
-/* -------- Reset / base -------- */
-*{box-sizing:border-box}
-html,body{height:100%}
-html{color-scheme:dark}
+/* =========================
+   Reset / base
+   ========================= */
+*{ box-sizing:border-box }
+html,body{ height:100% }
+html{ color-scheme:dark }
 
 body{
   margin:0;
   font-family: var(--font-sans);
-  background:var(--bg);
-  color:var(--fg);
+  background: var(--bg);
+  color: var(--fg);
 }
 
-code, pre, kbd, samp{
-  font-family: var(--font-mono-stack);
-}
+code, pre, kbd, samp{ font-family: var(--font-mono-stack); }
 
-/* -------- Layout shells -------- */
-.site{min-height:100%; display:flex; flex-direction:column}
+a{ color: var(--accent); }
+a:hover{ opacity:.9; }
+
+input, select, textarea, button{ font: inherit; }
+textarea{ min-width:0; }
+pre{ overflow-x:auto; }
+
+/* =========================
+   Layout shells
+   ========================= */
+.site{
+  min-height:100%;
+  display:flex;
+  flex-direction:column;
+}
 
 .page{
   flex:1 0 auto;
-  max-width:1200px;
+  width:100%;
+  max-width: var(--max);
   margin:0 auto;
-  padding:28px 20px 70px;
+  padding: calc(var(--nav-h) + var(--py)) var(--px) 70px;
 }
 
-.container{max-width:1200px; margin:0 auto; padding:24px 20px}
+.container{
+  width:100%;
+  max-width: var(--max);
+  margin:0 auto;
+  padding: var(--py) var(--px);
+}
 
-/* -------- Header / Footer -------- */
+/* =========================
+   Nav (desktop + mobile app feel)
+   ========================= */
 .nav{
-  position:sticky;
-  top:0;
-  z-index:20;
-  background:#0b0b0b;
-  border-bottom:1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(11,11,11,.75);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
 }
 
 .nav__inner{
-  max-width:1200px;
-  margin:0 auto;
-  padding:14px 20px;
+  height: var(--nav-h);
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 0 var(--px);
   display:flex;
   align-items:center;
   justify-content:space-between;
+  gap: 12px;
 }
 
 .logo{
-  font-weight:700;
-  letter-spacing:.2px;
-  text-decoration:none;
-  color:var(--fg);
-  font-size:18px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  text-decoration: none;
+  color: var(--fg);
+  font-size: 18px;
 }
-.logo .dot{color:var(--accent)}
+.logo .dot{ color: var(--accent); }
 
-.menu{display:flex; gap:18px; align-items:center}
-.menu a{color:var(--muted); text-decoration:none; font-size:14px}
-.menu a:hover{color:var(--fg)}
-.link--muted{opacity:.9}
-
-.footer{border-top:1px solid var(--border); background:#0b0b0b}
-.footer__inner{
-  max-width:1200px;
-  margin:0 auto;
-  padding:22px 20px;
+.menu{
   display:flex;
-  gap:10px;
   align-items:center;
-  color:var(--muted);
+  gap: 18px;
 }
-.footer__inner a{color:var(--muted); text-decoration:none}
-.footer__inner a:hover{color:var(--fg)}
-.footer .spacer{opacity:.6}
 
-/* -------- Typography helpers -------- */
-.title{font-size:22px; font-weight:700; margin:4px 0 2px}
-.subtitle{color:var(--muted); margin:0 0 18px; font-size:14px}
-
-/* -------- Cards / grid -------- */
-.dashboard{display:grid; grid-template-columns:1fr; gap:20px}
-@media (min-width: 960px){
-  .dashboard{grid-template-columns:1fr 1fr}
+.menu a{
+  color: var(--muted);
+  text-decoration:none;
+  font-size: 14px;
 }
-.card{
-  background:var(--panel);
-  border:1px solid var(--border);
-  border-radius:16px;
-  padding:18px;
-  box-shadow:0 0 0 1px rgba(255,255,255,.03) inset;
-}
-.card__head{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px}
+.menu a:hover{ color: var(--fg); }
 
-/* -------- Inputs / buttons -------- */
-.hidden{display:none}
-.field{display:flex; flex-direction:column; gap:6px}
-.field span{color:var(--muted); font-size:12px}
-.grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px}
-@media (min-width: 720px){ .grid{grid-template-columns:repeat(4,1fr)} }
-
-.input{
-  width:100%;
-  height:36px;
-  background:var(--panel-2);
-  border:1px solid var(--border);
-  color:var(--fg);
-  border-radius:12px;
-  padding:0 12px;
-  outline:none;
-}
-.input:focus{box-shadow:0 0 0 3px var(--ring)}
-
-.actions{display:flex; gap:10px; margin-top:14px}
-
+/* Buttons */
 .btn{
   height:36px;
   border-radius:12px;
@@ -144,13 +133,103 @@ code, pre, kbd, samp{
   line-height:36px;
   cursor:pointer;
 }
-.btn:hover{box-shadow:0 0 0 2px var(--ring)}
-.btn--primary{background:var(--accent); border-color:transparent; color:#fff}
-.btn--primary:hover{filter:brightness(1.05)}
-.btn--ghost{background:transparent}
-.btn--disabled{opacity:.55; cursor:not-allowed}
+.btn:hover{ box-shadow:0 0 0 2px var(--ring) }
+.btn--primary{ background:var(--accent); border-color:transparent; color:#fff }
+.btn--primary:hover{ filter:brightness(1.05) }
+.btn--ghost{ background:transparent }
+.btn--disabled{ opacity:.55; cursor:not-allowed }
 
-/* -------- Dropzone -------- */
+/* Mobile: app-like horizontal nav pills (no hamburger needed) */
+@media (max-width: 720px){
+  .nav{ background: rgba(10,10,10,.72); }
+  .logo{ font-size:17px; }
+
+  .menu{
+    gap: 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+  .menu::-webkit-scrollbar{ display:none; }
+
+  .menu a{
+    font-size: 13px;
+    padding: 10px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.03);
+    color: rgba(255,255,255,.78);
+    white-space: nowrap;
+  }
+  .menu a:hover{
+    color: rgba(255,255,255,.95);
+    background: rgba(255,255,255,.06);
+  }
+
+  .btn{
+    height: 40px;
+    border-radius: 999px;
+    padding: 0 14px;
+    line-height: 40px;
+    white-space: nowrap;
+  }
+}
+
+/* =========================
+   Common UI helpers (cards, inputs, etc)
+   ========================= */
+.title{ font-size:22px; font-weight:700; margin:4px 0 2px }
+.subtitle{ color:var(--muted); margin:0 0 18px; font-size:14px }
+
+.dashboard{ display:grid; grid-template-columns:1fr; gap:20px }
+@media (min-width: 960px){
+  .dashboard{ grid-template-columns:1fr 1fr }
+}
+
+.card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:18px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.03) inset;
+}
+.card__head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:10px;
+}
+
+.hidden{ display:none }
+.field{ display:flex; flex-direction:column; gap:6px }
+.field span{ color:var(--muted); font-size:12px }
+
+.grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin-top:16px;
+}
+@media (min-width: 720px){
+  .grid{ grid-template-columns:repeat(4,1fr) }
+}
+
+.input{
+  width:100%;
+  height:36px;
+  background:var(--panel-2);
+  border:1px solid var(--border);
+  color:var(--fg);
+  border-radius:12px;
+  padding:0 12px;
+  outline:none;
+}
+.input:focus{ box-shadow:0 0 0 3px var(--ring) }
+
+.actions{ display:flex; gap:10px; margin-top:14px }
+
+/* Dropzone */
 .drop{
   height:180px;
   border:2px dashed var(--border);
@@ -161,26 +240,26 @@ code, pre, kbd, samp{
   background:rgba(255,255,255,.02);
   transition:border-color .15s, background .15s;
 }
-.drop--over{border-color:var(--accent); background:rgba(14,165,233,.07)}
+.drop--over{ border-color:var(--accent); background:rgba(14,165,233,.07) }
 .drop__inner{ text-align:center; color:var(--muted) }
-.drop__inner p{margin:0 0 6px}
-.drop__inner small{color:var(--muted-2)}
-.browse{color:var(--accent); cursor:pointer; text-decoration:underline}
-.selected{margin-top:8px; font-size:12px; color:#d1d5db}
+.drop__inner p{ margin:0 0 6px }
+.drop__inner small{ color:var(--muted-2) }
+.browse{ color:var(--accent); cursor:pointer; text-decoration:underline }
+.selected{ margin-top:8px; font-size:12px; color:#d1d5db }
 
-/* -------- Jobs list -------- */
-.jobs{display:flex; flex-direction:column; gap:10px}
+/* Jobs */
+.jobs{ display:flex; flex-direction:column; gap:10px }
 .job{
   border:1px solid var(--border);
   border-radius:12px;
   padding:12px;
   background:rgba(255,255,255,.03);
 }
-.job__top{display:flex; align-items:flex-start; justify-content:space-between; gap:10px}
-.job__title{font-size:14px; font-weight:600}
-.job__meta{margin-top:4px; font-size:11px; color:var(--muted-2); word-break:break-all}
-.job__actions{margin-top:10px; display:flex; align-items:center; gap:10px}
-.job__err{font-size:12px; color:#fca5a5}
+.job__top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px }
+.job__title{ font-size:14px; font-weight:600 }
+.job__meta{ margin-top:4px; font-size:11px; color:var(--muted-2); word-break:break-all }
+.job__actions{ margin-top:10px; display:flex; align-items:center; gap:10px }
+.job__err{ font-size:12px; color:#fca5a5 }
 
 .badge{
   border:1px solid var(--border);
@@ -189,15 +268,13 @@ code, pre, kbd, samp{
   font-size:11px;
   color:var(--muted);
 }
-.badge--ok{color:#86efac; border-color:#14532d; background:rgba(34,197,94,.12)}
-.badge--warn{color:#fde68a; border-color:#7c4a03; background:rgba(245,158,11,.12)}
-.badge--err{color:#fecaca; border-color:#7f1d1d; background:rgba(239,68,68,.12)}
+.badge--ok{ color:#86efac; border-color:#14532d; background:rgba(34,197,94,.12) }
+.badge--warn{ color:#fde68a; border-color:#7c4a03; background:rgba(245,158,11,.12) }
+.badge--err{ color:#fecaca; border-color:#7f1d1d; background:rgba(239,68,68,.12) }
 
-/* -------- Links -------- */
-a{color:var(--accent)}
-a:hover{opacity:.9}
-
-/* -------- Lock screen -------- */
+/* =========================
+   Lock screen
+   ========================= */
 .lock{
   min-height:100vh;
   display:flex;
@@ -242,39 +319,6 @@ a:hover{opacity:.9}
   z-index:2;
 }
 
-.lock__brand{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom:18px;
-}
-
-.lock__logo{
-  font-weight:800;
-  letter-spacing:.2px;
-  font-size:18px;
-}
-
-.lock__pill{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:8px 12px;
-  border-radius:999px;
-  border:1px solid var(--border);
-  background:rgba(0,0,0,.25);
-  color:var(--muted);
-  font-size:12px;
-  backdrop-filter: blur(10px);
-}
-
-.lock__dot{
-  width:8px; height:8px; border-radius:999px;
-  background:var(--accent);
-  box-shadow:0 0 0 4px rgba(14,165,233,.18);
-}
-
 .lock__content{
   padding:26px;
   border-radius:22px;
@@ -303,14 +347,6 @@ a:hover{opacity:.9}
   border:1px solid rgba(255,255,255,.10);
   background:rgba(0,0,0,.30);
   padding:16px;
-}
-
-.lock__cardHead{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom:10px;
 }
 
 .lock__label{
@@ -344,7 +380,6 @@ a:hover{opacity:.9}
   border-radius:14px;
   transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
 }
-
 .lock-form .btn:hover{
   transform: translateY(-1px);
   box-shadow:0 0 0 3px var(--ring);
@@ -357,189 +392,38 @@ a:hover{opacity:.9}
   flex-wrap:wrap;
 }
 
-.lock__btn{
-  transition: transform .12s ease, box-shadow .12s ease;
-}
-.lock__btn:hover{
-  transform: translateY(-1px);
-  box-shadow:0 0 0 2px var(--ring);
-}
-
 .lock-error{
   margin:10px 0 0;
   font-size:12px;
   color:#fecaca;
 }
 
-.lock__fine{
-  margin-top:12px;
-  font-size:12px;
-  color:var(--muted-2);
-}
-
-.lock__fine code{
-  border:1px solid var(--border);
-  background:rgba(255,255,255,.03);
-  padding:2px 6px;
-  border-radius:8px;
-}
-/* ---------- Responsive foundation ---------- */
-:root{
-  --max: 1200px;
-
-  /* fluid spacing */
-  --px: clamp(14px, 3.2vw, 22px);
-  --py: clamp(18px, 3.4vw, 28px);
-
-  /* nav height */
-  --nav-h: 58px;
-
-  /* type scale */
-  --h1: clamp(22px, 3.8vw, 34px);
-  --h2: clamp(16px, 2.6vw, 20px);
-  --p: clamp(13px, 1.8vw, 14px);
-}
-
-/* keep your base styles, then ensure: */
-.page{
-  flex: 1 0 auto;
-  width: 100%;
-  max-width: var(--max);
-  margin: 0 auto;
-  padding: calc(var(--nav-h) + var(--py)) var(--px) 70px;
-}
-
-.container{
-  width: 100%;
-  max-width: var(--max);
-  margin: 0 auto;
-  padding: var(--py) var(--px);
-}
-
-/* Make all inputs/buttons behave on mobile */
-input, select, textarea, button{
-  font: inherit;
-}
-textarea{ min-width: 0; }
-pre{ overflow-x: auto; }
-
-/* ---------- Nav responsiveness ---------- */
-.nav{
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  backdrop-filter: blur(12px);
-  background: rgba(11,11,11,.75);
-  border-bottom: 1px solid var(--border);
-}
-
-.nav__inner{
-  height: var(--nav-h);
-  max-width: var(--max);
-  margin: 0 auto;
-  padding: 0 var(--px);
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap: 12px;
-}
-
-/* Desktop menu stays inline */
-.menu{
-  display:flex;
-  gap: 16px;
-  align-items:center;
-}
-
-/* Mobile: hide links by default (we’ll add a hamburger in layout.tsx) */
-@media (max-width: 860px){
-  .menu a:not(.btn){ display:none; }
-  .menu{ gap: 10px; }
-}
-
-/* Better tap targets on mobile */
+/* Mobile polish for lock (THIS fixes your screenshot issues) */
 @media (max-width: 520px){
-  .btn{ height: 40px; border-radius: 14px; }
-  .menu{ gap: 8px; }
-}
-@media (max-width: 640px){
-  .lock{
-    padding: 28px 14px;
-  }
+  .lock{ padding: 22px 14px 34px; }
+  .lock__content{ padding: 18px; border-radius: 18px; }
+  .lock__h1{ font-size: clamp(28px, 7vw, 34px); line-height: 1.08; }
+  .lock__p{ font-size: 14px; }
 
-  .lock__wrap{
-    width: 100%;
-  }
-
-  .lock__content{
-    padding: 18px;
-    border-radius: 18px;
-  }
-
-  .lock__h1{
-    font-size: clamp(26px, 7vw, 34px);
-    line-height: 1.1;
-  }
-
-  .lock__p{
-    font-size: 14px;
-  }
-}
-
-/* =========================
-   Mobile App Nav Upgrade
-   ========================= */
-@media (max-width: 720px) {
-  .nav{
-    background: rgba(10,10,10,.72);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
-
-  .nav__inner{
-    padding: 12px 14px;
+  .lock-form{
+    flex-direction: column;
+    align-items: stretch;
     gap: 10px;
   }
-
-  .logo{
-    font-size: 17px;
+  .lock-form .input,
+  .lock-form .btn{
+    width:100%;
+    height:48px;
+    border-radius:16px;
   }
 
-  /* make it feel like an app: pill/scroll row */
-  .menu{
-    gap: 10px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding-bottom: 4px;
+  .lock__actions{
+    flex-direction: column;
+    align-items: stretch;
   }
-  .menu::-webkit-scrollbar{ display:none; }
-
-  .menu a{
-    font-size: 13px;
-    padding: 10px 12px;
-    border-radius: 999px;
-    border: 1px solid rgba(255,255,255,.10);
-    background: rgba(255,255,255,.03);
-    color: rgba(255,255,255,.78);
-    white-space: nowrap;
-  }
-
-  .menu a:hover{
-    color: rgba(255,255,255,.95);
-    background: rgba(255,255,255,.06);
-  }
-
-  .btn{
-    height: 40px;
-    border-radius: 999px;
-    padding: 0 14px;
-    line-height: 40px;
-    white-space: nowrap;
-  }
-
-  /* give the page better “app padding” under the sticky bar */
-  .page{
-    padding: 18px 14px 70px;
+  .lock__actions .btn{
+    width:100%;
+    height:46px;
+    border-radius:16px;
   }
 }
