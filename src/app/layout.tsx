@@ -1,4 +1,3 @@
-// src/app/layout.tsx
 import "./globals.css";
 import NavMobile from "@/components/NavMobile";
 import Link from "next/link";
@@ -23,9 +22,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // ✅ your helper returns a Promise, so await it
   const supabase = await createServerClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -35,6 +32,8 @@ export default async function RootLayout({
     const s = await createServerClient();
     await s.auth.signOut();
   }
+
+  const showLockControls = process.env.SITE_LOCK_ENABLED === "true";
 
   return (
     <html lang="en" className={`${inter.variable} ${mono.variable}`}>
@@ -52,7 +51,7 @@ export default async function RootLayout({
               <Link href="/jobs">Jobs</Link>
               <Link href="/pricing">Pricing</Link>
 
-              {process.env.SITE_LOCK_ENABLED === "true" && (
+              {showLockControls && (
                 <form action={relockAction}>
                   <button className="btn btn--ghost" type="submit">
                     Relock
@@ -75,7 +74,10 @@ export default async function RootLayout({
           </div>
         </nav>
 
-        <div className="page">{children}</div>
+        <main className="page">{children}</main>
+
+        {/* ✅ Mobile “app” nav */}
+        <NavMobile showLockControls={showLockControls} isAuthed={!!user} />
       </body>
     </html>
   );
