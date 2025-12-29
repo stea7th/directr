@@ -485,3 +485,61 @@ pre{ overflow-x: auto; }
     font-size: 14px;
   }
 }
+
+/* =========================
+   Mobile App Nav Upgrade
+   ========================= */
+@media (max-width: 720px) {
+  .nav{
+    background: rgba(10,10,10,.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .nav__inner{
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .logo{
+    font-size: 17px;
+  }
+
+  /* make it feel like an app: pill/scroll row */
+  .menu{
+    gap: 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+  .menu::-webkit-scrollbar{ display:none; }
+
+  .menu a{
+    font-size: 13px;
+    padding: 10px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.03);
+    color: rgba(255,255,255,.78);
+    white-space: nowrap;
+  }
+
+  .menu a:hover{
+    color: rgba(255,255,255,.95);
+    background: rgba(255,255,255,.06);
+  }
+
+  .btn{
+    height: 40px;
+    border-radius: 999px;
+    padding: 0 14px;
+    line-height: 40px;
+    white-space: nowrap;
+  }
+
+  /* give the page better “app padding” under the sticky bar */
+  .page{
+    padding: 18px 14px 70px;
+  }
+}
