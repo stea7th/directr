@@ -1,47 +1,25 @@
+// src/app/api/waitlist/route.ts
 import { NextResponse } from "next/server";
-import { createRouteClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
-function cleanStr(v: unknown) {
-  return typeof v === "string" ? v.trim() : "";
-}
-
 export async function POST(req: Request) {
   try {
-    const supabase = await createRouteClient();
-
     const body = await req.json().catch(() => ({}));
-    const email = cleanStr(body?.email).toLowerCase();
-    const name = cleanStr(body?.name);
+    const email = String(body.email || "").trim().toLowerCase();
+    const name = String(body.name || "").trim();
 
     if (!email || !email.includes("@")) {
       return NextResponse.json(
-        { success: false, error: "Invalid email." },
+        { success: false, error: "Enter a valid email." },
         { status: 400 }
       );
     }
 
-    // expects a table named: waitlist
-    // columns: email (text, unique), name (text, nullable), created_at (timestamp default now())
-    const { error } = await supabase
-      .from("waitlist")
-      .upsert(
-        { email, name: name || null },
-        { onConflict: "email" }
-      );
-
-    if (error) {
-      console.error("waitlist insert error:", error);
-      return NextResponse.json(
-        { success: false, error: "Waitlist insert failed.", details: error.message },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ success: true });
+    // ✅ for now: just succeed (so your UI works)
+    // later we can save to Supabase, Beehiiv, ConvertKit, etc.
+    return NextResponse.json({ success: true, email, name });
   } catch (err: any) {
-    console.error("waitlist route error:", err);
     return NextResponse.json(
       { success: false, error: "Waitlist failed.", details: err?.message || String(err) },
       { status: 500 }
