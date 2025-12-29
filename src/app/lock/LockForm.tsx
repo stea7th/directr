@@ -24,14 +24,23 @@ export default function LockForm() {
   async function onUnlock() {
     setUnlockErr(null);
     setUnlocking(true);
+
     try {
-      const res = await unlockAction(key);
-      // support either redirect OR {ok,error}
-      if (res && typeof res === "object" && "ok" in res && !res.ok) {
+      const fd = new FormData();
+      // IMPORTANT: server action expects FormData
+      fd.set("key", key);
+
+      const res = await unlockAction(fd);
+
+      // If your action returns { ok, error }
+      if (res && typeof res === "object" && "ok" in res && !(res as any).ok) {
         setUnlockErr((res as any).error || "Wrong key. Try again.");
-      } else {
-        window.location.href = "/create";
+        return;
       }
+
+      // If your action redirects, we may never reach here.
+      // But if it doesn't, push to create.
+      window.location.href = "/create";
     } catch (e: any) {
       setUnlockErr(e?.message || "Failed to unlock.");
     } finally {
@@ -43,7 +52,7 @@ export default function LockForm() {
     setWaitMsg(null);
     setWaitErr(null);
 
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes("@")) {
       setWaitErr("Enter a valid email.");
       return;
