@@ -1,27 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import styles from "./lock.module.css";
-import { unlockAction, relockAction } from "./actions";
-
-type Tab = "unlock" | "waitlist";
+import React, { useState } from "react";
+import { unlockAction, waitlistAction } from "./actions";
 
 export default function LockForm() {
-  const [tab, setTab] = useState<Tab>("unlock");
-
-  // unlock
   const [key, setKey] = useState("");
-  const [unlockErr, setUnlockErr] = useState<string | null>(null);
-  const [unlocking, setUnlocking] = useState(false);
-
-  // waitlist
   const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [waitMsg, setWaitMsg] = useState<string | null>(null);
-  const [waitErr, setWaitErr] = useState<string | null>(null);
-  const [waiting, setWaiting] = useState(false);
 
-  async function onUnlock() {
+  const [unlockErr, setUnlockErr] = useState<string | null>(null);
+  const [waitErr, setWaitErr] = useState<string | null>(null);
+  const [waitOk, setWaitOk] = useState(false);
+
+  const [unlocking, setUnlocking] = useState(false);
+  const [waitlisting, setWaitlisting] = useState(false);
+
+  async function onUnlock(e: React.FormEvent) {
+    e.preventDefault();
     setUnlockErr(null);
     setUnlocking(true);
 
@@ -29,139 +23,76 @@ export default function LockForm() {
       const fd = new FormData();
       fd.set("key", key);
 
-      // unlockAction returns void (redirects or throws)
       await unlockAction(fd);
-
-      // if it doesn't redirect, just go create
-      window.location.href = "/create";
+      // if your unlockAction redirects, you’ll never hit the next line — that’s fine.
     } catch (e: any) {
-      setUnlockErr(e?.message || "Wrong key. Try again.");
+      setUnlockErr(e?.message || "Failed to unlock.");
     } finally {
       setUnlocking(false);
     }
   }
 
-  async function onWaitlist() {
-    setWaitMsg(null);
+  async function onWaitlist(e: React.FormEvent) {
+    e.preventDefault();
     setWaitErr(null);
+    setWaitOk(false);
+    setWaitlisting(true);
 
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !cleanEmail.includes("@")) {
-      setWaitErr("Enter a valid email.");
-      return;
-    }
-
-    setWaiting(true);
     try {
-      const res = await fetch("/api/waitlist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: cleanEmail, name: name.trim() || null }),
-      });
+      const fd = new FormData();
+      fd.set("email", email);
 
-      const data = await res.json().catch(() => ({}));
+      const res = await waitlistAction(fd);
 
-      if (!res.ok || !data?.success) {
-        setWaitErr(data?.error || "Couldn’t join waitlist. Try again.");
+      if (!res.ok) {
+        setWaitErr(res.error || "Failed to join waitlist.");
         return;
       }
 
-      setWaitMsg("You’re on the list ✅");
+      setWaitOk(true);
       setEmail("");
-      setName("");
     } catch (e: any) {
-      setWaitErr(e?.message || "Couldn’t join waitlist.");
+      setWaitErr(e?.message || "Failed to join waitlist.");
     } finally {
-      setWaiting(false);
+      setWaitlisting(false);
     }
   }
 
   return (
-    <div className={styles.lockPanel}>
-      <div className={styles.tabs}>
-        <button
-          type="button"
-          className={`${styles.tab} ${tab === "unlock" ? styles.tabActive : ""}`}
-          onClick={() => setTab("unlock")}
-        >
-          Unlock
+    <div>
+      {/* Unlock */}
+      <form onSubmit={onUnlock} className="lockRow">
+        <input
+          className="lockInput"
+          placeholder="Access key"
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+        />
+        <button className="lockBtn lockBtnPrimary" disabled={unlocking}>
+          {unlocking ? "Unlocking..." : "Unlock"}
         </button>
-        <button
-          type="button"
-          className={`${styles.tab} ${tab === "waitlist" ? styles.tabActive : ""}`}
-          onClick={() => setTab("waitlist")}
-        >
-          Waitlist
+      </form>
+      {unlockErr && <div className="lockError">{unlockErr}</div>}
+
+      {/* Waitlist */}
+      <div style={{ height: 12 }} />
+
+      <form onSubmit={onWaitlist} className="lockRow">
+        <input
+          className="lockInput"
+          placeholder="Email for waitlist"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <button className="lockBtn" disabled={waitlisting}>
+          {waitlisting ? "Joining..." : "Join waitlist"}
         </button>
-      </div>
+      </form>
 
-      {tab === "unlock" ? (
-        <>
-          <div className={styles.lockPanelTitle}>Enter access key</div>
-
-          <div className={styles.lockRow}>
-            <input
-              className={styles.lockInput}
-              placeholder="Access key"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-            />
-
-            <button
-              type="button"
-              className={`${styles.lockBtn} ${styles.lockBtnPrimary}`}
-              onClick={onUnlock}
-              disabled={unlocking}
-            >
-              {unlocking ? "Unlocking…" : "Unlock"}
-            </button>
-          </div>
-
-          <div className={styles.lockActions}>
-            <form action={relockAction}>
-              <button className={styles.lockBtn} type="submit">
-                Relock
-              </button>
-            </form>
-          </div>
-
-          {unlockErr && <div className={styles.lockError}>{unlockErr}</div>}
-        </>
-      ) : (
-        <>
-          <div className={styles.lockPanelTitle}>Join the waitlist</div>
-
-          <div className={styles.waitGrid}>
-            <input
-              className={styles.lockInput}
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              inputMode="email"
-              autoCapitalize="none"
-              autoCorrect="off"
-            />
-            <input
-              className={styles.lockInput}
-              placeholder="Name (optional)"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-
-          <button
-            type="button"
-            className={`${styles.lockBtn} ${styles.lockBtnPrimary} ${styles.fullBtn}`}
-            onClick={onWaitlist}
-            disabled={waiting}
-          >
-            {waiting ? "Joining…" : "Join waitlist"}
-          </button>
-
-          {waitErr && <div className={styles.lockError}>{waitErr}</div>}
-          {waitMsg && <div className={styles.lockSuccess}>{waitMsg}</div>}
-        </>
-      )}
+      {waitErr && <div className="lockError">{waitErr}</div>}
+      {waitOk && <div style={{ marginTop: 10, color: "rgba(255,255,255,.75)" }}>
+        You’re on the list ✅
+      </div>}
     </div>
   );
 }
