@@ -6,15 +6,13 @@ export default function LockPage() {
   return (
     <main className={styles.lockRoot}>
       <div className={styles.lockBg} />
-
       <div className={styles.lockWrap}>
-        <section className={styles.lockCard}>
+        <div className={styles.lockCard}>
           <div className={styles.lockInner}>
-            {/* LEFT */}
-            <div>
+            <div className={styles.left}>
               <div className={styles.lockKicker}>
                 <span className={styles.lockDot} />
-                Private build · founder access
+                PRIVATE BUILD · FOUNDER ACCESS
               </div>
 
               <h1 className={styles.lockTitle}>Directr is in private mode.</h1>
@@ -24,47 +22,57 @@ export default function LockPage() {
 
               <LockForm />
 
-              <div className={styles.lockTiles}>
-                <div className={styles.lockTile}>
-                  <div className={styles.lockTileTop}>
-                    <div className={styles.lockTileLabel}>Create</div>
-                    <div className={styles.lockTileMeta}>v0.1</div>
-                  </div>
-                  <div className={styles.lockTileDesc}>Prompt → script → output</div>
-                </div>
+              <details className={styles.details}>
+                <summary className={styles.detailsSummary}>What’s inside</summary>
 
-                <div className={styles.lockTile}>
-                  <div className={styles.lockTileTop}>
-                    <div className={styles.lockTileLabel}>Clipper</div>
-                    <div className={styles.lockTileMeta}>soon</div>
+                <div className={styles.lockTiles}>
+                  <div className={styles.lockTile}>
+                    <div className={styles.lockTileTop}>
+                      <div className={styles.lockTileLabel}>CREATE</div>
+                      <div className={styles.lockTileMeta}>v0.1</div>
+                    </div>
+                    <div className={styles.lockTileDesc}>Prompt → script → output</div>
                   </div>
-                  <div className={styles.lockTileDesc}>Auto-find hooks & moments</div>
-                </div>
 
-                <div className={styles.lockTile}>
-                  <div className={styles.lockTileTop}>
-                    <div className={styles.lockTileLabel}>Planner</div>
-                    <div className={styles.lockTileMeta}>soon</div>
+                  <div className={styles.lockTile}>
+                    <div className={styles.lockTileTop}>
+                      <div className={styles.lockTileLabel}>CLIPPER</div>
+                      <div className={styles.lockTileMeta}>soon</div>
+                    </div>
+                    <div className={styles.lockTileDesc}>Auto-find hooks &amp; moments</div>
                   </div>
-                  <div className={styles.lockTileDesc}>Plan posts & deadlines</div>
+
+                  <div className={styles.lockTile}>
+                    <div className={styles.lockTileTop}>
+                      <div className={styles.lockTileLabel}>PLANNER</div>
+                      <div className={styles.lockTileMeta}>soon</div>
+                    </div>
+                    <div className={styles.lockTileDesc}>Plan posts &amp; deadlines</div>
+                  </div>
                 </div>
-              </div>
+              </details>
             </div>
 
-            {/* RIGHT */}
-            <aside className={styles.lockPanel}>
-              <div className={styles.lockPanelTitle}>Founder access</div>
-              <p className={styles.lockSub} style={{ marginTop: 0 }}>
-                Enter your key to unlock the Create page.
-              </p>
+            <aside className={styles.right}>
+              <div className={styles.sideCard}>
+                <div className={styles.sideTitle}>Founder access</div>
+                <div className={styles.sideText}>
+                  Keep your key private. This is a temporary gate while we ship stability updates.
+                </div>
+              </div>
 
-              {/* LockForm already includes the input/button UI. This panel is just “context”. */}
-              <div className={styles.lockFine}>
-                Tip: Keep your key private. This is a temporary gate while we ship stability updates.
+              <div className={styles.sideCard}>
+                <div className={styles.sideTitle}>Want in?</div>
+                <div className={styles.sideText}>
+                  Join the waitlist and you’ll get first access when we open invites.
+                </div>
+                <div className={styles.waitlistHint}>
+                  Use the <b>Waitlist</b> tab.
+                </div>
               </div>
             </aside>
           </div>
-        </section>
+        </div>
       </div>
     </main>
   );
