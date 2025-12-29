@@ -19,15 +19,6 @@
   filter: saturate(1.05);
 }
 
-.lockBg::after {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  background:
-    radial-gradient(1200px 600px at 50% -20%, rgba(255,255,255,0.06), transparent 55%);
-  opacity: 0.9;
-}
-
 .lockWrap {
   position: relative;
   height: 100%;
@@ -47,24 +38,13 @@
     0 30px 90px rgba(0,0,0,0.65),
     inset 0 1px 0 rgba(255,255,255,0.05);
   overflow: hidden;
-
   animation: lockEnter 420ms cubic-bezier(.2,.8,.2,1);
   will-change: transform, opacity;
 }
 
 @keyframes lockEnter {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .lockCard { animation: none; }
+  from { opacity: 0; transform: translateY(12px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .lockInner {
@@ -74,9 +54,8 @@
   padding: 34px;
 }
 
-@media (max-width: 880px) {
-  .lockInner { grid-template-columns: 1fr; padding: 22px; }
-}
+.left { min-width: 0; }
+.right { display: grid; gap: 12px; align-content: start; }
 
 .lockKicker {
   display: inline-flex;
@@ -107,18 +86,120 @@
 .lockSub {
   font-size: 15px;
   color: rgba(255,255,255,0.62);
-  margin: 0 0 18px;
+  margin: 0 0 14px;
 }
+
+/* panel */
+.lockPanel {
+  border-radius: 16px;
+  padding: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.lockPanelTitle {
+  font-size: 13px;
+  color: rgba(255,255,255,0.75);
+  margin: 10px 0 10px;
+}
+
+.tabs {
+  display: inline-flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.18);
+  margin-bottom: 8px;
+}
+
+.tab {
+  border: 0;
+  background: transparent;
+  color: rgba(255,255,255,0.65);
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, transform 120ms ease;
+}
+.tab:hover { color: rgba(255,255,255,0.92); transform: translateY(-1px); }
+.tabActive {
+  background: rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.92);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+}
+
+.lockRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.lockInput {
+  flex: 1;
+  height: 44px;
+  border-radius: 12px;
+  padding: 0 14px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.10);
+  color: #fff;
+  outline: none;
+  transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+.lockInput:focus {
+  border-color: rgba(110, 140, 255, 0.55);
+  background: rgba(255,255,255,0.06);
+  box-shadow: 0 0 0 3px rgba(110,140,255,0.16);
+}
+
+.lockBtn {
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 140ms ease, opacity 140ms ease, background 140ms ease;
+}
+.lockBtn:hover { opacity: 0.92; transform: translateY(-1px); }
+.lockBtn:active { transform: translateY(0px); }
+
+.lockBtnPrimary {
+  background: linear-gradient(180deg, #5b7cff, #3b55ff);
+  border-color: rgba(255,255,255,0.20);
+}
+
+.fullBtn { width: 100%; margin-top: 10px; }
+
+.lockActions { margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+.lockError { margin-top: 10px; font-size: 13px; color: #ff6b6b; }
+.lockSuccess { margin-top: 10px; font-size: 13px; color: rgba(134, 239, 172, 0.95); }
+
+/* waitlist fields */
+.waitGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+/* collapsible "inside" */
+.details { margin-top: 14px; }
+.detailsSummary {
+  cursor: pointer;
+  user-select: none;
+  color: rgba(255,255,255,0.78);
+  font-size: 13px;
+}
+.detailsSummary::-webkit-details-marker { display: none; }
 
 .lockTiles {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-  margin-top: 14px;
-}
-
-@media (max-width: 880px) {
-  .lockTiles { grid-template-columns: 1fr; }
+  margin-top: 12px;
 }
 
 .lockTile {
@@ -126,13 +207,6 @@
   padding: 12px 12px 14px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.07);
-  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
-}
-
-.lockTile:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.055);
 }
 
 .lockTileTop {
@@ -149,38 +223,32 @@
   color: rgba(255,255,255,0.78);
 }
 
-.lockTileMeta {
-  font-size: 11px;
-  color: rgba(255,255,255,0.45);
-}
+.lockTileMeta { font-size: 11px; color: rgba(255,255,255,0.45); }
+.lockTileDesc { font-size: 13px; color: rgba(255,255,255,0.58); line-height: 1.35; }
 
-.lockTileDesc {
-  font-size: 13px;
-  color: rgba(255,255,255,0.58);
-  line-height: 1.35;
-}
-
-.lockPanel {
+/* side cards */
+.sideCard {
   border-radius: 16px;
-  padding: 16px;
+  padding: 14px;
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.08);
 }
+.sideTitle { font-size: 13px; color: rgba(255,255,255,0.80); margin-bottom: 8px; }
+.sideText { font-size: 13px; color: rgba(255,255,255,0.58); line-height: 1.45; }
+.waitlistHint { margin-top: 10px; font-size: 12px; color: rgba(255,255,255,0.62); }
 
-.lockPanelTitle {
-  font-size: 13px;
-  color: rgba(255,255,255,0.75);
-  margin-bottom: 10px;
+/* responsive */
+@media (max-width: 880px) {
+  .lockInner { grid-template-columns: 1fr; padding: 22px; }
+  .right { display: none; } /* removes clutter on smaller screens */
+  .lockTiles { grid-template-columns: 1fr; }
 }
 
-.lockFine {
-  margin-top: 12px;
-  font-size: 13px;
-  color: rgba(255,255,255,0.55);
-}
-
-/* Mobile tightening */
-@media (max-width: 640px) {
-  .lockWrap { padding: 14px; }
-  .lockTitle { font-size: clamp(26px, 7vw, 34px); }
+/* mobile: make everything feel intentional */
+@media (max-width: 520px) {
+  .lockWrap { padding: 16px; }
+  .lockTitle { font-size: 30px; }
+  .lockSub { font-size: 14px; }
+  .lockRow { flex-direction: column; align-items: stretch; }
+  .lockRow .lockBtn { width: 100%; }
 }
