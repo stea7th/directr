@@ -1,29 +1,57 @@
+// src/app/lock/page.tsx
+import styles from "./lock.module.css";
 import LockForm from "./LockForm";
-import "./lock.css";
+
 export default function LockPage() {
   return (
-    <main className="lock">
-      <div className="lock__bg" />
-      <div className="lock__grain" />
+    <main className={styles.lockRoot}>
+      <div className={styles.lockBg} />
 
-      <div className="lock__wrap">
-        <div className="lock__content">
-          <div className="lock__pill">
-            <span className="lock__dot" />
-            PRIVATE BUILD · FOUNDER ACCESS
-          </div>
+      <div className={styles.lockWrap}>
+        <div className={styles.lockCard}>
+          <div className={styles.lockInner}>
+            <section>
+              <div className={styles.lockKicker}>
+                <span className={styles.lockDot} />
+                Private build · founder access
+              </div>
 
-          <h1 className="lock__h1">Directr is in private mode.</h1>
-          <p className="lock__p">
-            Access is limited while we stabilize uploads + editing.
-          </p>
+              <h1 className={styles.lockTitle}>Directr is in private mode.</h1>
+              <p className={styles.lockSub}>
+                Access is limited while we stabilize uploads + editing.
+              </p>
 
-          <div className="lock__card">
-            <div className="lock__label">Enter access key</div>
-            <div className="lock__hint">Ask the founder for access.</div>
-            <div style={{ marginTop: 10 }}>
+              <div className={styles.lockTiles}>
+                <div className={styles.lockTile}>
+                  <div className={styles.lockTileTop}>
+                    <div className={styles.lockTileLabel}>Create</div>
+                    <div className={styles.lockTileMeta}>v0</div>
+                  </div>
+                  <div className={styles.lockTileDesc}>Generate scripts + hooks</div>
+                </div>
+
+                <div className={styles.lockTile}>
+                  <div className={styles.lockTileTop}>
+                    <div className={styles.lockTileLabel}>Clipper</div>
+                    <div className={styles.lockTileMeta}>beta</div>
+                  </div>
+                  <div className={styles.lockTileDesc}>Auto-find moments</div>
+                </div>
+
+                <div className={styles.lockTile}>
+                  <div className={styles.lockTileTop}>
+                    <div className={styles.lockTileLabel}>Planner</div>
+                    <div className={styles.lockTileMeta}>soon</div>
+                  </div>
+                  <div className={styles.lockTileDesc}>Plan posts + schedule</div>
+                </div>
+              </div>
+            </section>
+
+            <aside className={styles.lockPanel}>
+              <div className={styles.lockPanelTitle}>Enter access key</div>
               <LockForm />
-            </div>
+            </aside>
           </div>
         </div>
       </div>
