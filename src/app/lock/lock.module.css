@@ -1,4 +1,4 @@
-/* src/app/lock/lock.css */
+/* src/app/lock/lock.module.css */
 
 .lockRoot {
   position: fixed;
@@ -23,8 +23,7 @@
   content: "";
   position: absolute;
   inset: -2px;
-  background:
-    radial-gradient(1200px 600px at 50% -20%, rgba(255,255,255,0.06), transparent 55%);
+  background: radial-gradient(1200px 600px at 50% -20%, rgba(255,255,255,0.06), transparent 55%);
   opacity: 0.9;
 }
 
@@ -200,14 +199,15 @@
 }
 
 .lockLinkBtn {
-  height: 36px;
+  height: 44px;
   padding: 0 12px;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid rgba(255,255,255,0.12);
   background: rgba(255,255,255,0.04);
   color: rgba(255,255,255,0.85);
   cursor: pointer;
   transition: transform 140ms ease, opacity 140ms ease;
+  width: 100%;
 }
 
 .lockLinkBtn:hover { opacity: 0.9; transform: translateY(-1px); }
@@ -227,7 +227,7 @@
   .lockCard { animation: none; }
 }
 
-/* ✅ REAL responsive for YOUR classes */
+/* responsive */
 @media (max-width: 880px) {
   .lockInner { grid-template-columns: 1fr; padding: 22px; }
   .lockTiles { grid-template-columns: 1fr; }
@@ -237,25 +237,7 @@
   .lockWrap { padding: 16px; }
   .lockTitle { font-size: 26px; }
   .lockSub { font-size: 14px; }
-
-  .lockRow {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .lockInput,
-  .lockBtn {
-    width: 100%;
-  }
-
-  .lockActions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .lockLinkBtn {
-    width: 100%;
-    height: 44px;
-    border-radius: 12px;
-  }
+  .lockRow { flex-direction: column; align-items: stretch; }
+  .lockInput, .lockBtn { width: 100%; }
+  .lockActions { flex-direction: column; align-items: stretch; }
 }
