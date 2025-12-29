@@ -1,38 +1,32 @@
-"use client";
-
-import { useSearchParams } from "next/navigation";
+// src/app/lock/LockForm.tsx
+import styles from "./lock.module.css";
 import { unlockAction, relockAction } from "./actions";
 
 export default function LockForm() {
-  const sp = useSearchParams();
-  const hasError = sp.get("error") === "1";
-
   return (
-    <div className="lockFormWrap">
-      <form action={unlockAction} className="lockRow">
-        <input
-          className="lockInput"
-          name="key"
-          placeholder="Access key"
-          type="password"
-          autoComplete="off"
-          required
-        />
-
-        <button className="lockBtn lockBtnPrimary" type="submit">
-          Unlock
-        </button>
+    <>
+      <form action={unlockAction}>
+        <div className={styles.lockRow}>
+          <input
+            className={styles.lockInput}
+            name="key"
+            type="password"
+            placeholder="Access key"
+            autoComplete="off"
+          />
+          <button className={`${styles.lockBtn} ${styles.lockBtnPrimary}`} type="submit">
+            Unlock
+          </button>
+        </div>
       </form>
 
-      <form action={relockAction} className="lockRow" style={{ marginTop: 10 }}>
-        <button className="lockBtn" type="submit">
-          Relock
-        </button>
-      </form>
-
-      {hasError ? (
-        <div className="lockError">Wrong key. Try again.</div>
-      ) : null}
-    </div>
+      <div className={styles.lockActions}>
+        <form action={relockAction}>
+          <button className={styles.lockLinkBtn} type="submit">
+            Relock
+          </button>
+        </form>
+      </div>
+    </>
   );
 }
