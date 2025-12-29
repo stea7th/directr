@@ -2,61 +2,30 @@ import LockForm from "./LockForm";
 
 export default function LockPage() {
   return (
-    <main className="lockRoot">
-      <div className="lockBg" />
-      <div className="lockWrap">
-        <section className="lockCard">
-          <div className="lockInner">
-            <div>
-              <div className="lockKicker">
-                <span className="lockDot" />
-                Private build · founder access
-              </div>
+    <main className="lock">
+      <div className="lock__bg" />
+      <div className="lock__grain" />
 
-              <h1 className="lockTitle">Directr is in private mode.</h1>
-              <p className="lockSub">
-                Access is limited while we stabilize uploads + editing.
-              </p>
+      <div className="lock__wrap">
+        <div className="lock__content">
+          <div className="lock__pill">
+            <span className="lock__dot" />
+            PRIVATE BUILD · FOUNDER ACCESS
+          </div>
 
-              <div className="lockTiles">
-                <div className="lockTile">
-                  <div className="lockTileTop">
-                    <div className="lockTileLabel">Create</div>
-                    <div className="lockTileMeta">scripts · angles · notes</div>
-                  </div>
-                  <div className="lockTileDesc">
-                    Turn a prompt into a clean content plan.
-                  </div>
-                </div>
+          <h1 className="lock__h1">Directr is in private mode.</h1>
+          <p className="lock__p">
+            Access is limited while we stabilize uploads + editing.
+          </p>
 
-                <div className="lockTile">
-                  <div className="lockTileTop">
-                    <div className="lockTileLabel">Clipper</div>
-                    <div className="lockTileMeta">hooks · moments</div>
-                  </div>
-                  <div className="lockTileDesc">
-                    Find best segments and generate a clip plan.
-                  </div>
-                </div>
-
-                <div className="lockTile">
-                  <div className="lockTileTop">
-                    <div className="lockTileLabel">Planner</div>
-                    <div className="lockTileMeta">weekly execution</div>
-                  </div>
-                  <div className="lockTileDesc">
-                    Turn outputs into a posting schedule + checklist.
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="lockPanel">
-              <div className="lockPanelTitle">Enter access key</div>
+          <div className="lock__card">
+            <div className="lock__label">Enter access key</div>
+            <div className="lock__hint">Ask the founder for access.</div>
+            <div style={{ marginTop: 10 }}>
               <LockForm />
             </div>
           </div>
-        </section>
+        </div>
       </div>
     </main>
   );
