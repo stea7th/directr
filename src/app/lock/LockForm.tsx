@@ -27,22 +27,15 @@ export default function LockForm() {
 
     try {
       const fd = new FormData();
-      // IMPORTANT: server action expects FormData
       fd.set("key", key);
 
-      const res = await unlockAction(fd);
+      // unlockAction returns void (redirects or throws)
+      await unlockAction(fd);
 
-      // If your action returns { ok, error }
-      if (res && typeof res === "object" && "ok" in res && !(res as any).ok) {
-        setUnlockErr((res as any).error || "Wrong key. Try again.");
-        return;
-      }
-
-      // If your action redirects, we may never reach here.
-      // But if it doesn't, push to create.
+      // if it doesn't redirect, just go create
       window.location.href = "/create";
     } catch (e: any) {
-      setUnlockErr(e?.message || "Failed to unlock.");
+      setUnlockErr(e?.message || "Wrong key. Try again.");
     } finally {
       setUnlocking(false);
     }
@@ -67,6 +60,7 @@ export default function LockForm() {
       });
 
       const data = await res.json().catch(() => ({}));
+
       if (!res.ok || !data?.success) {
         setWaitErr(data?.error || "Couldn’t join waitlist. Try again.");
         return;
@@ -112,6 +106,7 @@ export default function LockForm() {
               value={key}
               onChange={(e) => setKey(e.target.value)}
             />
+
             <button
               type="button"
               className={`${styles.lockBtn} ${styles.lockBtnPrimary}`}
