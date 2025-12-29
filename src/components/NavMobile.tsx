@@ -1,47 +1,48 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
 
-export default function NavMobile() {
-  const [open, setOpen] = useState(false);
+function Tab({
+  href,
+  label,
+  active,
+}: {
+  href: string;
+  label: string;
+  active: boolean;
+}) {
+  return (
+    <Link href={href} className={`mnav__tab ${active ? "is-active" : ""}`}>
+      <span className="mnav__label">{label}</span>
+    </Link>
+  );
+}
+
+export default function NavMobile({
+  showLockControls,
+  isAuthed,
+}: {
+  showLockControls: boolean;
+  isAuthed: boolean;
+}) {
+  const pathname = usePathname();
+
+  // If locked, you probably don’t want tabs visible (optional).
+  // If you DO want them visible, delete this early return.
+  if (pathname.startsWith("/lock")) return null;
+
+  const active = (href: string) =>
+    pathname === href || pathname.startsWith(href + "/");
 
   return (
-    <div style={{ position: "relative" }}>
-      <button
-        className="btn btn--ghost"
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-label="Open menu"
-      >
-        Menu
-      </button>
-
-      {open && (
-        <div
-          style={{
-            position: "absolute",
-            right: 0,
-            top: "calc(100% + 10px)",
-            width: 220,
-            borderRadius: 16,
-            border: "1px solid rgba(255,255,255,.10)",
-            background: "rgba(10,10,10,.92)",
-            backdropFilter: "blur(14px)",
-            padding: 10,
-            boxShadow: "0 30px 90px rgba(0,0,0,.6)",
-          }}
-        >
-          <div style={{ display: "grid", gap: 8 }}>
-            <Link href="/create" onClick={() => setOpen(false)}>Create</Link>
-            <Link href="/clipper" onClick={() => setOpen(false)}>Clipper</Link>
-            <Link href="/planner" onClick={() => setOpen(false)}>Planner</Link>
-            <Link href="/jobs" onClick={() => setOpen(false)}>Jobs</Link>
-            <Link href="/pricing" onClick={() => setOpen(false)}>Pricing</Link>
-          </div>
-        </div>
-      )}
-    </div>
+    <nav className="mnav" aria-label="Mobile navigation">
+      <div className="mnav__inner">
+        <Tab href="/create" label="Create" active={active("/create")} />
+        <Tab href="/clipper" label="Clipper" active={active("/clipper")} />
+        <Tab href="/planner" label="Planner" active={active("/planner")} />
+        <Tab href="/jobs" label="Jobs" active={active("/jobs")} />
+      </div>
+    </nav>
   );
 }
