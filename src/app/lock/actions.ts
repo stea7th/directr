@@ -1,45 +1,40 @@
+// src/app/lock/actions.ts
 "use server";
 
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { createServerClient } from "@/lib/supabase/server";
 
-function isLockEnabled() {
-  return process.env.SITE_LOCK_ENABLED === "true";
+type ActionResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+function cleanEmail(v: unknown) {
+  return typeof v === "string" ? v.trim().toLowerCase() : "";
 }
 
-function expectedKey() {
-  return process.env.SITE_LOCK_KEY || "";
-}
+export async function waitlistAction(formData: FormData): Promise<ActionResult> {
+  try {
+    const email = cleanEmail(formData.get("email"));
 
-export async function unlockAction(formData: FormData) {
-  if (!isLockEnabled()) redirect("/create");
+    if (!email || !email.includes("@")) {
+      return { ok: false, error: "Enter a real email." };
+    }
 
-  const key = String(formData.get("key") ?? "");
-  if (!key || key !== expectedKey()) {
-    redirect("/lock?error=1");
+    const supabase = await createServerClient();
+
+    const { error } = await supabase.from("waitlist").insert({
+      email,
+      source: "lock",
+    });
+
+    if (error) {
+      // IMPORTANT: this is the error you need to see (RLS, missing table, wrong project, etc.)
+      console.error("waitlist insert error:", error);
+      return { ok: false, error: error.message };
+    }
+
+    return { ok: true };
+  } catch (e: any) {
+    console.error("waitlist action crashed:", e);
+    return { ok: false, error: e?.message || "Unknown error" };
   }
-
-  const jar = await cookies();
-  jar.set("directr_unlocked", "true", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: true,
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-  });
-
-  redirect("/create");
-}
-
-export async function relockAction() {
-  const jar = await cookies();
-  jar.set("directr_unlocked", "false", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: true,
-    path: "/",
-    maxAge: 0,
-  });
-
-  redirect("/lock");
 }
