@@ -1,6 +1,6 @@
 // src/app/lock/layout.tsx
-import "./lock.css";
+import styles from "./lock.module.css";
 
 export default function LockLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return <div className={styles.lockRoot}>{children}</div>;
 }
