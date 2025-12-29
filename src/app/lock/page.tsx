@@ -1,5 +1,5 @@
 import LockForm from "./LockForm";
-
+import "./lock.css";
 export default function LockPage() {
   return (
     <main className="lock">
