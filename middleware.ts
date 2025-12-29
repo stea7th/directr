@@ -3,40 +3,36 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function middleware(req: NextRequest) {
-  const pathname = req.nextUrl.pathname;
+  const { pathname } = req.nextUrl;
 
-  // ✅ always allow api routes (THIS fixes the 307)
-  if (pathname.startsWith("/api")) return NextResponse.next();
-
-  // ✅ allow next internals + static files
+  // ✅ NEVER touch API / Next internals / auth pages
   if (
+    pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon") ||
-    pathname.startsWith("/robots") ||
-    pathname.startsWith("/sitemap") ||
-    pathname.match(/\.(png|jpg|jpeg|gif|webp|svg|ico|css|js|map)$/)
+    pathname === "/favicon.ico" ||
+    pathname.startsWith("/lock") ||
+    pathname.startsWith("/login")
   ) {
     return NextResponse.next();
   }
 
-  // ✅ allow lock + login pages
-  if (pathname.startsWith("/lock") || pathname.startsWith("/login")) {
+  // ✅ NEVER redirect POST/PUT/etc (prevents 307 on waitlist)
+  if (req.method !== "GET" && req.method !== "HEAD") {
     return NextResponse.next();
   }
 
-  // 🔒 lock everything else
-  if (process.env.SITE_LOCK_ENABLED === "true") {
-    const unlocked = req.cookies.get("directr_unlocked")?.value === "1";
-    if (!unlocked) {
-      const url = req.nextUrl.clone();
-      url.pathname = "/lock";
-      return NextResponse.redirect(url);
-    }
+  if (process.env.SITE_LOCK_ENABLED !== "true") {
+    return NextResponse.next();
   }
 
-  return NextResponse.next();
+  const unlocked = req.cookies.get("directr_unlocked")?.value === "1";
+  if (unlocked) return NextResponse.next();
+
+  const url = req.nextUrl.clone();
+  url.pathname = "/lock";
+  return NextResponse.redirect(url);
 }
 
 export const config = {
-  matcher: ["/((?!_next).*)"],
+  matcher: ["/:path*"],
 };
