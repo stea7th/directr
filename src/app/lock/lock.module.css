@@ -1,6 +1,6 @@
 /* src/app/lock/lock.module.css */
 
-.lockRoot{
+.lockRoot {
   position: fixed;
   inset: 0;
   z-index: 9999;
@@ -9,7 +9,7 @@
   background: #05060a;
 }
 
-.lockBg{
+.lockBg {
   position: absolute;
   inset: 0;
   background:
@@ -19,16 +19,17 @@
   filter: saturate(1.05);
 }
 
-.lockBg::after{
+.lockBg::after {
   content: "";
   position: absolute;
   inset: -2px;
-  background: radial-gradient(1200px 600px at 50% -20%, rgba(255,255,255,0.06), transparent 55%);
+  background:
+    radial-gradient(1200px 600px at 50% -20%, rgba(255,255,255,0.06), transparent 55%);
   opacity: 0.9;
 }
 
-/* ====== Centering wrapper ====== */
-.lockWrap{
+/* --- centered stage --- */
+.lockWrap {
   position: relative;
   height: 100%;
   width: 100%;
@@ -37,40 +38,50 @@
   padding: 24px;
 }
 
-/* big card */
-.lockCard{
+/* --- main card --- */
+.lockCard {
   width: min(980px, 100%);
   border-radius: 18px;
   border: 1px solid rgba(255,255,255,0.08);
   background: rgba(10, 12, 18, 0.72);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   box-shadow:
     0 30px 90px rgba(0,0,0,0.65),
     inset 0 1px 0 rgba(255,255,255,0.05);
   overflow: hidden;
-
   animation: lockEnter 420ms cubic-bezier(.2,.8,.2,1);
   will-change: transform, opacity;
 }
 
-/* IMPORTANT: right column cards were “floating” top.
-   This forces the whole 2-col grid to be vertically centered + balanced. */
-.lockInner{
+@keyframes lockEnter {
+  from { opacity: 0; transform: translateY(12px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lockCard { animation: none; }
+}
+
+/* --- two column layout --- */
+.lockInner {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  grid-template-columns: 1.15fr 0.85fr;
   gap: 22px;
   padding: 34px;
-  align-items: center;              /* ✅ centers both columns vertically */
-  justify-content: center;
+  align-items: center; /* ✅ fixes side panel alignment */
 }
 
-/* If your right side is the 2nd child, center it and prevent “top heavy” look */
-.lockInner > :nth-child(2){
-  align-self: center;               /* ✅ centers the side cards */
+@media (max-width: 880px) {
+  .lockInner {
+    grid-template-columns: 1fr;
+    padding: 22px;
+    align-items: stretch;
+  }
 }
 
-/* ====== Copy ====== */
-.lockKicker{
+/* --- top text --- */
+.lockKicker {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -81,7 +92,7 @@
   margin-bottom: 10px;
 }
 
-.lockDot{
+.lockDot {
   width: 8px;
   height: 8px;
   border-radius: 999px;
@@ -89,132 +100,58 @@
   box-shadow: 0 0 18px rgba(90, 120, 255, 0.6);
 }
 
-.lockTitle{
+.lockTitle {
   font-size: 34px;
   line-height: 1.05;
   font-weight: 650;
   margin: 0 0 10px;
 }
 
-.lockSub{
+.lockSub {
   font-size: 15px;
   color: rgba(255,255,255,0.62);
   margin: 0 0 18px;
 }
 
-/* ====== Tabs ====== */
-.tabs{
-  display: inline-flex;
-  gap: 6px;
-  padding: 6px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  margin-bottom: 12px;
-}
-
-.tab{
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: rgba(255,255,255,0.68);
-  font-size: 12px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: transform 120ms ease, background 160ms ease, color 160ms ease;
-}
-.tab:hover{ color: rgba(255,255,255,0.92); transform: translateY(-1px); }
-.tabActive{
-  background: rgba(255,255,255,0.10);
-  color: rgba(255,255,255,0.95);
-}
-
-/* ====== Tiles ====== */
-.lockTiles{
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.lockTile{
-  border-radius: 14px;
-  padding: 12px 12px 14px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
-  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
-}
-
-.lockTile:hover{
-  transform: translateY(-2px);
-  border-color: rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.055);
-}
-
-.lockTileTop{
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.lockTileLabel{
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.78);
-}
-
-.lockTileMeta{
-  font-size: 11px;
-  color: rgba(255,255,255,0.45);
-}
-
-.lockTileDesc{
-  font-size: 13px;
-  color: rgba(255,255,255,0.58);
-  line-height: 1.35;
-}
-
-/* ====== Panel (LockForm container) ====== */
-.lockPanel{
+/* --- primary input panel --- */
+.lockPanel {
   border-radius: 16px;
   padding: 16px;
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.08);
 }
 
-.lockPanelTitle{
+.lockPanelTitle {
   font-size: 13px;
   color: rgba(255,255,255,0.75);
   margin-bottom: 10px;
 }
 
-.lockRow{
+.lockRow {
   display: flex;
   gap: 10px;
   align-items: center;
 }
 
-.lockInput{
+.lockInput {
   flex: 1;
   height: 44px;
   border-radius: 12px;
   padding: 0 14px;
   background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.1);
   color: #fff;
   outline: none;
-  transition: border-color 180ms ease, background 180ms ease;
+  transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
 }
 
-.lockInput:focus{
+.lockInput:focus {
   border-color: rgba(110, 140, 255, 0.55);
   background: rgba(255,255,255,0.06);
+  box-shadow: 0 0 0 3px rgba(110, 140, 255, 0.12);
 }
 
-.lockBtn{
+.lockBtn {
   height: 44px;
   padding: 0 16px;
   border-radius: 12px;
@@ -225,68 +162,131 @@
   transition: transform 140ms ease, opacity 140ms ease, background 140ms ease;
 }
 
-.lockBtn:hover{ opacity: 0.92; transform: translateY(-1px); }
-.lockBtn:active{ transform: translateY(0px); }
+.lockBtn:hover { opacity: 0.92; transform: translateY(-1px); }
+.lockBtn:active { transform: translateY(0px); }
 
-.lockBtnPrimary{
+.lockBtnPrimary {
   background: linear-gradient(180deg, #5b7cff, #3b55ff);
-  border-color: rgba(255,255,255,0.20);
+  border-color: rgba(255,255,255,0.2);
 }
 
-.lockActions{
+/* --- waitlist panel --- */
+.waitRow {
   display: flex;
   gap: 10px;
   margin-top: 12px;
-  flex-wrap: wrap;
 }
 
-.lockError{
+.waitBtn {
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.92);
+  cursor: pointer;
+  transition: transform 140ms ease, opacity 140ms ease;
+}
+
+.waitBtn:hover { opacity: 0.92; transform: translateY(-1px); }
+.waitNote {
+  margin-top: 10px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.62);
+}
+
+/* --- right side: center & tighten --- */
+.lockAside {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center; /* ✅ centers the whole panel vertically */
+}
+
+.lockAsideInner {
+  width: 100%;
+  max-width: 360px; /* ✅ keeps it from feeling random */
+}
+
+.lockTiles {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.lockTile {
+  border-radius: 14px;
+  padding: 12px 12px 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.lockTile:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.055);
+}
+
+.lockTileTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.lockTileLabel {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.78);
+}
+
+.lockTileMeta {
+  font-size: 11px;
+  color: rgba(255,255,255,0.45);
+}
+
+.lockTileDesc {
+  font-size: 13px;
+  color: rgba(255,255,255,0.58);
+  line-height: 1.35;
+}
+
+.lockError {
   margin-top: 10px;
   font-size: 13px;
   color: #ff6b6b;
 }
 
-.lockSuccess{
+.ok {
   margin-top: 10px;
   font-size: 13px;
-  color: rgba(120, 255, 190, 0.95);
+  color: rgba(170, 255, 200, 0.9);
 }
 
-/* waitlist layout */
-.waitGrid{
-  display: grid;
-  gap: 10px;
-  grid-template-columns: 1fr;
-  margin-bottom: 10px;
-}
-.fullBtn{
-  width: 100%;
-}
+/* --- mobile declutter --- */
+@media (max-width: 560px) {
+  .lockWrap { padding: 16px; }
+  .lockInner { padding: 18px; gap: 14px; }
 
-/* ====== Anim ====== */
-@keyframes lockEnter{
-  from{ opacity: 0; transform: translateY(12px) scale(0.985); }
-  to{ opacity: 1; transform: translateY(0) scale(1); }
-}
-@media (prefers-reduced-motion: reduce){
-  .lockCard{ animation: none; }
-}
-
-/* ====== Responsive ====== */
-@media (max-width: 880px){
-  .lockInner{
-    grid-template-columns: 1fr;
-    padding: 22px;
-    align-items: stretch;
+  .lockTitle {
+    font-size: 28px;
+    line-height: 1.08;
   }
-  .lockTiles{
-    grid-template-columns: 1fr;
-  }
-}
 
-@media (max-width: 520px){
-  .lockWrap{ padding: 14px; }
-  .lockTitle{ font-size: 28px; }
-  .lockRow{ flex-direction: column; align-items: stretch; }
-  .lockBtn{ width: 100%; }
+  .lockSub { font-size: 14px; margin-bottom: 12px; }
+
+  .lockRow { flex-direction: column; align-items: stretch; }
+  .lockBtn { width: 100%; }
+
+  .waitRow { flex-direction: column; }
+  .waitBtn { width: 100%; }
+
+  /* ✅ mobile: reduce tile presence */
+  .lockAsideInner { max-width: 100%; }
+  .lockTiles { gap: 8px; }
+  .lockTile { padding: 10px 10px 12px; }
+  .lockTileMeta { display: none; }
 }
