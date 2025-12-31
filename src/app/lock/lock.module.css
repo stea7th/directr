@@ -1,292 +1,300 @@
 /* src/app/lock/lock.module.css */
 
-.lockRoot {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  overflow: hidden;
-  color: #fff;
-  background: #05060a;
+.lockRoot{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  overflow:hidden;
+  color:#fff;
+  background:#05060a;
 }
 
-.lockBg {
-  position: absolute;
-  inset: 0;
+.lockBg{
+  position:absolute;
+  inset:0;
   background:
-    radial-gradient(900px 500px at 55% 10%, rgba(90, 120, 255, 0.18), transparent 60%),
-    radial-gradient(700px 420px at 20% 75%, rgba(120, 80, 255, 0.12), transparent 55%),
+    radial-gradient(900px 500px at 55% 10%, rgba(90,120,255,.18), transparent 60%),
+    radial-gradient(700px 420px at 20% 75%, rgba(120,80,255,.12), transparent 55%),
     linear-gradient(180deg, #060712, #04040a 70%);
-  filter: saturate(1.05);
+  filter:saturate(1.05);
 }
 
-.lockBg::after {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  background:
-    radial-gradient(1200px 600px at 50% -20%, rgba(255,255,255,0.06), transparent 55%);
-  opacity: 0.9;
+.lockBg::after{
+  content:"";
+  position:absolute;
+  inset:-2px;
+  background: radial-gradient(1200px 600px at 50% -20%, rgba(255,255,255,.06), transparent 55%);
+  opacity:.9;
 }
 
-/* --- centered stage --- */
-.lockWrap {
-  position: relative;
-  height: 100%;
-  width: 100%;
-  display: grid;
-  place-items: center;
-  padding: 24px;
+.lockWrap{
+  position:relative;
+  height:100%;
+  width:100%;
+  display:grid;
+  place-items:center;
+  padding:24px;
 }
 
-/* --- main card --- */
-.lockCard {
-  width: min(980px, 100%);
-  border-radius: 18px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(10, 12, 18, 0.72);
+.lockCard{
+  width:min(980px, 100%);
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,.08);
+  background:rgba(10,12,18,.72);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow:
-    0 30px 90px rgba(0,0,0,0.65),
-    inset 0 1px 0 rgba(255,255,255,0.05);
-  overflow: hidden;
+    0 30px 90px rgba(0,0,0,.65),
+    inset 0 1px 0 rgba(255,255,255,.05);
+  overflow:hidden;
+
   animation: lockEnter 420ms cubic-bezier(.2,.8,.2,1);
   will-change: transform, opacity;
 }
 
-@keyframes lockEnter {
-  from { opacity: 0; transform: translateY(12px) scale(0.985); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes lockEnter{
+  from{opacity:0; transform: translateY(12px) scale(.985);}
+  to{opacity:1; transform: translateY(0) scale(1);}
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .lockCard { animation: none; }
+@media (prefers-reduced-motion: reduce){
+  .lockCard{animation:none;}
 }
 
-/* --- two column layout --- */
-.lockInner {
-  display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
-  gap: 22px;
-  padding: 34px;
-  align-items: center; /* ✅ fixes side panel alignment */
+.lockInner{
+  display:grid;
+  grid-template-columns: 1.2fr .8fr;
+  gap:22px;
+  padding:34px;
 }
 
-@media (max-width: 880px) {
-  .lockInner {
-    grid-template-columns: 1fr;
-    padding: 22px;
-    align-items: stretch;
-  }
+@media (max-width: 880px){
+  .lockInner{grid-template-columns:1fr; padding:22px;}
 }
 
-/* --- top text --- */
-.lockKicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(190, 200, 255, 0.78);
-  margin-bottom: 10px;
+.lockKicker{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:rgba(190,200,255,.78);
+  margin-bottom:10px;
 }
 
-.lockDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(90, 120, 255, 0.9);
-  box-shadow: 0 0 18px rgba(90, 120, 255, 0.6);
+.lockDot{
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background:rgba(90,120,255,.9);
+  box-shadow:0 0 18px rgba(90,120,255,.6);
 }
 
-.lockTitle {
-  font-size: 34px;
-  line-height: 1.05;
-  font-weight: 650;
-  margin: 0 0 10px;
+.lockTitle{
+  font-size:34px;
+  line-height:1.05;
+  font-weight:650;
+  margin:0 0 10px;
 }
 
-.lockSub {
-  font-size: 15px;
-  color: rgba(255,255,255,0.62);
-  margin: 0 0 18px;
+.lockSub{
+  font-size:15px;
+  color:rgba(255,255,255,.62);
+  margin:0 0 18px;
 }
 
-/* --- primary input panel --- */
-.lockPanel {
-  border-radius: 16px;
-  padding: 16px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08);
+.lockPanel{
+  border-radius:16px;
+  padding:16px;
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.08);
 }
 
-.lockPanelTitle {
-  font-size: 13px;
-  color: rgba(255,255,255,0.75);
-  margin-bottom: 10px;
+.lockPanelTitle{
+  font-size:13px;
+  color:rgba(255,255,255,.75);
+  margin-bottom:10px;
 }
 
-.lockRow {
-  display: flex;
-  gap: 10px;
-  align-items: center;
+.lockRow{
+  display:flex;
+  gap:10px;
+  align-items:center;
 }
 
-.lockInput {
-  flex: 1;
-  height: 44px;
-  border-radius: 12px;
-  padding: 0 14px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: #fff;
-  outline: none;
-  transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+.lockInput{
+  flex:1;
+  height:44px;
+  border-radius:12px;
+  padding:0 14px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.10);
+  color:#fff;
+  outline:none;
+  transition:border-color 180ms ease, background 180ms ease;
 }
 
-.lockInput:focus {
-  border-color: rgba(110, 140, 255, 0.55);
-  background: rgba(255,255,255,0.06);
-  box-shadow: 0 0 0 3px rgba(110, 140, 255, 0.12);
+.lockInput:focus{
+  border-color: rgba(110,140,255,.55);
+  background: rgba(255,255,255,.06);
 }
 
-.lockBtn {
-  height: 44px;
-  padding: 0 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.06);
-  color: #fff;
-  cursor: pointer;
+.lockBtn{
+  height:44px;
+  padding:0 16px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.06);
+  color:#fff;
+  cursor:pointer;
   transition: transform 140ms ease, opacity 140ms ease, background 140ms ease;
 }
 
-.lockBtn:hover { opacity: 0.92; transform: translateY(-1px); }
-.lockBtn:active { transform: translateY(0px); }
+.lockBtn:hover{opacity:.92; transform: translateY(-1px);}
+.lockBtn:active{transform: translateY(0);}
 
-.lockBtnPrimary {
+.lockBtnPrimary{
   background: linear-gradient(180deg, #5b7cff, #3b55ff);
-  border-color: rgba(255,255,255,0.2);
+  border-color: rgba(255,255,255,.20);
 }
 
-/* --- waitlist panel --- */
-.waitRow {
-  display: flex;
-  gap: 10px;
-  margin-top: 12px;
+.lockActions{
+  display:flex;
+  gap:10px;
+  margin-top:12px;
+  flex-wrap:wrap;
 }
 
-.waitBtn {
-  height: 44px;
-  padding: 0 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.04);
-  color: rgba(255,255,255,0.92);
-  cursor: pointer;
+.lockLinkBtn{
+  height:36px;
+  padding:0 12px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.04);
+  color:rgba(255,255,255,.85);
+  cursor:pointer;
   transition: transform 140ms ease, opacity 140ms ease;
 }
 
-.waitBtn:hover { opacity: 0.92; transform: translateY(-1px); }
-.waitNote {
-  margin-top: 10px;
-  font-size: 13px;
-  color: rgba(255,255,255,0.62);
+.lockLinkBtn:hover{opacity:.9; transform: translateY(-1px);}
+
+.lockError{
+  margin-top:10px;
+  font-size:13px;
+  color:#ff6b6b;
 }
 
-/* --- right side: center & tighten --- */
-.lockAside {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center; /* ✅ centers the whole panel vertically */
+/* Roadmap tiles */
+.lockTiles{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap:10px;
+  margin-top:14px;
 }
 
-.lockAsideInner {
-  width: 100%;
-  max-width: 360px; /* ✅ keeps it from feeling random */
-}
-
-.lockTiles {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.lockTile {
-  border-radius: 14px;
-  padding: 12px 12px 14px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
+.lockTile{
+  border-radius:14px;
+  padding:12px 12px 14px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.07);
   transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
 }
 
-.lockTile:hover {
+.lockTile:hover{
   transform: translateY(-2px);
-  border-color: rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.055);
+  border-color: rgba(255,255,255,.14);
+  background: rgba(255,255,255,.055);
 }
 
-.lockTileTop {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
+.lockTileTop{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
 }
 
-.lockTileLabel {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.78);
+.lockTileLabel{
+  font-size:11px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:rgba(255,255,255,.78);
 }
 
-.lockTileMeta {
-  font-size: 11px;
-  color: rgba(255,255,255,0.45);
+.lockTileMeta{
+  font-size:11px;
+  color:rgba(255,255,255,.45);
 }
 
-.lockTileDesc {
-  font-size: 13px;
-  color: rgba(255,255,255,0.58);
-  line-height: 1.35;
+.lockTileDesc{
+  font-size:13px;
+  color:rgba(255,255,255,.58);
+  line-height:1.35;
 }
 
-.lockError {
-  margin-top: 10px;
-  font-size: 13px;
-  color: #ff6b6b;
-}
+/* =========================
+   Mobile cleanup (less clutter)
+   ========================= */
+@media (max-width: 520px){
+  .lockWrap{ padding: 14px; }
 
-.ok {
-  margin-top: 10px;
-  font-size: 13px;
-  color: rgba(170, 255, 200, 0.9);
-}
-
-/* --- mobile declutter --- */
-@media (max-width: 560px) {
-  .lockWrap { padding: 16px; }
-  .lockInner { padding: 18px; gap: 14px; }
-
-  .lockTitle {
-    font-size: 28px;
-    line-height: 1.08;
+  .lockInner{
+    padding: 16px;
+    gap: 14px;
   }
 
-  .lockSub { font-size: 14px; margin-bottom: 12px; }
+  .lockTitle{
+    font-size: 28px;
+    margin-bottom: 8px;
+  }
 
-  .lockRow { flex-direction: column; align-items: stretch; }
-  .lockBtn { width: 100%; }
+  .lockSub{
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
 
-  .waitRow { flex-direction: column; }
-  .waitBtn { width: 100%; }
+  .lockPanel{
+    padding: 12px;
+    border-radius: 14px;
+  }
 
-  /* ✅ mobile: reduce tile presence */
-  .lockAsideInner { max-width: 100%; }
-  .lockTiles { gap: 8px; }
-  .lockTile { padding: 10px 10px 12px; }
-  .lockTileMeta { display: none; }
+  .lockPanelTitle{
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+
+  .lockInput{
+    height: 42px;
+    border-radius: 12px;
+  }
+
+  .lockBtn{
+    height: 42px;
+    border-radius: 12px;
+  }
+
+  .lockActions{
+    margin-top: 10px;
+    gap: 8px;
+  }
+
+  /* Compact roadmap */
+  .lockTiles{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .lockTile:nth-child(3){
+    grid-column: 1 / -1;
+  }
+
+  .lockTile{
+    padding: 10px 10px 12px;
+    border-radius: 14px;
+  }
+
+  .lockTileDesc{
+    font-size: 12.5px;
+  }
 }
