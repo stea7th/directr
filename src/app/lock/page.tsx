@@ -1,11 +1,16 @@
 import styles from "./lock.module.css";
 import { unlockAction, relockAction } from "./actions";
 
-export default function LockPage({
-  searchParams,
-}: {
-  searchParams?: { ok?: string; err?: string };
+type SP = {
+  ok?: string;
+  err?: string;
+};
+
+export default async function LockPage(props: {
+  searchParams?: Promise<SP>;
 }) {
+  const searchParams = props.searchParams ? await props.searchParams : undefined;
+
   const err = searchParams?.err ? decodeURIComponent(searchParams.err) : "";
 
   return (
@@ -38,7 +43,10 @@ export default function LockPage({
                     placeholder="Access key"
                     autoComplete="off"
                   />
-                  <button className={`${styles.btn} ${styles.primary}`} type="submit">
+                  <button
+                    className={`${styles.btn} ${styles.primary}`}
+                    type="submit"
+                  >
                     Unlock
                   </button>
                 </form>
@@ -119,7 +127,8 @@ export default function LockPage({
               <div className={styles.rightCard}>
                 <div className={styles.rightTitle}>Founder note</div>
                 <div className={styles.helper}>
-                  Keep your key private. This is a temporary gate while we ship stability updates.
+                  Keep your key private. This is a temporary gate while we ship
+                  stability updates.
                 </div>
               </div>
             </div>
