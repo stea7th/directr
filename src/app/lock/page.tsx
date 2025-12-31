@@ -1,90 +1,128 @@
-// src/app/lock/page.tsx
 import styles from "./lock.module.css";
-import LockForm from "./LockForm";
-import WaitlistForm from "./WaitlistForm";
+import { unlockAction, relockAction } from "./actions";
 
-export default function LockPage() {
+export default function LockPage({
+  searchParams,
+}: {
+  searchParams?: { ok?: string; err?: string };
+}) {
+  const err = searchParams?.err ? decodeURIComponent(searchParams.err) : "";
+
   return (
     <>
-      <div className={styles.lockBg} />
+      <div className={styles.bg} />
+      <div className={styles.grain} />
 
-      <div className={styles.lockWrap}>
-        <div className={styles.lockCard}>
-          <div className={styles.lockInner}>
+      <div className={styles.wrap}>
+        <div className={styles.card}>
+          <div className={styles.inner}>
             {/* LEFT */}
             <div>
-              <div className={styles.lockKicker}>
-                <span className={styles.lockDot} />
-                PRIVATE BUILD · FOUNDER ACCESS
+              <div className={styles.kicker}>
+                <span className={styles.dot} />
+                <span>PRIVATE BUILD • FOUNDER ACCESS</span>
               </div>
 
-              <h1 className={styles.lockTitle}>Directr is in private mode.</h1>
-
-              <p className={styles.lockSub}>
+              <h1 className={styles.h1}>Directr is in private mode.</h1>
+              <p className={styles.p}>
                 Access is limited while we stabilize uploads + editing.
               </p>
 
-              <LockForm />
+              <div className={styles.section}>
+                <div className={styles.sectionTitle}>Enter access key</div>
 
-              {/* ✅ waitlist (clean + not cluttered) */}
-              <div className={styles.lockPanel} style={{ marginTop: 12 }}>
-                <div className={styles.lockPanelTitle}>Join the waitlist</div>
-                <WaitlistForm />
-                <div className={styles.waitNote}>
+                <form action={unlockAction} className={styles.row}>
+                  <input
+                    className={styles.input}
+                    name="key"
+                    placeholder="Access key"
+                    autoComplete="off"
+                  />
+                  <button className={`${styles.btn} ${styles.primary}`} type="submit">
+                    Unlock
+                  </button>
+                </form>
+
+                <div className={styles.subActions}>
+                  <form action={relockAction}>
+                    <button className={styles.btn} type="submit">
+                      Relock
+                    </button>
+                  </form>
+                </div>
+
+                {err ? <div className={styles.error}>{err}</div> : null}
+              </div>
+
+              <div className={styles.section}>
+                <div className={styles.sectionTitle}>Join the waitlist</div>
+
+                <form action="/api/waitlist" method="post" className={styles.row}>
+                  <input
+                    className={styles.input}
+                    name="email"
+                    type="email"
+                    placeholder="Email address"
+                    required
+                  />
+                  <button className={styles.btn} type="submit">
+                    Join
+                  </button>
+                </form>
+
+                <div className={styles.helper}>
                   You’ll get an email when public access opens.
                 </div>
               </div>
             </div>
 
             {/* RIGHT */}
-            <div className={styles.lockAside}>
-              <div className={styles.lockAsideInner}>
-                <div className={styles.lockPanel}>
-                  <div className={styles.lockPanelTitle}>Roadmap</div>
+            <div className={styles.right}>
+              <div className={styles.rightCard}>
+                <div className={styles.rightTitle}>Roadmap</div>
 
-                  <div className={styles.lockTiles}>
-                    <div className={styles.lockTile}>
-                      <div className={styles.lockTileTop}>
-                        <span className={styles.lockTileLabel}>CREATE</span>
-                        <span className={styles.lockTileMeta}>v0.1</span>
-                      </div>
-                      <div className={styles.lockTileDesc}>
-                        Prompt → script → output
-                      </div>
+                <div className={styles.tiles}>
+                  <div className={styles.tile}>
+                    <div className={styles.tileTop}>
+                      <div className={styles.tileLabel}>CREATE</div>
+                      <div className={styles.tileMeta}>v0.1</div>
                     </div>
-
-                    <div className={styles.lockTile}>
-                      <div className={styles.lockTileTop}>
-                        <span className={styles.lockTileLabel}>CLIPPER</span>
-                        <span className={styles.lockTileMeta}>soon</span>
-                      </div>
-                      <div className={styles.lockTileDesc}>
-                        Auto-find hooks & moments
-                      </div>
-                    </div>
-
-                    <div className={styles.lockTile}>
-                      <div className={styles.lockTileTop}>
-                        <span className={styles.lockTileLabel}>PLANNER</span>
-                        <span className={styles.lockTileMeta}>soon</span>
-                      </div>
-                      <div className={styles.lockTileDesc}>
-                        Plan posts & deadlines
-                      </div>
-                    </div>
+                    <div className={styles.tileDesc}>Prompt → script → output</div>
                   </div>
-                </div>
 
-                <div className={styles.lockPanel} style={{ marginTop: 12 }}>
-                  <div className={styles.lockPanelTitle}>Founder note</div>
-                  <div className={styles.lockTileDesc}>
-                    Keep your key private. This is a temporary gate while we ship
-                    stability updates.
+                  <div className={styles.tile}>
+                    <div className={styles.tileTop}>
+                      <div className={styles.tileLabel}>CLIPPER</div>
+                      <div className={styles.tileMeta}>soon</div>
+                    </div>
+                    <div className={styles.tileDesc}>Auto-find hooks & moments</div>
+                  </div>
+
+                  <div className={styles.tile}>
+                    <div className={styles.tileTop}>
+                      <div className={styles.tileLabel}>PLANNER</div>
+                      <div className={styles.tileMeta}>soon</div>
+                    </div>
+                    <div className={styles.tileDesc}>Plan posts & deadlines</div>
+                  </div>
+
+                  <div className={styles.tile}>
+                    <div className={styles.tileTop}>
+                      <div className={styles.tileLabel}>EXPORT</div>
+                      <div className={styles.tileMeta}>soon</div>
+                    </div>
+                    <div className={styles.tileDesc}>Copy, share, and save outputs</div>
                   </div>
                 </div>
               </div>
+
+              <div className={styles.rightCard}>
+                <div className={styles.rightTitle}>Founder note</div>
+                <div className={styles.helper}>
+                  Keep your key private. This is a temporary gate while we ship stability updates.
+                </div>
+              </div>
             </div>
-            {/* /RIGHT */}
           </div>
         </div>
       </div>
