@@ -1,300 +1,269 @@
-/* src/app/lock/lock.module.css */
-
-.lockRoot{
-  position:fixed;
-  inset:0;
-  z-index:9999;
-  overflow:hidden;
-  color:#fff;
-  background:#05060a;
+.root{
+  min-height: 100vh;
+  width: 100%;
+  background: #05060a;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
 }
 
-.lockBg{
-  position:absolute;
-  inset:0;
+/* Background */
+.bg{
+  position: fixed;
+  inset: -140px;
+  z-index: 0;
   background:
-    radial-gradient(900px 500px at 55% 10%, rgba(90,120,255,.18), transparent 60%),
-    radial-gradient(700px 420px at 20% 75%, rgba(120,80,255,.12), transparent 55%),
+    radial-gradient(900px 520px at 55% 10%, rgba(90, 120, 255, 0.22), transparent 62%),
+    radial-gradient(800px 520px at 10% 85%, rgba(120, 80, 255, 0.14), transparent 60%),
+    radial-gradient(700px 450px at 90% 65%, rgba(14,165,233,0.14), transparent 60%),
     linear-gradient(180deg, #060712, #04040a 70%);
-  filter:saturate(1.05);
+  filter: saturate(1.05);
 }
 
-.lockBg::after{
-  content:"";
-  position:absolute;
-  inset:-2px;
-  background: radial-gradient(1200px 600px at 50% -20%, rgba(255,255,255,.06), transparent 55%);
-  opacity:.9;
+.grain{
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: .07;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
 }
 
-.lockWrap{
-  position:relative;
-  height:100%;
-  width:100%;
-  display:grid;
-  place-items:center;
-  padding:24px;
+.wrap{
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 22px 16px;
 }
 
-.lockCard{
-  width:min(980px, 100%);
-  border-radius:18px;
-  border:1px solid rgba(255,255,255,.08);
-  background:rgba(10,12,18,.72);
+.card{
+  width: min(1080px, 100%);
+  border-radius: 22px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(10, 12, 18, 0.74);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow:
-    0 30px 90px rgba(0,0,0,.65),
-    inset 0 1px 0 rgba(255,255,255,.05);
-  overflow:hidden;
-
-  animation: lockEnter 420ms cubic-bezier(.2,.8,.2,1);
+    0 30px 110px rgba(0,0,0,0.65),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+  overflow: hidden;
+  animation: enter 420ms cubic-bezier(.2,.8,.2,1);
   will-change: transform, opacity;
 }
 
-@keyframes lockEnter{
-  from{opacity:0; transform: translateY(12px) scale(.985);}
-  to{opacity:1; transform: translateY(0) scale(1);}
+@keyframes enter{
+  from { opacity: 0; transform: translateY(12px) scale(.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-@media (prefers-reduced-motion: reduce){
-  .lockCard{animation:none;}
+.inner{
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 18px;
+  padding: 28px;
+  align-items: start;
 }
 
-.lockInner{
-  display:grid;
-  grid-template-columns: 1.2fr .8fr;
-  gap:22px;
-  padding:34px;
+@media (max-width: 900px){
+  .inner{
+    grid-template-columns: 1fr;
+    padding: 18px;
+  }
 }
 
-@media (max-width: 880px){
-  .lockInner{grid-template-columns:1fr; padding:22px;}
+/* Left */
+.kicker{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: rgba(190, 200, 255, 0.78);
+  margin-bottom: 10px;
 }
 
-.lockKicker{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  font-size:12px;
-  letter-spacing:.08em;
-  text-transform:uppercase;
-  color:rgba(190,200,255,.78);
-  margin-bottom:10px;
+.dot{
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(90, 120, 255, 0.95);
+  box-shadow: 0 0 18px rgba(90, 120, 255, 0.6);
 }
 
-.lockDot{
-  width:8px;
-  height:8px;
-  border-radius:999px;
-  background:rgba(90,120,255,.9);
-  box-shadow:0 0 18px rgba(90,120,255,.6);
+.h1{
+  margin: 0 0 10px;
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1.05;
+  font-weight: 720;
+  letter-spacing: -0.02em;
 }
 
-.lockTitle{
-  font-size:34px;
-  line-height:1.05;
-  font-weight:650;
-  margin:0 0 10px;
+.p{
+  margin: 0 0 18px;
+  font-size: 15px;
+  color: rgba(255,255,255,0.62);
 }
 
-.lockSub{
-  font-size:15px;
-  color:rgba(255,255,255,.62);
-  margin:0 0 18px;
+.section{
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  padding: 14px;
+  margin-top: 12px;
 }
 
-.lockPanel{
-  border-radius:16px;
-  padding:16px;
-  background:rgba(255,255,255,.03);
-  border:1px solid rgba(255,255,255,.08);
+.sectionTitle{
+  font-size: 13px;
+  color: rgba(255,255,255,0.76);
+  margin-bottom: 10px;
 }
 
-.lockPanelTitle{
-  font-size:13px;
-  color:rgba(255,255,255,.75);
-  margin-bottom:10px;
+.row{
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
 }
 
-.lockRow{
-  display:flex;
-  gap:10px;
-  align-items:center;
+@media (max-width: 520px){
+  .row{
+    grid-template-columns: 1fr;
+  }
 }
 
-.lockInput{
-  flex:1;
-  height:44px;
-  border-radius:12px;
-  padding:0 14px;
-  background:rgba(255,255,255,.05);
-  border:1px solid rgba(255,255,255,.10);
-  color:#fff;
-  outline:none;
-  transition:border-color 180ms ease, background 180ms ease;
+.input{
+  height: 46px;
+  border-radius: 14px;
+  padding: 0 14px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.10);
+  color: #fff;
+  outline: none;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
 
-.lockInput:focus{
-  border-color: rgba(110,140,255,.55);
-  background: rgba(255,255,255,.06);
+.input:focus{
+  border-color: rgba(110, 140, 255, 0.55);
+  background: rgba(255,255,255,0.06);
+  box-shadow: 0 0 0 3px rgba(90,120,255,0.22);
 }
 
-.lockBtn{
-  height:44px;
-  padding:0 16px;
-  border-radius:12px;
-  border:1px solid rgba(255,255,255,.12);
-  background:rgba(255,255,255,.06);
-  color:#fff;
-  cursor:pointer;
+.btn{
+  height: 46px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.92);
+  cursor: pointer;
   transition: transform 140ms ease, opacity 140ms ease, background 140ms ease;
+  white-space: nowrap;
 }
 
-.lockBtn:hover{opacity:.92; transform: translateY(-1px);}
-.lockBtn:active{transform: translateY(0);}
+.btn:hover{ opacity: 0.94; transform: translateY(-1px); }
+.btn:active{ transform: translateY(0); }
 
-.lockBtnPrimary{
+.primary{
   background: linear-gradient(180deg, #5b7cff, #3b55ff);
-  border-color: rgba(255,255,255,.20);
+  border-color: rgba(255,255,255,0.18);
 }
 
-.lockActions{
-  display:flex;
-  gap:10px;
-  margin-top:12px;
-  flex-wrap:wrap;
+.subActions{
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
 }
 
-.lockLinkBtn{
-  height:36px;
-  padding:0 12px;
-  border-radius:10px;
-  border:1px solid rgba(255,255,255,.12);
-  background:rgba(255,255,255,.04);
-  color:rgba(255,255,255,.85);
-  cursor:pointer;
-  transition: transform 140ms ease, opacity 140ms ease;
+.helper{
+  margin-top: 10px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.55);
 }
 
-.lockLinkBtn:hover{opacity:.9; transform: translateY(-1px);}
-
-.lockError{
-  margin-top:10px;
-  font-size:13px;
-  color:#ff6b6b;
+.error{
+  margin-top: 10px;
+  font-size: 13px;
+  color: #ff6b6b;
 }
 
-/* Roadmap tiles */
-.lockTiles{
-  display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap:10px;
-  margin-top:14px;
+/* Right column */
+.right{
+  display: grid;
+  gap: 12px;
+  align-content: start;
 }
 
-.lockTile{
-  border-radius:14px;
-  padding:12px 12px 14px;
-  background:rgba(255,255,255,.04);
-  border:1px solid rgba(255,255,255,.07);
+.rightCard{
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  padding: 14px;
+}
+
+.rightTitle{
+  font-size: 13px;
+  color: rgba(255,255,255,0.76);
+  margin-bottom: 10px;
+}
+
+.tiles{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 900px){
+  .tiles{
+    grid-template-columns: 1fr;
+  }
+}
+
+.tile{
+  border-radius: 16px;
+  padding: 12px 12px 13px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
   transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
 }
 
-.lockTile:hover{
+.tile:hover{
   transform: translateY(-2px);
-  border-color: rgba(255,255,255,.14);
-  background: rgba(255,255,255,.055);
+  border-color: rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.055);
 }
 
-.lockTileTop{
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom:8px;
+.tileTop{
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
-.lockTileLabel{
-  font-size:11px;
-  letter-spacing:.08em;
-  text-transform:uppercase;
-  color:rgba(255,255,255,.78);
+.tileLabel{
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.82);
 }
 
-.lockTileMeta{
-  font-size:11px;
-  color:rgba(255,255,255,.45);
+.tileMeta{
+  font-size: 11px;
+  color: rgba(255,255,255,0.45);
 }
 
-.lockTileDesc{
-  font-size:13px;
-  color:rgba(255,255,255,.58);
-  line-height:1.35;
+.tileDesc{
+  font-size: 13px;
+  color: rgba(255,255,255,0.58);
+  line-height: 1.35;
 }
 
-/* =========================
-   Mobile cleanup (less clutter)
-   ========================= */
+/* Mobile cleanup */
 @media (max-width: 520px){
-  .lockWrap{ padding: 14px; }
-
-  .lockInner{
-    padding: 16px;
-    gap: 14px;
-  }
-
-  .lockTitle{
-    font-size: 28px;
-    margin-bottom: 8px;
-  }
-
-  .lockSub{
-    font-size: 14px;
-    margin-bottom: 12px;
-  }
-
-  .lockPanel{
-    padding: 12px;
-    border-radius: 14px;
-  }
-
-  .lockPanelTitle{
-    font-size: 12px;
-    margin-bottom: 8px;
-  }
-
-  .lockInput{
-    height: 42px;
-    border-radius: 12px;
-  }
-
-  .lockBtn{
-    height: 42px;
-    border-radius: 12px;
-  }
-
-  .lockActions{
-    margin-top: 10px;
-    gap: 8px;
-  }
-
-  /* Compact roadmap */
-  .lockTiles{
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    margin-top: 10px;
-  }
-
-  .lockTile:nth-child(3){
-    grid-column: 1 / -1;
-  }
-
-  .lockTile{
-    padding: 10px 10px 12px;
-    border-radius: 14px;
-  }
-
-  .lockTileDesc{
-    font-size: 12.5px;
-  }
+  .section{ padding: 12px; }
+  .btn{ width: 100%; }
 }
