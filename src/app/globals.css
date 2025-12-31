@@ -286,3 +286,64 @@ a:hover{opacity:.9}
     letter-spacing: .01em;
   }
 }
+/* =========================
+   Bottom Tab Bar (Mobile)
+   ========================= */
+.mnav{ display:none; }
+
+@media (max-width: 720px){
+  /* Hide desktop link row on mobile (keep auth buttons if you want) */
+  .menu a:not(.btn){ display:none; }
+
+  /* Give room for bottom nav */
+  .page{
+    padding-bottom: calc(90px + env(safe-area-inset-bottom));
+  }
+
+  .mnav{
+    display:block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    background: rgba(10,10,10,.72);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-top: 1px solid rgba(255,255,255,.10);
+  }
+
+  .mnav__inner{
+    max-width: 560px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .mnav__tab{
+    text-decoration: none;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.03);
+    border-radius: 16px;
+    padding: 10px 8px;
+    text-align: center;
+    color: rgba(255,255,255,.72);
+    transition: transform .12s ease, background .12s ease, border-color .12s ease;
+  }
+
+  .mnav__tab:active{ transform: scale(.98); }
+
+  .mnav__tab.is-active{
+    color: rgba(255,255,255,.95);
+    border-color: rgba(14,165,233,.35);
+    background: rgba(14,165,233,.10);
+  }
+
+  .mnav__label{
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: .01em;
+  }
+}
