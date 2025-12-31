@@ -1,4 +1,3 @@
-// src/app/lock/actions.ts
 "use server";
 
 import { cookies } from "next/headers";
@@ -6,45 +5,38 @@ import { redirect } from "next/navigation";
 
 const COOKIE = "directr_unlocked";
 
+function cookieOpts() {
+  return {
+    path: "/",
+    httpOnly: true as const,
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 30, // 30 days
+  };
+}
+
 export async function unlockAction(formData: FormData) {
-  const expected = process.env.SITE_LOCK_KEY || "";
-  const provided = String(formData.get("key") || "").trim();
+  const key = String(formData.get("key") || "").trim();
+  const expected = String(process.env.SITE_LOCK_KEY || "").trim();
 
   // If no key configured, don't lock people out
-  const cookieStore = await cookies();
-
   if (!expected) {
-    cookieStore.set(COOKIE, "1", {
-      path: "/",
-      httpOnly: true,
-      sameSite: "lax",
-      secure: true,
-    });
+    const c = await cookies();
+    c.set(COOKIE, "1", cookieOpts());
     redirect("/create");
   }
 
-  if (provided !== expected) {
-    throw new Error("wrong_key");
+  if (!key || key !== expected) {
+    return { ok: false, error: "Wrong key. Try again." } as const;
   }
 
-  cookieStore.set(COOKIE, "1", {
-    path: "/",
-    httpOnly: true,
-    sameSite: "lax",
-    secure: true,
-  });
-
+  const c = await cookies();
+  c.set(COOKIE, "1", cookieOpts());
   redirect("/create");
 }
 
 export async function relockAction() {
-  const cookieStore = await cookies();
-  cookieStore.set(COOKIE, "", {
-    path: "/",
-    httpOnly: true,
-    sameSite: "lax",
-    secure: true,
-    maxAge: 0,
-  });
+  const c = await cookies();
+  c.set(COOKIE, "", { path: "/", maxAge: 0 });
   redirect("/lock");
 }
