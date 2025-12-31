@@ -1,47 +1,30 @@
 // src/lib/supabase/server.ts
 import { cookies } from "next/headers";
-import { createServerClient as createSupabaseClient } from "@supabase/ssr";
+import { createServerClient as createSSRClient } from "@supabase/ssr";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error("Missing Supabase environment variables");
-}
-
-/**
- * For layouts / server components
- * ✅ read-only cookies
- */
 export async function createServerClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+  if (!url || !anon) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  }
+
   const cookieStore = await cookies();
 
-  return createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+  return createSSRClient(url, anon, {
     cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value;
+      getAll() {
+        return cookieStore.getAll();
       },
-    },
-  });
-}
-
-/**
- * For Route Handlers (/api/...) and Server Actions
- * ✅ full read/write cookies
- */
-export async function createRouteClient() {
-  const cookieStore = await cookies();
-
-  return createSupabaseClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value;
-      },
-      set(name: string, value: string, options: any) {
-        cookieStore.set({ name, value, ...options });
-      },
-      remove(name: string, options: any) {
-        cookieStore.set({ name, value: "", ...options });
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // Server Components sometimes disallow setting cookies (that's ok)
+        }
       },
     },
   });
