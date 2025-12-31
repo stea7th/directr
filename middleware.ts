@@ -1,38 +1,33 @@
-// middleware.ts
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+// src/middleware.ts
+import { NextResponse, type NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next();
 
-  // ✅ NEVER touch API / Next internals / auth pages
-  if (
-    pathname.startsWith("/api") ||
-    pathname.startsWith("/_next") ||
-    pathname === "/favicon.ico" ||
-    pathname.startsWith("/lock") ||
-    pathname.startsWith("/login")
-  ) {
-    return NextResponse.next();
-  }
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return req.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            res.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
 
-  // ✅ NEVER redirect POST/PUT/etc (prevents 307 on waitlist)
-  if (req.method !== "GET" && req.method !== "HEAD") {
-    return NextResponse.next();
-  }
+  // IMPORTANT: this refreshes auth cookies if needed
+  await supabase.auth.getUser();
 
-  if (process.env.SITE_LOCK_ENABLED !== "true") {
-    return NextResponse.next();
-  }
-
-  const unlocked = req.cookies.get("directr_unlocked")?.value === "1";
-  if (unlocked) return NextResponse.next();
-
-  const url = req.nextUrl.clone();
-  url.pathname = "/lock";
-  return NextResponse.redirect(url);
+  return res;
 }
 
 export const config = {
-  matcher: ["/:path*"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
