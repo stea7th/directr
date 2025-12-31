@@ -1,16 +1,13 @@
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+// src/lib/supabase/client.ts
+import { createBrowserClient } from "@supabase/ssr";
 
-/**
- * Keep backward-compat exports because other files import:
- *  - createClient
- *  - supabase
- */
 export function createClient() {
-  return createClientComponentClient();
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+  if (!url || !anon) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  }
+
+  return createBrowserClient(url, anon);
 }
-
-// some parts of your app import a singleton `supabase`
-export const supabase = createClient();
-
-// optional nicer alias (doesn't break anything)
-export const createBrowserClient = createClient;
