@@ -106,18 +106,14 @@ export async function POST(req: Request) {
       );
     }
 
+    // ✅ LIMIT GUARD
     const FREE_LIMIT = 3;
     const isPro = !!profile.is_pro;
     const used = Number(profile.generations_used ?? 0);
 
-    // ✅ LIMIT GUARD
     if (!isPro && used >= FREE_LIMIT) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "limit_reached",
-          usage: { isPro, used, freeLimit: FREE_LIMIT },
-        },
+        { success: false, error: "limit_reached", usage: { isPro, used, freeLimit: FREE_LIMIT } },
         { status: 402 }
       );
     }
@@ -130,7 +126,6 @@ export async function POST(req: Request) {
     let goal = "Drive sales, grow page, etc.";
     let lengthSeconds = "30";
     let tone = "Casual";
-    let fileMeta: { name: string; type: string; size: number } | null = null;
 
     if (contentType.includes("application/json")) {
       const body = (await req.json()) as GenerateBody;
@@ -151,10 +146,6 @@ export async function POST(req: Request) {
       goal = safeStr(form.get("goal")).trim() || goal;
       lengthSeconds = safeStr(form.get("lengthSeconds")).trim() || lengthSeconds;
       tone = safeStr(form.get("tone")).trim() || tone;
-
-      const file = form.get("file");
-      fileMeta =
-        file instanceof File ? { name: file.name, type: file.type, size: file.size } : null;
     } else {
       return NextResponse.json(
         {
@@ -205,6 +196,7 @@ Return plain text (not JSON).
     const text = extractOutputText(aiRes);
 
     // ---- Save job to Supabase (best-effort) ----
+    // ✅ NOTE: your jobs table DOES NOT have file_* columns right now, so we do not send them.
     const insertPayload: any = {
       type: "hooks",
       prompt,
@@ -213,31 +205,28 @@ Return plain text (not JSON).
       goal,
       length_seconds: Number(lengthSeconds) || null,
       tone,
-      file_name: fileMeta?.name ?? null,
-      file_type: fileMeta?.type ?? null,
-      file_size: fileMeta?.size ?? null,
       user_id: user.id,
     };
 
-    const { data: job, error: jobError } = await supabase
+    let job: any = null;
+    let jobWarning: any = null;
+
+    const { data: jobData, error: jobError } = await supabase
       .from("jobs")
       .insert(insertPayload)
       .select("*")
       .single();
 
     if (jobError) {
-      return NextResponse.json({
-        success: true,
-        text,
-        job: null,
+      jobWarning = {
         warning: "Saved output but failed to write job to database.",
         job_error: jobError.message,
-        usage: { isPro, usedBefore: used, freeLimit: FREE_LIMIT },
-      });
+      };
+    } else {
+      job = jobData;
     }
 
-    // ✅ Increment usage AFTER success (free users only)
-    // We do a normal update first. If it fails (RLS/policy), we return debug so you can fix policy fast.
+    // ✅ Increment usage AFTER success (free users only) — EVEN if job insert fails
     if (!isPro) {
       const { error: incError } = await supabase
         .from("profiles")
@@ -249,6 +238,7 @@ Return plain text (not JSON).
           success: true,
           text,
           job,
+          ...(jobWarning ?? {}),
           warning: "Output saved, but failed to increment usage.",
           inc_error: incError.message,
           usage: { isPro, usedBefore: used, freeLimit: FREE_LIMIT },
@@ -260,6 +250,7 @@ Return plain text (not JSON).
       success: true,
       text,
       job,
+      ...(jobWarning ?? {}),
       usage: { isPro, usedBefore: used, freeLimit: FREE_LIMIT },
     });
   } catch (err: any) {
