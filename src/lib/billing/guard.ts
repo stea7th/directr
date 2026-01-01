@@ -1,11 +1,15 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServerClient } from "@/lib/supabase/server";
 
 export async function enforceFreeLimitOrPro(limit = 3) {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return { ok: false as const, status: 401, body: { success: false, error: "unauthorized" } };
+    return {
+      ok: false as const,
+      status: 401,
+      body: { success: false, error: "unauthorized" },
+    };
   }
 
   const { data: profile, error } = await supabase
@@ -15,17 +19,32 @@ export async function enforceFreeLimitOrPro(limit = 3) {
     .single();
 
   if (error || !profile) {
-    return { ok: false as const, status: 500, body: { success: false, error: "profile_missing" } };
+    return {
+      ok: false as const,
+      status: 500,
+      body: { success: false, error: "profile_missing" },
+    };
   }
 
-  if (!profile.is_pro && (profile.generations_used ?? 0) >= limit) {
-    return { ok: false as const, status: 402, body: { success: false, error: "limit_reached" } };
+  const isPro = !!profile.is_pro;
+  const used = Number(profile.generations_used ?? 0);
+
+  if (!isPro && used >= limit) {
+    return {
+      ok: false as const,
+      status: 402,
+      body: { success: false, error: "limit_reached" },
+    };
   }
 
   return { ok: true as const, supabase, user, profile };
 }
 
-export async function incrementFreeUsage(supabase: any, userId: string, currentUsed: number) {
+export async function incrementFreeUsage(
+  supabase: any,
+  userId: string,
+  currentUsed: number
+) {
   await supabase
     .from("profiles")
     .update({ generations_used: (currentUsed ?? 0) + 1 })
