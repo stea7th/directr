@@ -1,127 +1,120 @@
+// src/app/login/LoginForm.tsx
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
 
 export default function LoginForm() {
   const router = useRouter();
+  const sp = useSearchParams();
 
   const supabase = useMemo(() => createBrowserClient(), []);
   const [email, setEmail] = useState("");
-  const [pw, setPw] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [password, setPassword] = useState("");
 
-  async function onEmailLogin(e: React.FormEvent) {
+  const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(sp.get("err"));
+
+  async function onEmailPassword(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
-    setLoading(true);
-
+    setBusy(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
-        password: pw,
+        password,
       });
-
       if (error) {
         setErr(error.message);
         return;
       }
-
-      router.push("/");
+      router.replace("/");
       router.refresh();
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   }
 
   async function onGoogle() {
     setErr(null);
-    setLoading(true);
-
+    setGoogleBusy(true);
     try {
-      const origin = window.location.origin;
-
-      // ✅ Force-return the URL, then manually navigate
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${origin}/auth/callback`,
-          skipBrowserRedirect: true,
+          // ✅ absolute URL so it works on prod + previews
+          redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
-
-      if (error) {
-        setErr(error.message);
-        return;
-      }
-
-      if (!data?.url) {
-        setErr("No OAuth URL returned from Supabase.");
-        return;
-      }
-
-      window.location.assign(data.url);
-    } catch (e: any) {
-      setErr(e?.message || "Google sign-in failed.");
+      if (error) setErr(error.message);
     } finally {
-      setLoading(false);
+      setGoogleBusy(false);
     }
   }
 
   return (
-    <div className="card" style={{ maxWidth: 520, margin: "0 auto" }}>
-      <div className="card__head">
-        <div>
-          <div className="title">Sign in</div>
-          <div className="subtitle">Access your Directr account</div>
-        </div>
-      </div>
+    <div className="card" style={{ maxWidth: 420, margin: "0 auto" }}>
+      <div className="title">Sign in</div>
+      <p className="subtitle">Access your Directr account.</p>
 
       <button
         type="button"
         className="btn btn--primary"
+        style={{ width: "100%", height: 44, borderRadius: 14, lineHeight: "44px" }}
         onClick={onGoogle}
-        disabled={loading}
-        style={{ width: "100%", height: 44, borderRadius: 14 }}
+        disabled={googleBusy || busy}
       >
-        Continue with Google
+        {googleBusy ? "Opening Google…" : "Continue with Google"}
       </button>
 
-      <div style={{ display: "flex", gap: 12, alignItems: "center", margin: "16px 0" }}>
-        <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.10)" }} />
-        <div style={{ color: "rgba(255,255,255,.55)", fontSize: 12 }}>or</div>
-        <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.10)" }} />
-      </div>
+      <div style={{ height: 14 }} />
 
-      <form onSubmit={onEmailLogin} className="field" style={{ gap: 10 }}>
-        <span>Email</span>
-        <input
-          className="input"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@email.com"
-          autoComplete="email"
-        />
-
-        <span>Password</span>
-        <input
-          className="input"
-          value={pw}
-          onChange={(e) => setPw(e.target.value)}
-          placeholder="••••••••"
-          type="password"
-          autoComplete="current-password"
-        />
-
-        <div className="actions" style={{ marginTop: 8 }}>
-          <button className={`btn ${loading ? "btn--disabled" : ""}`} type="submit" disabled={loading}>
-            Sign in
-          </button>
+      <form onSubmit={onEmailPassword}>
+        <div className="field">
+          <span>Email</span>
+          <input
+            className="input"
+            style={{ height: 44, borderRadius: 14 }}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            autoComplete="email"
+          />
         </div>
 
-        {err ? <div style={{ color: "#fecaca", fontSize: 13 }}>{err}</div> : null}
+        <div style={{ height: 12 }} />
+
+        <div className="field">
+          <span>Password</span>
+          <input
+            className="input"
+            style={{ height: 44, borderRadius: 14 }}
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            autoComplete="current-password"
+          />
+        </div>
+
+        {err ? (
+          <p style={{ margin: "10px 0 0", fontSize: 13, color: "#fecaca" }}>
+            {err}
+          </p>
+        ) : null}
+
+        <div style={{ height: 12 }} />
+
+        <button
+          className="btn"
+          style={{ width: "100%", height: 44, borderRadius: 14, lineHeight: "44px" }}
+          type="submit"
+          disabled={busy || googleBusy}
+        >
+          {busy ? "Signing in…" : "Sign in"}
+        </button>
       </form>
     </div>
   );
