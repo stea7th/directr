@@ -39,6 +39,12 @@ export async function POST(req: Request) {
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${siteUrl}/pricing?success=1`,
       cancel_url: `${siteUrl}/pricing?canceled=1`,
+
+      // ✅ IMPORTANT: lets webhook know which app user paid
+      client_reference_id: user.id,
+      metadata: {
+        user_id: user.id,
+      },
     });
 
     return NextResponse.json({ success: true, url: session.url });
