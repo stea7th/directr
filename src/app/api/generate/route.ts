@@ -65,19 +65,13 @@ export async function POST(req: Request) {
     }
 
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: "unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: "unauthorized" }, { status: 401 });
     }
 
-    // ✅ Ensure profile row exists (FAIL LOUD)
+    // ✅ Ensure profile row exists
     const { error: upsertError } = await supabase
       .from("profiles")
-      .upsert(
-        { id: user.id, is_pro: false, generations_used: 0 },
-        { onConflict: "id" }
-      );
+      .upsert({ id: user.id, is_pro: false, generations_used: 0 }, { onConflict: "id" });
 
     if (upsertError) {
       return NextResponse.json(
@@ -92,7 +86,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ Fetch profile (FAIL LOUD)
+    // ✅ Fetch profile
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("is_pro, generations_used")
@@ -112,14 +106,18 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ LIMIT GUARD
+    const FREE_LIMIT = 3;
     const isPro = !!profile.is_pro;
     const used = Number(profile.generations_used ?? 0);
-    const FREE_LIMIT = 3;
 
+    // ✅ LIMIT GUARD
     if (!isPro && used >= FREE_LIMIT) {
       return NextResponse.json(
-        { success: false, error: "limit_reached" },
+        {
+          success: false,
+          error: "limit_reached",
+          usage: { isPro, used, freeLimit: FREE_LIMIT },
+        },
         { status: 402 }
       );
     }
@@ -156,9 +154,7 @@ export async function POST(req: Request) {
 
       const file = form.get("file");
       fileMeta =
-        file instanceof File
-          ? { name: file.name, type: file.type, size: file.size }
-          : null;
+        file instanceof File ? { name: file.name, type: file.type, size: file.size } : null;
     } else {
       return NextResponse.json(
         {
@@ -172,10 +168,7 @@ export async function POST(req: Request) {
     }
 
     if (!prompt) {
-      return NextResponse.json(
-        { success: false, error: "Missing prompt" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Missing prompt" }, { status: 400 });
     }
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -239,10 +232,12 @@ Return plain text (not JSON).
         job: null,
         warning: "Saved output but failed to write job to database.",
         job_error: jobError.message,
+        usage: { isPro, usedBefore: used, freeLimit: FREE_LIMIT },
       });
     }
 
     // ✅ Increment usage AFTER success (free users only)
+    // We do a normal update first. If it fails (RLS/policy), we return debug so you can fix policy fast.
     if (!isPro) {
       const { error: incError } = await supabase
         .from("profiles")
@@ -256,11 +251,17 @@ Return plain text (not JSON).
           job,
           warning: "Output saved, but failed to increment usage.",
           inc_error: incError.message,
+          usage: { isPro, usedBefore: used, freeLimit: FREE_LIMIT },
         });
       }
     }
 
-    return NextResponse.json({ success: true, text, job });
+    return NextResponse.json({
+      success: true,
+      text,
+      job,
+      usage: { isPro, usedBefore: used, freeLimit: FREE_LIMIT },
+    });
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: "server_error", details: err?.message || String(err) },
