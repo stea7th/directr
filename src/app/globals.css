@@ -347,3 +347,49 @@ a:hover{opacity:.9}
     letter-spacing: .01em;
   }
 }
+/* Google auth button */
+.google-btn{
+  width:100%;
+  height:44px;
+  border-radius:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  background:#0f0f0f;
+  border:1px solid rgba(255,255,255,.14);
+  color:#e5e7eb;
+  font-weight:500;
+}
+
+.google-btn:hover{
+  background:#141414;
+  box-shadow:0 0 0 2px var(--ring);
+}
+
+.google-icon{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#fff;
+  border-radius:50%;
+  width:26px;
+  height:26px;
+}
+
+/* Auth divider */
+.auth-divider{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin:18px 0;
+  color:rgba(255,255,255,.6);
+  font-size:12px;
+}
+.auth-divider::before,
+.auth-divider::after{
+  content:"";
+  flex:1;
+  height:1px;
+  background:rgba(255,255,255,.12);
+}
