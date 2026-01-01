@@ -17,39 +17,59 @@ export default function LoginForm() {
   const [oauthLoading, setOauthLoading] = useState(false);
   const [err, setErr] = useState<string | null>(sp.get("err"));
 
-  // ✅ Handles the OAuth return when Supabase puts tokens in the URL hash (#...)
+  // ✅ Finish Google OAuth on return (supports BOTH code + hash)
   useEffect(() => {
     const run = async () => {
       if (typeof window === "undefined") return;
 
-      const hash = window.location.hash || "";
-      const hasOAuthReturn =
-        hash.includes("access_token=") ||
-        hash.includes("refresh_token=") ||
-        hash.includes("error=");
-
-      if (!hasOAuthReturn) return;
-
       const supabase = createBrowserClient();
+
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get("code");
+
+      const hash = window.location.hash?.startsWith("#")
+        ? window.location.hash.slice(1)
+        : "";
+      const hashParams = new URLSearchParams(hash);
+
+      const hashError =
+        hashParams.get("error_description") || hashParams.get("error");
+      const access_token = hashParams.get("access_token");
+      const refresh_token = hashParams.get("refresh_token");
+
+      const hasSomethingToHandle =
+        !!code || !!hashError || (!!access_token && !!refresh_token);
+
+      if (!hasSomethingToHandle) return;
+
       setOauthLoading(true);
       setErr(null);
 
       try {
-        const { data, error } = await supabase.auth.getSessionFromUrl({
-          storeSession: true,
-        });
-
-        // clean the hash so refresh doesn't re-run it
-        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
-
-        if (error) {
-          setErr(error.message);
-          return;
+        if (hashError) {
+          throw new Error(hashError);
         }
 
-        if (!data?.session) {
-          setErr("OAuth returned, but no session was created.");
-          return;
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+
+          // clean URL (remove code)
+          url.searchParams.delete("code");
+          window.history.replaceState({}, document.title, url.toString());
+        } else if (access_token && refresh_token) {
+          const { error } = await supabase.auth.setSession({
+            access_token,
+            refresh_token,
+          });
+          if (error) throw error;
+
+          // clean URL (remove hash tokens)
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname + window.location.search
+          );
         }
 
         router.push(nextPath);
@@ -99,7 +119,7 @@ export default function LoginForm() {
       const supabase = createBrowserClient();
       const origin = window.location.origin;
 
-      // ✅ redirect back to /login so the client can read the hash and store session
+      // ✅ Always come back to /login so this file can finish the session
       const redirectTo = `${origin}/login?next=${encodeURIComponent(nextPath)}`;
 
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -113,7 +133,6 @@ export default function LoginForm() {
         return;
       }
 
-      // ✅ force navigation
       if (data?.url) window.location.assign(data.url);
     } catch (e: any) {
       setErr(e?.message || "Google sign-in failed.");
@@ -142,7 +161,15 @@ export default function LoginForm() {
 
       <div style={{ height: 14 }} />
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12, opacity: 0.7, fontSize: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          opacity: 0.7,
+          fontSize: 12,
+        }}
+      >
         <div style={{ height: 1, flex: 1, background: "rgba(255,255,255,.10)" }} />
         or
         <div style={{ height: 1, flex: 1, background: "rgba(255,255,255,.10)" }} />
