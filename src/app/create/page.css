@@ -291,11 +291,13 @@
   transition: transform 130ms ease, filter 160ms ease, box-shadow 160ms ease;
 }
 
+/* ✅ stronger primary feel (tiny upgrade) */
 .create-generate-btn:hover {
   transform: translateY(-1px);
   filter: brightness(1.06);
   box-shadow:
-    0 22px 56px rgba(45, 90, 255, 0.26),
+    0 26px 70px rgba(45, 90, 255, 0.34),
+    0 0 28px rgba(120, 170, 255, 0.14),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
@@ -332,6 +334,11 @@
   padding: 14px;
 
   animation: fadeUp 280ms ease-out;
+
+  /* ✅ subtle “reward” glow */
+  box-shadow:
+    0 18px 60px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(120, 170, 255, 0.10);
 }
 
 .create-result h3 {
