@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createServerClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
@@ -50,46 +51,47 @@ export async function POST(req: Request) {
       );
     }
 
+    // Session-bound client (RLS applies)
     const supabase = await createServerClient();
-
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
     if (!user) {
+      return NextResponse.json({ success: false, error: "unauthorized" }, { status: 401 });
+    }
+
+    // ✅ Admin client (bypasses RLS) for profiles usage/paywall
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRole) {
       return NextResponse.json(
-        { success: false, error: "unauthorized" },
-        { status: 401 }
+        { success: false, error: "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" },
+        { status: 500 }
       );
     }
 
-    // ✅ Ensure a profile row exists (prevents profile_missing for new users)
-    // NOTE: If RLS blocks this, you'll need the policies I gave you.
-    const { error: upsertError } = await supabase
-      .from("profiles")
-      .upsert(
-        { id: user.id, is_pro: false, generations_used: 0 },
-        { onConflict: "id" }
-      );
+    const admin = createClient(supabaseUrl, serviceRole, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
-    if (upsertError) {
-      // Don't hard-fail; try to continue in case row already exists but insert blocked
-      console.error("Profile upsert error:", upsertError);
-    }
+    // ✅ Ensure profile exists (no RLS issues)
+    await admin.from("profiles").upsert(
+      { id: user.id, is_pro: false, generations_used: 0 },
+      { onConflict: "id" }
+    );
 
-    // ✅ LIMIT GUARD (source of truth)
-    const { data: profile, error: profileError } = await supabase
+    // ✅ Read profile (source of truth)
+    const { data: profile, error: profileError } = await admin
       .from("profiles")
       .select("is_pro, generations_used")
       .eq("id", user.id)
       .single();
 
     if (profileError || !profile) {
-      console.error("Profile fetch error:", profileError);
-      return NextResponse.json(
-        { success: false, error: "profile_missing" },
-        { status: 500 }
-      );
+      console.error("Profile fetch error (admin):", profileError);
+      return NextResponse.json({ success: false, error: "profile_missing" }, { status: 500 });
     }
 
     const isPro = !!profile.is_pro;
@@ -97,15 +99,12 @@ export async function POST(req: Request) {
     const FREE_LIMIT = 3;
 
     if (!isPro && used >= FREE_LIMIT) {
-      return NextResponse.json(
-        { success: false, error: "limit_reached" },
-        { status: 402 }
-      );
+      return NextResponse.json({ success: false, error: "limit_reached" }, { status: 402 });
     }
 
     const contentType = req.headers.get("content-type") || "";
 
-    // ---- Read input (JSON OR FormData) ----
+    // ---- Read input ----
     let prompt = "";
     let platform = "TikTok";
     let goal = "Drive sales, grow page, etc.";
@@ -115,7 +114,6 @@ export async function POST(req: Request) {
 
     if (contentType.includes("application/json")) {
       const body = (await req.json()) as GenerateBody;
-
       prompt = safeStr(body.prompt).trim();
       platform = safeStr(body.platform).trim() || platform;
       goal = safeStr(body.goal).trim() || goal;
@@ -126,7 +124,6 @@ export async function POST(req: Request) {
       contentType.includes("application/x-www-form-urlencoded")
     ) {
       const form = await req.formData();
-
       prompt = safeStr(form.get("prompt")).trim();
       platform = safeStr(form.get("platform")).trim() || platform;
       goal = safeStr(form.get("goal")).trim() || goal;
@@ -151,15 +148,13 @@ export async function POST(req: Request) {
     }
 
     if (!prompt) {
-      return NextResponse.json(
-        { success: false, error: "Missing prompt" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Missing prompt" }, { status: 400 });
     }
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    const system = `You are Directr, an expert short-form hook writer. Return clean, actionable output optimized for scroll-stopping hooks.`;
+    const system =
+      "You are Directr, an expert short-form hook writer. Return clean, actionable output optimized for scroll-stopping hooks.";
 
     const userMsg = `
 PROMPT:
@@ -189,7 +184,7 @@ Return plain text (not JSON).
 
     const text = extractOutputText(aiRes);
 
-    // ---- Save job to Supabase (best-effort) ----
+    // ---- Save job (still uses session client; if jobs has RLS, that's correct)
     const insertPayload: any = {
       type: "hooks",
       prompt,
@@ -220,16 +215,14 @@ Return plain text (not JSON).
       });
     }
 
-    // ✅ INCREMENT USAGE ONLY AFTER SUCCESS (free users only)
+    // ✅ Increment usage AFTER success (admin bypasses RLS)
     if (!isPro) {
-      const { error: incError } = await supabase
+      const { error: incError } = await admin
         .from("profiles")
         .update({ generations_used: used + 1 })
         .eq("id", user.id);
 
-      if (incError) {
-        console.error("Failed to increment generations_used:", incError);
-      }
+      if (incError) console.error("Failed to increment generations_used:", incError);
     }
 
     return NextResponse.json({ success: true, text, job });
