@@ -4,7 +4,7 @@ import { createServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
-const BUILD_TAG = "generate_limit_v3_usage_debug";
+const BUILD_TAG = "prod_generate_usage_v1";
 
 function safeStr(v: unknown) {
   return typeof v === "string" ? v : v == null ? "" : String(v);
@@ -12,7 +12,9 @@ function safeStr(v: unknown) {
 
 function extractOutputText(res: any): string {
   try {
-    if (typeof res?.output_text === "string" && res.output_text.trim()) return res.output_text.trim();
+    if (typeof res?.output_text === "string" && res.output_text.trim()) {
+      return res.output_text.trim();
+    }
 
     const out = res?.output;
     if (!Array.isArray(out)) return "AI response format was unexpected.";
@@ -22,7 +24,9 @@ function extractOutputText(res: any): string {
       const content = item?.content;
       if (!Array.isArray(content)) continue;
       for (const c of content) {
-        if (c?.type === "output_text" && typeof c?.text === "string") texts.push(c.text);
+        if (c?.type === "output_text" && typeof c?.text === "string") {
+          texts.push(c.text);
+        }
       }
     }
     return texts.join("\n").trim() || "AI response format was unexpected.";
@@ -50,7 +54,10 @@ export async function POST(req: Request) {
 
     const supabase = await createServerClient();
 
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: userErr,
+    } = await supabase.auth.getUser();
 
     if (userErr) {
       return NextResponse.json(
@@ -60,13 +67,10 @@ export async function POST(req: Request) {
     }
 
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: "unauthorized", build: BUILD_TAG },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: "unauthorized", build: BUILD_TAG }, { status: 401 });
     }
 
-    // Ensure profile exists
+    // ✅ Ensure profile row exists
     const { error: upsertError } = await supabase
       .from("profiles")
       .upsert({ id: user.id, is_pro: false, generations_used: 0 }, { onConflict: "id" });
@@ -85,7 +89,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Fetch profile
+    // ✅ Fetch profile
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("is_pro, generations_used")
@@ -98,6 +102,8 @@ export async function POST(req: Request) {
           success: false,
           error: "profile_fetch_failed",
           details: profileError?.message ?? "no_profile_row_returned",
+          code: (profileError as any)?.code ?? null,
+          hint: (profileError as any)?.hint ?? null,
           build: BUILD_TAG,
         },
         { status: 500 }
@@ -108,7 +114,7 @@ export async function POST(req: Request) {
     const isPro = !!profile.is_pro;
     const usedBefore = Number(profile.generations_used ?? 0);
 
-    // Limit guard
+    // ✅ LIMIT GUARD
     if (!isPro && usedBefore >= FREE_LIMIT) {
       return NextResponse.json(
         {
@@ -121,22 +127,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Read input
+    // ---- Read input (JSON only) ----
     const contentType = req.headers.get("content-type") || "";
-    let prompt = "";
-    let platform = "TikTok";
-    let goal = "Drive sales, grow page, etc.";
-    let lengthSeconds = "30";
-    let tone = "Casual";
-
-    if (contentType.includes("application/json")) {
-      const body = (await req.json()) as GenerateBody;
-      prompt = safeStr(body.prompt).trim();
-      platform = safeStr(body.platform).trim() || platform;
-      goal = safeStr(body.goal).trim() || goal;
-      lengthSeconds = safeStr(body.lengthSeconds).trim() || lengthSeconds;
-      tone = safeStr(body.tone).trim() || tone;
-    } else {
+    if (!contentType.includes("application/json")) {
       return NextResponse.json(
         {
           success: false,
@@ -148,15 +141,20 @@ export async function POST(req: Request) {
       );
     }
 
+    const body = (await req.json()) as GenerateBody;
+
+    const prompt = safeStr(body.prompt).trim();
+    const platform = safeStr(body.platform).trim() || "TikTok";
+    const goal = safeStr(body.goal).trim() || "Drive sales, grow page, etc.";
+    const lengthSeconds = safeStr(body.lengthSeconds).trim() || "30";
+    const tone = safeStr(body.tone).trim() || "Casual";
+
     if (!prompt) {
-      return NextResponse.json(
-        { success: false, error: "Missing prompt", build: BUILD_TAG },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Missing prompt", build: BUILD_TAG }, { status: 400 });
     }
 
-    // OpenAI
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
     const system =
       "You are Directr, an expert short-form hook writer. Return clean, actionable output optimized for scroll-stopping hooks.";
 
@@ -188,7 +186,8 @@ Return plain text (not JSON).
 
     const text = extractOutputText(aiRes);
 
-    // Best-effort job insert (NO early return!)
+    // ---- Save job to Supabase (best-effort) ----
+    // NOTE: no file_* columns because your jobs table doesn't have them right now
     let job: any = null;
     let jobWarning: any = null;
 
@@ -210,12 +209,15 @@ Return plain text (not JSON).
       .single();
 
     if (jobError) {
-      jobWarning = { warning: "Job insert failed.", job_error: jobError.message };
+      jobWarning = {
+        warning: "Saved output but failed to write job to database.",
+        job_error: jobError.message,
+      };
     } else {
       job = jobData;
     }
 
-    // Increment usage (free only)
+    // ✅ Increment usage AFTER success (free users only) — DO NOT early return on job failure
     if (!isPro) {
       const { error: incError } = await supabase
         .from("profiles")
@@ -227,7 +229,7 @@ Return plain text (not JSON).
           success: true,
           text,
           job,
-          ...jobWarning,
+          ...(jobWarning ?? {}),
           warning: "Output saved, but failed to increment usage.",
           inc_error: incError.message,
           build: BUILD_TAG,
@@ -240,7 +242,7 @@ Return plain text (not JSON).
       success: true,
       text,
       job,
-      ...jobWarning,
+      ...(jobWarning ?? {}),
       build: BUILD_TAG,
       usage: { isPro, usedBefore, freeLimit: FREE_LIMIT },
     });
