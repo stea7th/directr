@@ -1,7 +1,7 @@
 // src/app/api/generate/route.ts
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-import { createRouteClient } from "@/lib/supabase/server";
+import { createServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
@@ -51,8 +51,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ Next 15: createRouteClient returns a Promise
-    const supabase = await createRouteClient();
+    // ✅ use your project’s server client helper (works on Next 15)
+    const supabase = await createServerClient();
 
     const {
       data: { user },
