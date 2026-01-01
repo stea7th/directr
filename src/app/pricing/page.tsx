@@ -184,20 +184,21 @@ export default function PricingPage() {
       {/* styles are same as your old UI, just kept inline so no extra CSS file */}
       <style jsx>{`
         .pricing-root {
-          min-height: calc(100vh - 64px);
-          padding: 64px 24px 80px;
-          background: radial-gradient(
-              circle at top,
-              rgba(255, 255, 255, 0.03),
-              transparent 55%
-            ),
-            #050506;
-          color: #f5f5f7;
-          display: flex;
-          flex-direction: column;
-          gap: 32px;
-        }
-
+  min-height: 100vh;
+  width: 100%;
+  margin: 0;
+  padding: 96px 24px 80px;
+  background: radial-gradient(
+      circle at top,
+      rgba(255, 255, 255, 0.03),
+      transparent 55%
+    ),
+    #050506;
+  color: #f5f5f7;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
         @media (min-width: 900px) {
           .pricing-root {
             padding: 72px 64px 96px;
