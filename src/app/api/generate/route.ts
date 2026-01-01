@@ -50,7 +50,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ use your project’s server client helper (works on Next 15)
     const supabase = await createServerClient();
 
     const {
@@ -62,6 +61,20 @@ export async function POST(req: Request) {
         { success: false, error: "unauthorized" },
         { status: 401 }
       );
+    }
+
+    // ✅ Ensure a profile row exists (prevents profile_missing for new users)
+    // NOTE: If RLS blocks this, you'll need the policies I gave you.
+    const { error: upsertError } = await supabase
+      .from("profiles")
+      .upsert(
+        { id: user.id, is_pro: false, generations_used: 0 },
+        { onConflict: "id" }
+      );
+
+    if (upsertError) {
+      // Don't hard-fail; try to continue in case row already exists but insert blocked
+      console.error("Profile upsert error:", upsertError);
     }
 
     // ✅ LIMIT GUARD (source of truth)
@@ -216,7 +229,6 @@ Return plain text (not JSON).
 
       if (incError) {
         console.error("Failed to increment generations_used:", incError);
-        // still return success; we don't want to block output
       }
     }
 
