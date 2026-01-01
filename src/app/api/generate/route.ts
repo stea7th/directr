@@ -4,7 +4,7 @@ import { createServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
-const BUILD_TAG = "prod_generate_usage_v1";
+const BUILD_TAG = "prod_generate_usage_v2";
 
 function safeStr(v: unknown) {
   return typeof v === "string" ? v : v == null ? "" : String(v);
@@ -12,9 +12,7 @@ function safeStr(v: unknown) {
 
 function extractOutputText(res: any): string {
   try {
-    if (typeof res?.output_text === "string" && res.output_text.trim()) {
-      return res.output_text.trim();
-    }
+    if (typeof res?.output_text === "string" && res.output_text.trim()) return res.output_text.trim();
 
     const out = res?.output;
     if (!Array.isArray(out)) return "AI response format was unexpected.";
@@ -24,9 +22,7 @@ function extractOutputText(res: any): string {
       const content = item?.content;
       if (!Array.isArray(content)) continue;
       for (const c of content) {
-        if (c?.type === "output_text" && typeof c?.text === "string") {
-          texts.push(c.text);
-        }
+        if (c?.type === "output_text" && typeof c?.text === "string") texts.push(c.text);
       }
     }
     return texts.join("\n").trim() || "AI response format was unexpected.";
@@ -70,7 +66,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "unauthorized", build: BUILD_TAG }, { status: 401 });
     }
 
-    // ✅ Ensure profile row exists
+    // ✅ Ensure profile exists
     const { error: upsertError } = await supabase
       .from("profiles")
       .upsert({ id: user.id, is_pro: false, generations_used: 0 }, { onConflict: "id" });
@@ -102,8 +98,6 @@ export async function POST(req: Request) {
           success: false,
           error: "profile_fetch_failed",
           details: profileError?.message ?? "no_profile_row_returned",
-          code: (profileError as any)?.code ?? null,
-          hint: (profileError as any)?.hint ?? null,
           build: BUILD_TAG,
         },
         { status: 500 }
@@ -121,7 +115,7 @@ export async function POST(req: Request) {
           success: false,
           error: "limit_reached",
           build: BUILD_TAG,
-          usage: { isPro, usedBefore, freeLimit: FREE_LIMIT },
+          usage: { isPro, usedBefore, usedAfter: usedBefore, freeLimit: FREE_LIMIT },
         },
         { status: 402 }
       );
@@ -186,8 +180,8 @@ Return plain text (not JSON).
 
     const text = extractOutputText(aiRes);
 
-    // ---- Save job to Supabase (best-effort) ----
-    // NOTE: no file_* columns because your jobs table doesn't have them right now
+    // ✅ Best-effort job insert (ONLY columns that almost certainly exist)
+    // If your jobs table is minimal, this won’t explode.
     let job: any = null;
     let jobWarning: any = null;
 
@@ -195,10 +189,6 @@ Return plain text (not JSON).
       type: "hooks",
       prompt,
       result_text: text,
-      platform,
-      goal,
-      length_seconds: Number(lengthSeconds) || null,
-      tone,
       user_id: user.id,
     };
 
@@ -217,12 +207,16 @@ Return plain text (not JSON).
       job = jobData;
     }
 
-    // ✅ Increment usage AFTER success (free users only) — DO NOT early return on job failure
+    // ✅ Increment usage (free users) AND VERIFY it actually changed
+    let usedAfter = usedBefore;
+
     if (!isPro) {
-      const { error: incError } = await supabase
+      const { data: incRow, error: incError } = await supabase
         .from("profiles")
         .update({ generations_used: usedBefore + 1 })
-        .eq("id", user.id);
+        .eq("id", user.id)
+        .select("generations_used")
+        .single();
 
       if (incError) {
         return NextResponse.json({
@@ -233,9 +227,11 @@ Return plain text (not JSON).
           warning: "Output saved, but failed to increment usage.",
           inc_error: incError.message,
           build: BUILD_TAG,
-          usage: { isPro, usedBefore, freeLimit: FREE_LIMIT },
+          usage: { isPro, usedBefore, usedAfter: usedBefore, freeLimit: FREE_LIMIT },
         });
       }
+
+      usedAfter = Number(incRow?.generations_used ?? usedBefore);
     }
 
     return NextResponse.json({
@@ -244,7 +240,7 @@ Return plain text (not JSON).
       job,
       ...(jobWarning ?? {}),
       build: BUILD_TAG,
-      usage: { isPro, usedBefore, freeLimit: FREE_LIMIT },
+      usage: { isPro, usedBefore, usedAfter, freeLimit: FREE_LIMIT },
     });
   } catch (err: any) {
     return NextResponse.json(
