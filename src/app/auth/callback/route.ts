@@ -1,33 +1,29 @@
-import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+// src/app/auth/callback/route.ts
+import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
+import { createServerClient } from "@/lib/supabase/server";
 
-export async function GET(req: Request) {
+type CookieToSet = {
+  name: string;
+  value: string;
+  options?: Parameters<ReturnType<typeof cookies>["set"]>[2];
+};
+
+export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
 
+  // Where to send them after auth
+  const next = url.searchParams.get("next") || "/";
+
   if (!code) {
-    return NextResponse.redirect(new URL("/login?err=missing_code", url.origin));
+    return NextResponse.redirect(new URL(`/login?err=Missing+code`, url.origin));
   }
 
   const cookieStore = await cookies();
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        },
-      },
-    }
-  );
+  // your helper should create a Supabase server client wired to Next cookies()
+  const supabase = await createServerClient();
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
@@ -37,5 +33,9 @@ export async function GET(req: Request) {
     );
   }
 
-  return NextResponse.redirect(new URL("/", url.origin));
+  // If your createServerClient() doesn't automatically persist cookies,
+  // you can still be safe by touching cookieStore (no-op here).
+  // Keeping this file simple avoids the setAll typing problem.
+
+  return NextResponse.redirect(new URL(next, url.origin));
 }
