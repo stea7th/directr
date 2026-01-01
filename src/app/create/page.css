@@ -1,18 +1,20 @@
 /* src/app/create/page.css */
 
 /* --- base --- */
-.create-root{
+.create-root {
   min-height: 100vh;
 
-  /* force full viewport width even inside a max-width parent */
+  /* force full viewport width even if a parent is max-width */
   width: 100vw;
   margin-left: calc(50% - 50vw);
 
+  padding: 88px 24px 64px;
+  color: rgba(255, 255, 255, 0.92);
   background: #06070a;
   overflow-x: hidden;
+
   position: relative;
   isolation: isolate;
-}
 
   /* Inter (from globals font vars) */
   font-family: var(--font-sans);
