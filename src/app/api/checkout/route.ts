@@ -1,7 +1,9 @@
-// src/app/api/checkout/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createServerClient } from "@/lib/supabase/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
   apiVersion: "2024-06-20",
@@ -19,29 +21,25 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const priceId = body?.priceId as string | undefined;
+    const priceId = (body?.priceId as string | undefined) || process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || "";
 
     if (!priceId) {
-      return NextResponse.json({ success: false, error: "Missing priceId" }, { status: 400 });
-    }
-
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    if (!siteUrl) {
       return NextResponse.json(
-        { success: false, error: "Missing NEXT_PUBLIC_SITE_URL" },
-        { status: 500 }
+        { success: false, error: "Missing priceId (set NEXT_PUBLIC_STRIPE_PRICE_ID or send in body)" },
+        { status: 400 }
       );
     }
+
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://directr.so";
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer_email: user.email ?? undefined,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${siteUrl}/pricing?success=1`,
-      cancel_url: `${siteUrl}/pricing?canceled=1`,
+      success_url: `${siteUrl}/create?upgraded=1`,
+      cancel_url: `${siteUrl}/create?canceled=1`,
 
-      // ✅ IMPORTANT: lets webhook know which app user paid
-      client_reference_id: user.id,
+      // ✅ THIS is the key: webhook uses this to upgrade the exact user
       metadata: {
         user_id: user.id,
       },
