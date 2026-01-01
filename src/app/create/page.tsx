@@ -11,7 +11,7 @@ export default function CreatePage() {
   const [mode, setMode] = useState<Mode>("basic");
   const [prompt, setPrompt] = useState("");
   const [platform, setPlatform] = useState("TikTok");
-  const [goal, setGoal] = useState("Drive sales, grow page, etc.");
+  const [goal, setGoal] = useState("Get more views, drive sales, grow page, etc.");
   const [lengthSeconds, setLengthSeconds] = useState("30");
   const [tone, setTone] = useState("Casual");
   const [file, setFile] = useState<File | null>(null);
@@ -27,7 +27,7 @@ export default function CreatePage() {
     setEditedUrl(null);
 
     if (!prompt.trim() && !file) {
-      setError("Add a quick description or upload a file first.");
+      setError("Add a quick idea or upload a file first.");
       return;
     }
 
@@ -89,7 +89,7 @@ export default function CreatePage() {
         }
 
         if (clips.length > 0) {
-          text += "CLIPS\n──────\n";
+          text += "HOOKS + MOMENTS\n──────────────\n";
           text += clips
             .map((clip, idx) => {
               const start = clip.start ?? clip.start_seconds ?? 0;
@@ -98,17 +98,17 @@ export default function CreatePage() {
               const desc = clip.description || "";
 
               return [
-                `Clip ${idx + 1}`,
+                `Moment ${idx + 1}`,
                 `  Time: ${start.toFixed?.(2) ?? start} → ${end.toFixed?.(2) ?? end}s`,
                 hook ? `  Hook: ${hook}` : null,
-                desc ? `  Desc: ${desc}` : null,
+                desc ? `  Why it works: ${desc}` : null,
               ]
                 .filter(Boolean)
                 .join("\n");
             })
             .join("\n\n");
         } else {
-          text += "No clips were returned, but transcript is available above.";
+          text += "No moments were returned, but the transcript is available above.";
         }
 
         setResult(text);
@@ -116,7 +116,7 @@ export default function CreatePage() {
         return;
       }
 
-      // CASE 2: NO FILE → script generator
+      // CASE 2: NO FILE → hook generator (keep route name, change framing)
       const body = { prompt, platform, goal, lengthSeconds, tone };
 
       const res = await fetch("/api/generate", {
@@ -139,7 +139,7 @@ export default function CreatePage() {
       const data = await res.json();
 
       if (!data.success) {
-        setError(data.error || "Failed to generate.");
+        setError(data.error || "Failed to generate hooks.");
         return;
       }
 
@@ -147,7 +147,7 @@ export default function CreatePage() {
       const notes =
         job?.output_script ||
         data?.text ||
-        "Generated successfully, but no notes were returned.";
+        "Generated successfully, but no hooks were returned.";
 
       setResult(notes);
 
@@ -170,7 +170,7 @@ export default function CreatePage() {
     <main className="create-root">
       <section className="create-shell">
         <header className="create-header">
-          <h1>Type what you want or upload a file</h1>
+          <h1>Fix your hook before you post</h1>
 
           <div className="create-mode-toggle">
             <button
@@ -178,14 +178,14 @@ export default function CreatePage() {
               className={`create-mode-btn ${mode === "basic" ? "create-mode-btn--active" : ""}`}
               onClick={() => setMode("basic")}
             >
-              Basic
+              Quick
             </button>
             <button
               type="button"
               className={`create-mode-btn ${mode === "advanced" ? "create-mode-btn--active" : ""}`}
               onClick={() => setMode("advanced")}
             >
-              Advanced
+              Dialed
             </button>
           </div>
         </header>
@@ -195,7 +195,11 @@ export default function CreatePage() {
             <textarea
               name="prompt"
               className="create-textarea"
-              placeholder={file ? "Optional: context or goal for the clips" : "Example: Turn this podcast into 5 viral TikToks"}
+              placeholder={
+                file
+                  ? "Optional: what should viewers feel / do after watching?"
+                  : "Example: Give me 10 scroll-stopping hooks for a video about (topic)."
+              }
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
             />
@@ -219,7 +223,7 @@ export default function CreatePage() {
                   type="text"
                   value={goal}
                   onChange={(e) => setGoal(e.target.value)}
-                  placeholder="Drive sales, grow page, etc."
+                  placeholder="Get more views, drive sales, grow page, etc."
                 />
               </div>
 
@@ -250,38 +254,38 @@ export default function CreatePage() {
             <label className="create-file-bar">
               <span className="create-file-label">
                 <span className="create-file-bullet">•</span>
-                {file ? file.name : "Choose File / Drop here"}
+                {file ? file.name : "Choose file / drop here"}
               </span>
               <input type="file" name="file" className="create-file-input" onChange={handleFileChange} />
             </label>
 
             <button type="button" className="create-generate-btn" onClick={handleGenerate} disabled={loading}>
-              {loading ? (file ? "Finding hooks..." : "Thinking...") : file ? "Find hooks from file" : "Generate script"}
+              {loading ? (file ? "Finding hooks..." : "Finding hooks...") : file ? "Find hooks from file" : "Generate viral hooks"}
             </button>
           </div>
 
           <p className="create-tip">
-            Tip: Drop a video/audio to auto-find hooks, or just describe what you want for a script. We&apos;ll handle the rest.
+            Tip: Drop a video/audio to auto-find the strongest moments + hook lines, or type your idea to generate scroll-stopping hooks.
           </p>
 
           {error && <p className="create-error">{error}</p>}
 
           {(result || editedUrl) && !error && (
             <div className="create-result">
-              <h3>Result</h3>
+              <h3>Hooks</h3>
 
               {editedUrl && (
                 <p style={{ marginBottom: 8 }}>
-                  <strong>Edited video:</strong>{" "}
+                  <strong>Clip:</strong>{" "}
                   <a href={editedUrl} target="_blank" rel="noreferrer">
-                    Open clip
+                    Open
                   </a>
                 </p>
               )}
 
               {result && (
                 <>
-                  <strong>AI notes:</strong>
+                  <strong>Output:</strong>
                   <pre>{result}</pre>
                 </>
               )}
@@ -293,18 +297,18 @@ export default function CreatePage() {
       <section className="create-tiles-section">
         <div className="create-tiles-grid">
           <article className="create-tile">
-            <h2>Create</h2>
-            <p>Upload → get captioned clips</p>
+            <h2>Hooks</h2>
+            <p>Upload → get scroll-stopping hook lines</p>
           </article>
 
           <article className="create-tile">
-            <h2>Clipper</h2>
-            <p>Auto-find hooks &amp; moments</p>
+            <h2>Moments</h2>
+            <p>Auto-find the strongest points to clip</p>
           </article>
 
           <article className="create-tile">
-            <h2>Planner</h2>
-            <p>Plan posts &amp; deadlines</p>
+            <h2>Captions</h2>
+            <p>Captions designed to keep viewers watching</p>
           </article>
         </div>
       </section>
