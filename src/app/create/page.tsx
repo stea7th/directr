@@ -58,15 +58,17 @@ export default function CreatePage() {
           data: { publicUrl },
         } = supabaseBrowser.storage.from("raw_uploads").getPublicUrl(uploadData.path);
 
-        const res = await fetch("/api/clipper", {
+        // cache-bust the route so deploys never stick you on stale code
+        const url = `/api/clipper?t=${Date.now()}`;
+
+        const res = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
           body: JSON.stringify({ fileUrl: publicUrl, prompt }),
           cache: "no-store",
           credentials: "include",
         });
 
-        // ✅ handle limit reached gracefully
         if (res.status === 402) {
           setLimitReached(true);
           return;
@@ -136,15 +138,16 @@ export default function CreatePage() {
       // CASE 2: NO FILE → hook generator
       const body = { prompt, platform, goal, lengthSeconds, tone };
 
-      const res = await fetch("/api/generate", {
+      const url = `/api/generate?t=${Date.now()}`;
+
+      const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
         body: JSON.stringify(body),
         cache: "no-store",
         credentials: "include",
       });
 
-      // ✅ handle limit reached gracefully
       if (res.status === 402) {
         setLimitReached(true);
         return;
@@ -172,16 +175,12 @@ export default function CreatePage() {
         return;
       }
 
-      const job = data?.job;
-      const notes =
-        job?.output_script ||
-        data?.text ||
-        "Generated successfully, but no hooks were returned.";
-
+      const notes = data?.text || "Generated successfully, but no hooks were returned.";
       setResult(notes);
 
-      const url = job?.output_video_url || job?.edited_url || job?.source_url || null;
-      setEditedUrl(url);
+      const job = data?.job;
+      const url2 = job?.output_video_url || job?.edited_url || job?.source_url || null;
+      setEditedUrl(url2);
     } catch (err: any) {
       console.error("Generate error (client):", err);
       setError(err?.message || "Unexpected error.");
@@ -206,9 +205,11 @@ export default function CreatePage() {
         return;
       }
 
-      const res = await fetch("/api/checkout", {
+      const url = `/api/checkout?t=${Date.now()}`;
+
+      const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
         body: JSON.stringify({ priceId }),
         cache: "no-store",
         credentials: "include",
