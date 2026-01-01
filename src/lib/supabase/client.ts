@@ -1,12 +1,16 @@
 "use client";
 
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient as _createBrowserClient } from "@supabase/ssr";
 
-export function createClient() {
+export function createBrowserClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createBrowserClient(supabaseUrl, supabaseAnon);
+  return _createBrowserClient(supabaseUrl, supabaseAnon);
 }
 
-// Some files import `supabase` directly
-export const supabase = createClient();
+// Keep these for the other imports in your app
+export function createClient() {
+  return createBrowserClient();
+}
+
+export const supabase = createBrowserClient();
