@@ -62,6 +62,8 @@ export default function CreatePage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ fileUrl: publicUrl, prompt }),
+          cache: "no-store",
+          credentials: "include",
         });
 
         // ✅ handle limit reached gracefully
@@ -138,6 +140,8 @@ export default function CreatePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        cache: "no-store",
+        credentials: "include",
       });
 
       // ✅ handle limit reached gracefully
@@ -206,6 +210,8 @@ export default function CreatePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ priceId }),
+        cache: "no-store",
+        credentials: "include",
       });
 
       const data = await res.json();
@@ -333,7 +339,6 @@ export default function CreatePage() {
 
           {error && <p className="create-error">{error}</p>}
 
-          {/* ✅ CONVERSION PAYWALL CARD */}
           {limitReached && !error && (
             <div className="create-result">
               <h3>You’ve used your free hooks.</h3>
