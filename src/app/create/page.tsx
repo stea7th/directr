@@ -1,4 +1,3 @@
-// src/app/create/page.tsx
 "use client";
 
 import "./page.css";
@@ -33,7 +32,6 @@ export default function CreatePage() {
 
     setLoading(true);
     try {
-      // CASE 1: FILE PRESENT → upload to Supabase → send URL to /api/clipper
       if (file) {
         const path = `${Date.now()}-${file.name}`;
 
@@ -44,7 +42,6 @@ export default function CreatePage() {
           });
 
         if (uploadError || !uploadData) {
-          console.error("Supabase upload error:", uploadError);
           setError("Failed to upload file. Try a smaller file or different format.");
           return;
         }
@@ -59,19 +56,7 @@ export default function CreatePage() {
           body: JSON.stringify({ fileUrl: publicUrl, prompt }),
         });
 
-        const contentType = res.headers.get("content-type") || "";
-        if (!contentType.includes("application/json")) {
-          const text = await res.text();
-          console.error("Non-JSON response from /api/clipper:", {
-            status: res.status,
-            textSnippet: text.slice(0, 200),
-          });
-          setError(`Server returned non-JSON (status ${res.status}). Route might be misconfigured.`);
-          return;
-        }
-
         const data = await res.json();
-
         if (!data.success) {
           setError(data.error || "Failed to find hooks.");
           return;
@@ -84,22 +69,21 @@ export default function CreatePage() {
 
         if (transcript) {
           text += "TRANSCRIPT\n──────────\n";
-          text += transcript.trim();
-          text += "\n\n";
+          text += transcript.trim() + "\n\n";
         }
 
         if (clips.length > 0) {
           text += "HOOKS + MOMENTS\n──────────────\n";
           text += clips
             .map((clip, idx) => {
-              const start = clip.start ?? clip.start_seconds ?? 0;
-              const end = clip.end ?? clip.end_seconds ?? 0;
+              const start = clip.start ?? 0;
+              const end = clip.end ?? 0;
               const hook = clip.hook_line || "";
               const desc = clip.description || "";
 
               return [
                 `Moment ${idx + 1}`,
-                `  Time: ${start.toFixed?.(2) ?? start} → ${end.toFixed?.(2) ?? end}s`,
+                `  Time: ${start} → ${end}s`,
                 hook ? `  Hook: ${hook}` : null,
                 desc ? `  Why it works: ${desc}` : null,
               ]
@@ -107,54 +91,26 @@ export default function CreatePage() {
                 .join("\n");
             })
             .join("\n\n");
-        } else {
-          text += "No moments were returned, but the transcript is available above.";
         }
 
         setResult(text);
-        setEditedUrl(null);
         return;
       }
-
-      // CASE 2: NO FILE → hook generator (keep route name, change framing)
-      const body = { prompt, platform, goal, lengthSeconds, tone };
 
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ prompt, platform, goal, lengthSeconds, tone }),
       });
 
-      const contentType = res.headers.get("content-type") || "";
-      if (!contentType.includes("application/json")) {
-        const text = await res.text();
-        console.error("Non-JSON response from /api/generate:", {
-          status: res.status,
-          textSnippet: text.slice(0, 200),
-        });
-        setError(`Server returned non-JSON (status ${res.status}). Route might be misconfigured.`);
-        return;
-      }
-
       const data = await res.json();
-
       if (!data.success) {
         setError(data.error || "Failed to generate hooks.");
         return;
       }
 
-      const job = data?.job;
-      const notes =
-        job?.output_script ||
-        data?.text ||
-        "Generated successfully, but no hooks were returned.";
-
-      setResult(notes);
-
-      const url = job?.output_video_url || job?.edited_url || job?.source_url || null;
-      setEditedUrl(url);
+      setResult(data.text || "Generated successfully.");
     } catch (err: any) {
-      console.error("Generate error (client):", err);
       setError(err?.message || "Unexpected error.");
     } finally {
       setLoading(false);
@@ -174,14 +130,12 @@ export default function CreatePage() {
 
           <div className="create-mode-toggle">
             <button
-              type="button"
               className={`create-mode-btn ${mode === "basic" ? "create-mode-btn--active" : ""}`}
               onClick={() => setMode("basic")}
             >
               Quick
             </button>
             <button
-              type="button"
               className={`create-mode-btn ${mode === "advanced" ? "create-mode-btn--active" : ""}`}
               onClick={() => setMode("advanced")}
             >
@@ -193,7 +147,6 @@ export default function CreatePage() {
         <div className={`create-main-card ${loading ? "is-loading" : ""}`}>
           <div className="create-textarea-wrap">
             <textarea
-              name="prompt"
               className="create-textarea"
               placeholder={
                 file
@@ -205,63 +158,30 @@ export default function CreatePage() {
             />
           </div>
 
-          {mode === "advanced" && !file && (
-            <div className="create-advanced-row">
-              <div className="create-adv-field">
-                <label>Platform</label>
-                <select value={platform} onChange={(e) => setPlatform(e.target.value)}>
-                  <option value="TikTok">TikTok</option>
-                  <option value="Reels">Instagram Reels</option>
-                  <option value="Shorts">YouTube Shorts</option>
-                  <option value="All">All of the above</option>
-                </select>
-              </div>
-
-              <div className="create-adv-field">
-                <label>Goal</label>
-                <input
-                  type="text"
-                  value={goal}
-                  onChange={(e) => setGoal(e.target.value)}
-                  placeholder="Get more views, drive sales, grow page, etc."
-                />
-              </div>
-
-              <div className="create-adv-field">
-                <label>Length (seconds)</label>
-                <input
-                  type="number"
-                  min={5}
-                  max={180}
-                  value={lengthSeconds}
-                  onChange={(e) => setLengthSeconds(e.target.value)}
-                />
-              </div>
-
-              <div className="create-adv-field">
-                <label>Tone</label>
-                <select value={tone} onChange={(e) => setTone(e.target.value)}>
-                  <option value="Casual">Casual</option>
-                  <option value="High-energy">High-energy</option>
-                  <option value="Storytelling">Storytelling</option>
-                  <option value="Authority">Authority</option>
-                </select>
-              </div>
-            </div>
-          )}
-
           <div className="create-bottom-row">
             <label className="create-file-bar">
               <span className="create-file-label">
                 <span className="create-file-bullet">•</span>
                 {file ? file.name : "Choose file / drop here"}
               </span>
-              <input type="file" name="file" className="create-file-input" onChange={handleFileChange} />
+              <input type="file" className="create-file-input" onChange={handleFileChange} />
             </label>
 
-            <button type="button" className="create-generate-btn" onClick={handleGenerate} disabled={loading}>
-              {loading ? (file ? "Finding hooks..." : "Finding hooks...") : file ? "Find hooks from file" : "Generate viral hooks"}
-            </button>
+            {/* ✅ BUTTON + PRICING LINE */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+              <button
+                type="button"
+                className="create-generate-btn"
+                onClick={handleGenerate}
+                disabled={loading}
+              >
+                {loading ? "Finding hooks..." : file ? "Find hooks from file" : "Generate viral hooks"}
+              </button>
+
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
+                3 free generations • then $19/mo for unlimited hooks
+              </span>
+            </div>
           </div>
 
           <p className="create-tip">
@@ -270,46 +190,12 @@ export default function CreatePage() {
 
           {error && <p className="create-error">{error}</p>}
 
-          {(result || editedUrl) && !error && (
+          {result && !error && (
             <div className="create-result">
               <h3>Hooks</h3>
-
-              {editedUrl && (
-                <p style={{ marginBottom: 8 }}>
-                  <strong>Clip:</strong>{" "}
-                  <a href={editedUrl} target="_blank" rel="noreferrer">
-                    Open
-                  </a>
-                </p>
-              )}
-
-              {result && (
-                <>
-                  <strong>Output:</strong>
-                  <pre>{result}</pre>
-                </>
-              )}
+              <pre>{result}</pre>
             </div>
           )}
-        </div>
-      </section>
-
-      <section className="create-tiles-section">
-        <div className="create-tiles-grid">
-          <article className="create-tile">
-            <h2>Hooks</h2>
-            <p>Upload → get scroll-stopping hook lines</p>
-          </article>
-
-          <article className="create-tile">
-            <h2>Moments</h2>
-            <p>Auto-find the strongest points to clip</p>
-          </article>
-
-          <article className="create-tile">
-            <h2>Captions</h2>
-            <p>Captions designed to keep viewers watching</p>
-          </article>
         </div>
       </section>
     </main>
