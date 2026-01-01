@@ -6,143 +6,137 @@ import { createBrowserClient } from "@/lib/supabase/client";
 
 export default function LoginForm() {
   const router = useRouter();
-  const params = useSearchParams();
+  const search = useSearchParams();
 
   const supabase = useMemo(() => createBrowserClient(), []);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"password" | "magic">("password");
-
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<string | null>(params.get("msg"));
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onEmailLogin(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
-    setMsg(null);
-    setLoading(true);
+    setBusy(true);
 
     try {
-      if (!email.trim()) throw new Error("Enter your email.");
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      // Magic link mode
-      if (mode === "magic") {
-        const { error } = await supabase.auth.signInWithOtp({
-          email: email.trim(),
-          options: { emailRedirectTo: `${window.location.origin}/create` },
-        });
-        if (error) throw error;
-
-        setMsg("Check your email for a sign-in link.");
+      if (error) {
+        setErr(error.message);
         return;
       }
 
-      // Email + password mode
-      if (!password) throw new Error("Enter your password.");
-
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-      if (error) throw error;
-
-      router.push("/create");
+      // force refresh of server components / cookies
       router.refresh();
-    } catch (e: any) {
-      setErr(e?.message || "Sign in failed.");
+      router.push(search.get("next") || "/create");
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   }
 
-  async function onSignup() {
+  async function onGoogle() {
     setErr(null);
-    setMsg(null);
-    setLoading(true);
+    setBusy(true);
 
     try {
-      if (!email.trim()) throw new Error("Enter your email.");
-      if (!password) throw new Error("Enter a password.");
+      const origin =
+        process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+        (typeof window !== "undefined" ? window.location.origin : "");
 
-      const { error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: { emailRedirectTo: `${window.location.origin}/create` },
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${origin}/auth/callback`,
+        },
       });
 
-      if (error) throw error;
-      setMsg("Account created. Check email to confirm if required.");
-    } catch (e: any) {
-      setErr(e?.message || "Sign up failed.");
+      if (error) setErr(error.message);
+      // If successful, Supabase redirects away, so no need to do anything else.
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   }
 
   return (
-    <form onSubmit={onSubmit} className="field" style={{ gap: 10 }}>
-      <div className="field">
-        <span>Email</span>
-        <input
-          className="input"
-          autoComplete="email"
-          inputMode="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@domain.com"
-        />
+    <div className="card" style={{ maxWidth: 520, margin: "0 auto" }}>
+      <div className="card__head">
+        <div>
+          <div className="title">Sign in</div>
+          <div className="subtitle">Access your Directr workspace.</div>
+        </div>
       </div>
 
-      {mode === "password" && (
+      {/* Google */}
+      <button
+        type="button"
+        className="btn btn--primary"
+        onClick={onGoogle}
+        disabled={busy}
+        style={{ width: "100%", height: 44, borderRadius: 14 }}
+      >
+        Continue with Google
+      </button>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          margin: "16px 0",
+          opacity: 0.8,
+        }}
+      >
+        <div style={{ height: 1, background: "rgba(255,255,255,.10)", flex: 1 }} />
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,.65)" }}>or</div>
+        <div style={{ height: 1, background: "rgba(255,255,255,.10)", flex: 1 }} />
+      </div>
+
+      {/* Email / Password */}
+      <form onSubmit={onEmailLogin}>
         <div className="field">
+          <span>Email</span>
+          <input
+            className="input"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@domain.com"
+            autoComplete="email"
+            inputMode="email"
+          />
+        </div>
+
+        <div className="field" style={{ marginTop: 12 }}>
           <span>Password</span>
           <input
             className="input"
-            type="password"
-            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
+            autoComplete="current-password"
+            type="password"
           />
         </div>
-      )}
 
-      <div className="actions" style={{ marginTop: 6 }}>
-        <button
-          type="submit"
-          className={`btn btn--primary ${loading ? "btn--disabled" : ""}`}
-          disabled={loading}
-        >
-          {loading ? "Working..." : mode === "magic" ? "Send link" : "Sign in"}
-        </button>
-
-        {mode === "password" && (
-          <button
-            type="button"
-            className={`btn ${loading ? "btn--disabled" : ""}`}
-            disabled={loading}
-            onClick={onSignup}
-          >
-            Sign up
+        <div className="actions" style={{ marginTop: 14 }}>
+          <button className="btn btn--ghost" type="button" onClick={() => router.push("/signup")} disabled={busy}>
+            Create account
           </button>
+          <button className="btn btn--primary" type="submit" disabled={busy}>
+            {busy ? "Signing in..." : "Sign in"}
+          </button>
+        </div>
+
+        {err && (
+          <div style={{ marginTop: 12, fontSize: 13, color: "#fecaca" }}>
+            {err}
+          </div>
         )}
-      </div>
-
-      <div style={{ display: "flex", gap: 10, marginTop: 2 }}>
-        <button
-          type="button"
-          className="btn btn--ghost"
-          onClick={() => setMode(mode === "password" ? "magic" : "password")}
-          disabled={loading}
-        >
-          {mode === "password" ? "Use magic link" : "Use password"}
-        </button>
-      </div>
-
-      {err && <div style={{ color: "#fecaca", fontSize: 13 }}>{err}</div>}
-      {msg && <div style={{ color: "#86efac", fontSize: 13 }}>{msg}</div>}
-    </form>
+      </form>
+    </div>
   );
 }
