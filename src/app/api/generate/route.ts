@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const BUILD_TAG = "generate_service_role_usage_v3";
+const BUILD_TAG = "generate_limit_fix_v4";
 
 function safeStr(v: unknown) {
   return typeof v === "string" ? v : v == null ? "" : String(v);
@@ -47,37 +47,39 @@ type GenerateBody = {
 
 export async function POST(req: Request) {
   try {
+    // hard no-cache headers
+    const noStoreHeaders = {
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
+    };
+
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
         { success: false, error: "OPENAI_API_KEY missing", build: BUILD_TAG },
-        { status: 500, headers: { "Cache-Control": "no-store" } }
+        { status: 500, headers: noStoreHeaders }
       );
     }
 
     const supabaseUrl =
-      process.env.NEXT_PUBLIC_SUPABASE_URL ||
-      process.env.SUPABASE_URL ||
-      "";
-
+      process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
     const serviceKey =
-      process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.SUPABASE_SERVICE_ROLE ||
-      "";
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || "";
 
     if (!supabaseUrl || !serviceKey) {
       return NextResponse.json(
         {
           success: false,
-          error: "missing_supabase_service_role",
+          error: "missing_service_role",
           details:
-            "Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel env.",
+            "Set NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY in Vercel env.",
           build: BUILD_TAG,
         },
-        { status: 500, headers: { "Cache-Control": "no-store" } }
+        { status: 500, headers: noStoreHeaders }
       );
     }
 
-    // cookie-based client (for auth)
+    // auth (cookie session)
     const supabase = await createServerClient();
     const {
       data: { user },
@@ -87,62 +89,60 @@ export async function POST(req: Request) {
     if (userErr) {
       return NextResponse.json(
         { success: false, error: "auth_getUser_failed", details: userErr.message, build: BUILD_TAG },
-        { status: 500, headers: { "Cache-Control": "no-store" } }
+        { status: 500, headers: noStoreHeaders }
       );
     }
-
     if (!user) {
       return NextResponse.json(
         { success: false, error: "unauthorized", build: BUILD_TAG },
-        { status: 401, headers: { "Cache-Control": "no-store" } }
+        { status: 401, headers: noStoreHeaders }
       );
     }
 
-    // admin client (bypass RLS for usage tracking)
+    // admin client (bypass RLS for usage counters)
     const admin = createClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    // Ensure profile exists (admin bypass)
-    const { error: upsertErr } = await admin
-      .from("profiles")
-      .upsert({ id: user.id, is_pro: false, generations_used: 0 }, { onConflict: "id" });
+    // ✅ 1) Fetch profile FIRST (do NOT upsert generations_used=0 every time)
+    let profile: { is_pro: boolean | null; generations_used: number | null } | null = null;
 
-    if (upsertErr) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "profile_upsert_failed",
-          details: upsertErr.message,
-          build: BUILD_TAG,
-        },
-        { status: 500, headers: { "Cache-Control": "no-store" } }
-      );
-    }
-
-    // Fetch profile (admin bypass)
-    const { data: profile, error: profileErr } = await admin
+    const { data: prof, error: profErr } = await admin
       .from("profiles")
       .select("is_pro, generations_used")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (profileErr || !profile) {
+    if (profErr) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "profile_fetch_failed",
-          details: profileErr?.message ?? "no_profile",
-          build: BUILD_TAG,
-        },
-        { status: 500, headers: { "Cache-Control": "no-store" } }
+        { success: false, error: "profile_fetch_failed", details: profErr.message, build: BUILD_TAG },
+        { status: 500, headers: noStoreHeaders }
       );
+    }
+
+    profile = prof ?? null;
+
+    // ✅ 2) If no profile row, INSERT defaults once
+    if (!profile) {
+      const { error: insErr } = await admin
+        .from("profiles")
+        .insert({ id: user.id, is_pro: false, generations_used: 0 });
+
+      if (insErr) {
+        return NextResponse.json(
+          { success: false, error: "profile_insert_failed", details: insErr.message, build: BUILD_TAG },
+          { status: 500, headers: noStoreHeaders }
+        );
+      }
+
+      profile = { is_pro: false, generations_used: 0 };
     }
 
     const FREE_LIMIT = 3;
     const isPro = !!profile.is_pro;
     const usedBefore = Number(profile.generations_used ?? 0);
 
+    // ✅ 3) Limit guard
     if (!isPro && usedBefore >= FREE_LIMIT) {
       return NextResponse.json(
         {
@@ -151,11 +151,11 @@ export async function POST(req: Request) {
           build: BUILD_TAG,
           usage: { isPro, usedBefore, usedAfter: usedBefore, freeLimit: FREE_LIMIT },
         },
-        { status: 402, headers: { "Cache-Control": "no-store" } }
+        { status: 402, headers: noStoreHeaders }
       );
     }
 
-    // Read JSON body
+    // input
     const contentType = req.headers.get("content-type") || "";
     if (!contentType.includes("application/json")) {
       return NextResponse.json(
@@ -165,7 +165,7 @@ export async function POST(req: Request) {
           details: 'Content-Type must be "application/json".',
           build: BUILD_TAG,
         },
-        { status: 415, headers: { "Cache-Control": "no-store" } }
+        { status: 415, headers: noStoreHeaders }
       );
     }
 
@@ -180,10 +180,11 @@ export async function POST(req: Request) {
     if (!prompt) {
       return NextResponse.json(
         { success: false, error: "Missing prompt", build: BUILD_TAG },
-        { status: 400, headers: { "Cache-Control": "no-store" } }
+        { status: 400, headers: noStoreHeaders }
       );
     }
 
+    // AI
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const system =
@@ -217,33 +218,34 @@ Plain text only.
 
     const text = extractOutputText(aiRes);
 
-    // Increment usage after success (admin bypass)
+    // ✅ 4) Increment usage AFTER success (and NEVER reset it)
     let usedAfter = usedBefore;
+
     if (!isPro) {
-      const { data: incRow, error: incErr } = await admin
+      const { data: upd, error: updErr } = await admin
         .from("profiles")
         .update({ generations_used: usedBefore + 1 })
         .eq("id", user.id)
         .select("generations_used")
         .single();
 
-      if (incErr) {
-        // still return hooks, but tell you usage failed
+      if (updErr) {
+        // still return output
         return NextResponse.json(
           {
             success: true,
             text,
             job: null,
             warning: "Output ok but usage increment failed.",
-            inc_error: incErr.message,
+            inc_error: updErr.message,
             build: BUILD_TAG,
             usage: { isPro, usedBefore, usedAfter: usedBefore, freeLimit: FREE_LIMIT },
           },
-          { status: 200, headers: { "Cache-Control": "no-store" } }
+          { status: 200, headers: noStoreHeaders }
         );
       }
 
-      usedAfter = Number(incRow?.generations_used ?? usedBefore + 1);
+      usedAfter = Number(upd?.generations_used ?? usedBefore + 1);
     }
 
     return NextResponse.json(
@@ -254,7 +256,7 @@ Plain text only.
         build: BUILD_TAG,
         usage: { isPro, usedBefore, usedAfter, freeLimit: FREE_LIMIT },
       },
-      { status: 200, headers: { "Cache-Control": "no-store" } }
+      { status: 200, headers: noStoreHeaders }
     );
   } catch (err: any) {
     return NextResponse.json(
