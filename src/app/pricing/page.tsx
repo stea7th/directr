@@ -183,10 +183,9 @@ export default function PricingPage() {
 
       {/* styles are same as your old UI, just kept inline so no extra CSS file */}
       <style jsx>{`
-        .pricing-root {
-  min-height: 100vh;
-  width: 100%;
-  margin: 0;
+       .pricing-root {
+  min-height: 100dvh;
+  width: 100vw;
   padding: 96px 24px 80px;
   background: radial-gradient(
       circle at top,
