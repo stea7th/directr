@@ -1,12 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
 
 export default function LoginForm() {
   const router = useRouter();
-  const sp = useSearchParams();
 
   const supabase = useMemo(() => createBrowserClient(), []);
   const [email, setEmail] = useState("");
@@ -30,7 +29,7 @@ export default function LoginForm() {
         return;
       }
 
-      router.push(sp.get("next") || "/");
+      router.push("/");
       router.refresh();
     } finally {
       setLoading(false);
@@ -43,15 +42,29 @@ export default function LoginForm() {
 
     try {
       const origin = window.location.origin;
-      const { error } = await supabase.auth.signInWithOAuth({
+
+      // ✅ Force-return the URL, then manually navigate
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: `${origin}/auth/callback`,
+          skipBrowserRedirect: true,
         },
       });
 
-      if (error) setErr(error.message);
-      // On success, Supabase redirects away automatically
+      if (error) {
+        setErr(error.message);
+        return;
+      }
+
+      if (!data?.url) {
+        setErr("No OAuth URL returned from Supabase.");
+        return;
+      }
+
+      window.location.assign(data.url);
+    } catch (e: any) {
+      setErr(e?.message || "Google sign-in failed.");
     } finally {
       setLoading(false);
     }
