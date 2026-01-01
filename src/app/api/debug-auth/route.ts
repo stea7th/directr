@@ -1,27 +1,26 @@
 // src/app/api/debug-auth/route.ts
 import { NextResponse } from "next/server";
-import { createRouteClient } from "@/lib/supabase/server";
+import { createServerClient } from "@/lib/supabase/server";
 
 export async function GET() {
   try {
-    // ✅ Next 15: createRouteClient is async
-    const supabase = await createRouteClient();
+    const supabase = await createServerClient();
 
-    const { data, error } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
 
     return NextResponse.json({
-      success: true,
-      user: data?.user ?? null,
-      error: error ? { message: error.message, status: (error as any).status } : null,
+      ok: !error,
+      error: error?.message ?? null,
+      user: user
+        ? { id: user.id, email: user.email, created_at: user.created_at }
+        : null,
     });
-  } catch (err: any) {
-    console.error("debug-auth error:", err);
+  } catch (e: any) {
     return NextResponse.json(
-      {
-        success: false,
-        error: "Debug auth failed",
-        details: err?.message || String(err),
-      },
+      { ok: false, error: e?.message ?? "debug-auth error" },
       { status: 500 }
     );
   }
