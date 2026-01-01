@@ -1,4 +1,3 @@
-// src/app/api/generate/route.ts
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createServerClient } from "@/lib/supabase/server";
@@ -58,6 +57,39 @@ export async function POST(req: Request) {
       data: { user },
     } = await supabase.auth.getUser();
 
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    // ✅ LIMIT GUARD (source of truth)
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("is_pro, generations_used")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      console.error("Profile fetch error:", profileError);
+      return NextResponse.json(
+        { success: false, error: "profile_missing" },
+        { status: 500 }
+      );
+    }
+
+    const isPro = !!profile.is_pro;
+    const used = Number(profile.generations_used ?? 0);
+    const FREE_LIMIT = 3;
+
+    if (!isPro && used >= FREE_LIMIT) {
+      return NextResponse.json(
+        { success: false, error: "limit_reached" },
+        { status: 402 }
+      );
+    }
+
     const contentType = req.headers.get("content-type") || "";
 
     // ---- Read input (JSON OR FormData) ----
@@ -114,7 +146,7 @@ export async function POST(req: Request) {
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    const system = `You are Directr, an expert content director. Return clean, actionable output.`;
+    const system = `You are Directr, an expert short-form hook writer. Return clean, actionable output optimized for scroll-stopping hooks.`;
 
     const userMsg = `
 PROMPT:
@@ -126,12 +158,10 @@ CONTEXT:
 - lengthSeconds: ${lengthSeconds}
 - tone: ${tone}
 
-If helpful, include:
-- 5 hook options
-- A tight script
-- Shot list + b-roll ideas
-- Caption options + CTA
-- Posting notes
+Return:
+- 10 scroll-stopping hook options (numbered)
+- 3 caption options (with CTA)
+- quick posting note (1-2 lines)
 
 Return plain text (not JSON).
 `.trim();
@@ -148,7 +178,7 @@ Return plain text (not JSON).
 
     // ---- Save job to Supabase (best-effort) ----
     const insertPayload: any = {
-      type: "script",
+      type: "hooks",
       prompt,
       result_text: text,
       platform,
@@ -158,7 +188,7 @@ Return plain text (not JSON).
       file_name: fileMeta?.name ?? null,
       file_type: fileMeta?.type ?? null,
       file_size: fileMeta?.size ?? null,
-      user_id: user?.id ?? null,
+      user_id: user.id,
     };
 
     const { data: job, error: jobError } = await supabase
@@ -175,6 +205,19 @@ Return plain text (not JSON).
         job: null,
         warning: "Saved output but failed to write job to database.",
       });
+    }
+
+    // ✅ INCREMENT USAGE ONLY AFTER SUCCESS (free users only)
+    if (!isPro) {
+      const { error: incError } = await supabase
+        .from("profiles")
+        .update({ generations_used: used + 1 })
+        .eq("id", user.id);
+
+      if (incError) {
+        console.error("Failed to increment generations_used:", incError);
+        // still return success; we don't want to block output
+      }
     }
 
     return NextResponse.json({ success: true, text, job });
