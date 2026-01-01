@@ -3,8 +3,9 @@ import OpenAI from "openai";
 import { createServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-const BUILD_TAG = "prod_generate_usage_v2";
+const BUILD_TAG = "generate_prod_final_v1";
 
 function safeStr(v: unknown) {
   return typeof v === "string" ? v : v == null ? "" : String(v);
@@ -12,7 +13,9 @@ function safeStr(v: unknown) {
 
 function extractOutputText(res: any): string {
   try {
-    if (typeof res?.output_text === "string" && res.output_text.trim()) return res.output_text.trim();
+    if (typeof res?.output_text === "string" && res.output_text.trim()) {
+      return res.output_text.trim();
+    }
 
     const out = res?.output;
     if (!Array.isArray(out)) return "AI response format was unexpected.";
@@ -22,7 +25,9 @@ function extractOutputText(res: any): string {
       const content = item?.content;
       if (!Array.isArray(content)) continue;
       for (const c of content) {
-        if (c?.type === "output_text" && typeof c?.text === "string") texts.push(c.text);
+        if (c?.type === "output_text" && typeof c?.text === "string") {
+          texts.push(c.text);
+        }
       }
     }
     return texts.join("\n").trim() || "AI response format was unexpected.";
@@ -33,218 +38,114 @@ function extractOutputText(res: any): string {
 
 type GenerateBody = {
   prompt?: string;
-  platform?: string;
-  goal?: string;
-  lengthSeconds?: string | number;
-  tone?: string;
 };
 
 export async function POST(req: Request) {
   try {
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
-        { success: false, error: "OPENAI_API_KEY is not set on the server.", build: BUILD_TAG },
+        { success: false, error: "OPENAI_API_KEY missing", build: BUILD_TAG },
         { status: 500 }
       );
     }
 
     const supabase = await createServerClient();
 
-    const {
-      data: { user },
-      error: userErr,
-    } = await supabase.auth.getUser();
-
-    if (userErr) {
-      return NextResponse.json(
-        { success: false, error: "auth_getUser_failed", details: userErr.message, build: BUILD_TAG },
-        { status: 500 }
-      );
-    }
+    const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ success: false, error: "unauthorized", build: BUILD_TAG }, { status: 401 });
-    }
-
-    // ✅ Ensure profile exists
-    const { error: upsertError } = await supabase
-      .from("profiles")
-      .upsert({ id: user.id, is_pro: false, generations_used: 0 }, { onConflict: "id" });
-
-    if (upsertError) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "profile_upsert_failed",
-          details: upsertError.message,
-          code: (upsertError as any).code ?? null,
-          hint: (upsertError as any).hint ?? null,
-          build: BUILD_TAG,
-        },
-        { status: 500 }
+        { success: false, error: "unauthorized", build: BUILD_TAG },
+        { status: 401 }
       );
     }
 
-    // ✅ Fetch profile
-    const { data: profile, error: profileError } = await supabase
+    // ensure profile exists
+    await supabase
+      .from("profiles")
+      .upsert(
+        { id: user.id, is_pro: false, generations_used: 0 },
+        { onConflict: "id" }
+      );
+
+    const { data: profile } = await supabase
       .from("profiles")
       .select("is_pro, generations_used")
       .eq("id", user.id)
       .single();
 
-    if (profileError || !profile) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "profile_fetch_failed",
-          details: profileError?.message ?? "no_profile_row_returned",
-          build: BUILD_TAG,
-        },
-        { status: 500 }
-      );
-    }
-
     const FREE_LIMIT = 3;
-    const isPro = !!profile.is_pro;
-    const usedBefore = Number(profile.generations_used ?? 0);
+    const isPro = !!profile?.is_pro;
+    const usedBefore = Number(profile?.generations_used ?? 0);
 
-    // ✅ LIMIT GUARD
     if (!isPro && usedBefore >= FREE_LIMIT) {
       return NextResponse.json(
         {
           success: false,
           error: "limit_reached",
           build: BUILD_TAG,
-          usage: { isPro, usedBefore, usedAfter: usedBefore, freeLimit: FREE_LIMIT },
+          usage: { isPro, usedBefore, freeLimit: FREE_LIMIT },
         },
         { status: 402 }
       );
     }
 
-    // ---- Read input (JSON only) ----
-    const contentType = req.headers.get("content-type") || "";
-    if (!contentType.includes("application/json")) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "unsupported_content_type",
-          details: 'Content-Type must be "application/json".',
-          build: BUILD_TAG,
-        },
-        { status: 415 }
-      );
-    }
-
     const body = (await req.json()) as GenerateBody;
-
     const prompt = safeStr(body.prompt).trim();
-    const platform = safeStr(body.platform).trim() || "TikTok";
-    const goal = safeStr(body.goal).trim() || "Drive sales, grow page, etc.";
-    const lengthSeconds = safeStr(body.lengthSeconds).trim() || "30";
-    const tone = safeStr(body.tone).trim() || "Casual";
 
     if (!prompt) {
-      return NextResponse.json({ success: false, error: "Missing prompt", build: BUILD_TAG }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Missing prompt", build: BUILD_TAG },
+        { status: 400 }
+      );
     }
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    const system =
-      "You are Directr, an expert short-form hook writer. Return clean, actionable output optimized for scroll-stopping hooks.";
-
-    const userMsg = `
-PROMPT:
-${prompt}
-
-CONTEXT:
-- platform: ${platform}
-- goal: ${goal}
-- lengthSeconds: ${lengthSeconds}
-- tone: ${tone}
-
-Return:
-- 10 scroll-stopping hook options (numbered)
-- 3 caption options (with CTA)
-- quick posting note (1-2 lines)
-
-Return plain text (not JSON).
-`.trim();
-
     const aiRes = await client.responses.create({
       model: "gpt-4.1-mini",
       input: [
-        { role: "system", content: system },
-        { role: "user", content: userMsg },
+        {
+          role: "system",
+          content:
+            "You are Directr, an expert short-form hook writer. Output scroll-stopping hooks only.",
+        },
+        {
+          role: "user",
+          content: `Give me 10 scroll-stopping hooks for:\n${prompt}`,
+        },
       ],
     });
 
     const text = extractOutputText(aiRes);
 
-    // ✅ Best-effort job insert (ONLY columns that almost certainly exist)
-    // If your jobs table is minimal, this won’t explode.
-    let job: any = null;
-    let jobWarning: any = null;
-
-    const insertPayload: any = {
-      type: "hooks",
-      prompt,
-      result_text: text,
-      user_id: user.id,
-    };
-
-    const { data: jobData, error: jobError } = await supabase
-      .from("jobs")
-      .insert(insertPayload)
-      .select("*")
-      .single();
-
-    if (jobError) {
-      jobWarning = {
-        warning: "Saved output but failed to write job to database.",
-        job_error: jobError.message,
-      };
-    } else {
-      job = jobData;
-    }
-
-    // ✅ Increment usage (free users) AND VERIFY it actually changed
-    let usedAfter = usedBefore;
-
+    // increment usage AFTER success
     if (!isPro) {
-      const { data: incRow, error: incError } = await supabase
+      await supabase
         .from("profiles")
         .update({ generations_used: usedBefore + 1 })
-        .eq("id", user.id)
-        .select("generations_used")
-        .single();
-
-      if (incError) {
-        return NextResponse.json({
-          success: true,
-          text,
-          job,
-          ...(jobWarning ?? {}),
-          warning: "Output saved, but failed to increment usage.",
-          inc_error: incError.message,
-          build: BUILD_TAG,
-          usage: { isPro, usedBefore, usedAfter: usedBefore, freeLimit: FREE_LIMIT },
-        });
-      }
-
-      usedAfter = Number(incRow?.generations_used ?? usedBefore);
+        .eq("id", user.id);
     }
 
     return NextResponse.json({
       success: true,
       text,
-      job,
-      ...(jobWarning ?? {}),
       build: BUILD_TAG,
-      usage: { isPro, usedBefore, usedAfter, freeLimit: FREE_LIMIT },
+      usage: {
+        isPro,
+        usedBefore,
+        usedAfter: isPro ? usedBefore : usedBefore + 1,
+        freeLimit: FREE_LIMIT,
+      },
     });
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: "server_error", details: err?.message || String(err), build: BUILD_TAG },
+      {
+        success: false,
+        error: "server_error",
+        details: err?.message ?? String(err),
+        build: BUILD_TAG,
+      },
       { status: 500 }
     );
   }
