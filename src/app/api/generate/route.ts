@@ -13,7 +13,6 @@ function extractOutputText(res: any): string {
     if (typeof res?.output_text === "string" && res.output_text.trim()) {
       return res.output_text.trim();
     }
-
     const out = res?.output;
     if (!Array.isArray(out)) return "AI response format was unexpected.";
 
@@ -43,6 +42,10 @@ type GenerateBody = {
 
 export async function POST(req: Request) {
   try {
+    // ✅ PROOF MARKER (TEMP): if you don't see this, you're not hitting this file
+    // Comment this out after you confirm.
+    // return NextResponse.json({ marker: "GENERATE_ROUTE_UPDATED_v4" });
+
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
         { success: false, error: "OPENAI_API_KEY is not set on the server." },
@@ -51,39 +54,35 @@ export async function POST(req: Request) {
     }
 
     const supabase = await createServerClient();
-
     const {
       data: { user },
+      error: userErr,
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (userErr) {
       return NextResponse.json(
-        { success: false, error: "unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    // ✅ Ensure a profile row exists (and fail loud if it can't)
-    const { error: upsertError } = await supabase
-      .from("profiles")
-      .upsert(
-        { id: user.id, is_pro: false, generations_used: 0 },
-        { onConflict: "id" }
-      );
-
-    if (upsertError) {
-      console.error("Profile upsert error:", upsertError);
-      return NextResponse.json(
-        {
-          success: false,
-          error: "profile_upsert_failed",
-          details: upsertError.message,
-        },
+        { success: false, error: "auth_getUser_failed", details: userErr.message },
         { status: 500 }
       );
     }
 
-    // ✅ Fetch profile (fail loud with details)
+    if (!user) {
+      return NextResponse.json({ success: false, error: "unauthorized" }, { status: 401 });
+    }
+
+    // ✅ Ensure profile row exists (FAIL LOUD)
+    const { error: upsertError } = await supabase
+      .from("profiles")
+      .upsert({ id: user.id, is_pro: false, generations_used: 0 }, { onConflict: "id" });
+
+    if (upsertError) {
+      return NextResponse.json(
+        { success: false, error: "profile_upsert_failed", details: upsertError.message },
+        { status: 500 }
+      );
+    }
+
+    // ✅ Fetch profile (FAIL LOUD)
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("is_pro, generations_used")
@@ -91,7 +90,6 @@ export async function POST(req: Request) {
       .single();
 
     if (profileError || !profile) {
-      console.error("Profile fetch error:", profileError);
       return NextResponse.json(
         {
           success: false,
@@ -102,21 +100,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ LIMIT GUARD (source of truth)
     const isPro = !!profile.is_pro;
     const used = Number(profile.generations_used ?? 0);
     const FREE_LIMIT = 3;
 
     if (!isPro && used >= FREE_LIMIT) {
-      return NextResponse.json(
-        { success: false, error: "limit_reached" },
-        { status: 402 }
-      );
+      return NextResponse.json({ success: false, error: "limit_reached" }, { status: 402 });
     }
 
     const contentType = req.headers.get("content-type") || "";
 
-    // ---- Read input (JSON OR FormData) ----
     let prompt = "";
     let platform = "TikTok";
     let goal = "Drive sales, grow page, etc.";
@@ -126,7 +119,6 @@ export async function POST(req: Request) {
 
     if (contentType.includes("application/json")) {
       const body = (await req.json()) as GenerateBody;
-
       prompt = safeStr(body.prompt).trim();
       platform = safeStr(body.platform).trim() || platform;
       goal = safeStr(body.goal).trim() || goal;
@@ -137,7 +129,6 @@ export async function POST(req: Request) {
       contentType.includes("application/x-www-form-urlencoded")
     ) {
       const form = await req.formData();
-
       prompt = safeStr(form.get("prompt")).trim();
       platform = safeStr(form.get("platform")).trim() || platform;
       goal = safeStr(form.get("goal")).trim() || goal;
@@ -146,26 +137,21 @@ export async function POST(req: Request) {
 
       const file = form.get("file");
       fileMeta =
-        file instanceof File
-          ? { name: file.name, type: file.type, size: file.size }
-          : null;
+        file instanceof File ? { name: file.name, type: file.type, size: file.size } : null;
     } else {
       return NextResponse.json(
         {
           success: false,
-          error: "Failed to generate response.",
+          error: "unsupported_content_type",
           details:
-            'Content-Type was not one of "application/json", "multipart/form-data" or "application/x-www-form-urlencoded".',
+            'Content-Type must be "application/json", "multipart/form-data" or "application/x-www-form-urlencoded".',
         },
         { status: 415 }
       );
     }
 
     if (!prompt) {
-      return NextResponse.json(
-        { success: false, error: "Missing prompt" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Missing prompt" }, { status: 400 });
     }
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -201,7 +187,6 @@ Return plain text (not JSON).
 
     const text = extractOutputText(aiRes);
 
-    // ---- Save job to Supabase (best-effort) ----
     const insertPayload: any = {
       type: "hooks",
       prompt,
@@ -223,16 +208,15 @@ Return plain text (not JSON).
       .single();
 
     if (jobError) {
-      console.error("Supabase insert error:", jobError);
       return NextResponse.json({
         success: true,
         text,
         job: null,
         warning: "Saved output but failed to write job to database.",
+        job_error: jobError.message,
       });
     }
 
-    // ✅ INCREMENT USAGE ONLY AFTER SUCCESS (free users only)
     if (!isPro) {
       const { error: incError } = await supabase
         .from("profiles")
@@ -240,19 +224,21 @@ Return plain text (not JSON).
         .eq("id", user.id);
 
       if (incError) {
-        console.error("Failed to increment generations_used:", incError);
+        // don't block success, but surface detail
+        return NextResponse.json({
+          success: true,
+          text,
+          job,
+          warning: "Output saved, but failed to increment usage.",
+          inc_error: incError.message,
+        });
       }
     }
 
     return NextResponse.json({ success: true, text, job });
   } catch (err: any) {
-    console.error("generate error:", err);
     return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to generate response.",
-        details: err?.message || String(err),
-      },
+      { success: false, error: "server_error", details: err?.message || String(err) },
       { status: 500 }
     );
   }
