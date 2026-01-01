@@ -191,8 +191,36 @@ export default function CreatePage() {
     if (f) setFile(f);
   }
 
-  function handleUpgrade() {
-    router.push("/pricing");
+  async function handleUpgrade() {
+    try {
+      setError(null);
+      setLoading(true);
+
+      const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || "";
+      if (!priceId) {
+        router.push("/pricing");
+        return;
+      }
+
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priceId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.success || !data?.url) {
+        setError(data?.error || "Could not start checkout. Try again.");
+        return;
+      }
+
+      window.location.href = data.url;
+    } catch (e: any) {
+      setError(e?.message || "Could not start checkout. Try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -315,8 +343,8 @@ export default function CreatePage() {
                 They generate them.
               </p>
 
-              <button type="button" className="create-generate-btn" onClick={handleUpgrade}>
-                Unlock unlimited hooks — $19/mo
+              <button type="button" className="create-generate-btn" onClick={handleUpgrade} disabled={loading}>
+                {loading ? "Opening checkout..." : "Unlock unlimited hooks — $19/mo"}
               </button>
 
               <p style={{ margin: "10px 0 0", fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
