@@ -14,13 +14,7 @@ function supabaseAdmin() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || "";
 
   if (!url || !key) throw new Error("Missing Supabase admin env vars");
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
-
-function isActiveSubStatus(status: Stripe.Subscription.Status) {
-  return status === "active" || status === "trialing";
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
 export async function POST(req: Request) {
@@ -50,7 +44,7 @@ export async function POST(req: Request) {
     const admin = supabaseAdmin();
 
     // -----------------------------
-    // 1) UPGRADE: checkout complete
+    // UPGRADE: checkout complete
     // -----------------------------
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
@@ -63,13 +57,11 @@ export async function POST(req: Request) {
           ? session.subscription
           : session.subscription?.id || null;
 
-      // If metadata missing, don't retry forever (still respond 200)
+      // respond 200 so Stripe doesn't retry forever
       if (!userId) {
         return NextResponse.json({ success: false, error: "missing_user_id_in_metadata" }, { status: 200 });
       }
 
-      // Upsert profile: DO NOT reset generations_used
-      // Only touch fields that you actually need.
       const { error: upsertErr } = await admin
         .from("profiles")
         .upsert(
@@ -92,47 +84,36 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    // -------------------------------------------
-    // 2) DOWNGRADE: subscription deleted/canceled
-    // -------------------------------------------
-    if (event.type === "customer.subscription.deleted") {
-      const sub = event.data.object as Stripe.Subscription;
-
-      const subId = sub.id;
-
-      // Downgrade by subscription id (reliable)
-      const { error } = await admin
-        .from("profiles")
-        .update({ is_pro: false })
-        .eq("stripe_subscription_id", subId);
-
-      if (error) {
-        return NextResponse.json(
-          { success: false, error: "downgrade_failed", details: error.message },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json({ success: true });
-    }
-
     // ----------------------------------------------------------
-    // 3) DOWNGRADE/UPGRADE: subscription updated (status changes)
+    // SUB UPDATED: handle cancel_at_period_end and status changes
     // ----------------------------------------------------------
     if (event.type === "customer.subscription.updated") {
       const sub = event.data.object as Stripe.Subscription;
 
       const subId = sub.id;
-      const shouldBePro = isActiveSubStatus(sub.status);
+      const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id || null;
 
-      const { error } = await admin
+      // If you want DOWNGRADE immediately when they cancel (even at period end):
+      // cancel_at_period_end = true means "user canceled" even though Stripe may keep it active until end.
+      const shouldBePro = !sub.cancel_at_period_end && (sub.status === "active" || sub.status === "trialing");
+
+      // Try by subscription id first
+      let update = await admin
         .from("profiles")
         .update({ is_pro: shouldBePro })
         .eq("stripe_subscription_id", subId);
 
-      if (error) {
+      // If nothing matched, fall back to customer id
+      if ((update as any)?.count === 0 && customerId) {
+        update = await admin
+          .from("profiles")
+          .update({ is_pro: shouldBePro })
+          .eq("stripe_customer_id", customerId);
+      }
+
+      if (update.error) {
         return NextResponse.json(
-          { success: false, error: "sub_update_sync_failed", details: error.message },
+          { success: false, error: "sub_update_sync_failed", details: update.error.message },
           { status: 500 }
         );
       }
@@ -140,12 +121,41 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    // --------------------------------
-    // 4) DOWNGRADE: invoice payment fail
-    // --------------------------------
+    // -------------------------------------------
+    // SUB DELETED: immediate cancel (hard downgrade)
+    // -------------------------------------------
+    if (event.type === "customer.subscription.deleted") {
+      const sub = event.data.object as Stripe.Subscription;
+      const subId = sub.id;
+      const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id || null;
+
+      let update = await admin
+        .from("profiles")
+        .update({ is_pro: false })
+        .eq("stripe_subscription_id", subId);
+
+      if ((update as any)?.count === 0 && customerId) {
+        update = await admin
+          .from("profiles")
+          .update({ is_pro: false })
+          .eq("stripe_customer_id", customerId);
+      }
+
+      if (update.error) {
+        return NextResponse.json(
+          { success: false, error: "downgrade_failed", details: update.error.message },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ success: true });
+    }
+
+    // ----------------------------
+    // PAYMENT FAILED: downgrade
+    // ----------------------------
     if (event.type === "invoice.payment_failed") {
       const invoice = event.data.object as Stripe.Invoice;
-
       const customerId =
         typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id || null;
 
@@ -166,7 +176,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    // default
     return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json(
