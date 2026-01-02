@@ -1,14 +1,25 @@
 "use client";
 
 import "./page.css";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Mode = "basic" | "advanced";
 
+type PlanState = {
+  loading: boolean;
+  isPro: boolean;
+  used: number;
+  freeLimit: number;
+};
+
 export default function CreatePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const upgraded = searchParams.get("upgraded") === "1";
+  const canceled = searchParams.get("canceled") === "1";
 
   const [mode, setMode] = useState<Mode>("basic");
   const [prompt, setPrompt] = useState("");
@@ -24,6 +35,62 @@ export default function CreatePage() {
 
   const [result, setResult] = useState<string | null>(null);
   const [editedUrl, setEditedUrl] = useState<string | null>(null);
+
+  const [plan, setPlan] = useState<PlanState>({
+    loading: true,
+    isPro: false,
+    used: 0,
+    freeLimit: 3,
+  });
+
+  const statusLine = useMemo(() => {
+    if (plan.loading) return "Checking your plan…";
+    if (plan.isPro) return "✅ Pro unlocked • unlimited hooks";
+    return `${Math.min(plan.used, plan.freeLimit)} / ${plan.freeLimit} free generations used • then $19/mo`;
+  }, [plan.loading, plan.isPro, plan.used, plan.freeLimit]);
+
+  async function refreshPlan() {
+    try {
+      setPlan((p) => ({ ...p, loading: true }));
+
+      const {
+        data: { user },
+      } = await supabaseBrowser.auth.getUser();
+
+      if (!user) {
+        setPlan({ loading: false, isPro: false, used: 0, freeLimit: 3 });
+        return;
+      }
+
+      const { data: profile, error: profileErr } = await supabaseBrowser
+        .from("profiles")
+        .select("is_pro, generations_used")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileErr) {
+        console.error("Plan fetch error:", profileErr);
+        setPlan((p) => ({ ...p, loading: false }));
+        return;
+      }
+
+      const isPro = !!profile?.is_pro;
+      const used = Number(profile?.generations_used ?? 0);
+
+      setPlan({ loading: false, isPro, used, freeLimit: 3 });
+
+      // If pro, never show paywall UI state
+      if (isPro) setLimitReached(false);
+    } catch (e) {
+      console.error("refreshPlan error:", e);
+      setPlan((p) => ({ ...p, loading: false }));
+    }
+  }
+
+  useEffect(() => {
+    refreshPlan();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleGenerate() {
     setError(null);
@@ -58,19 +125,16 @@ export default function CreatePage() {
           data: { publicUrl },
         } = supabaseBrowser.storage.from("raw_uploads").getPublicUrl(uploadData.path);
 
-        // cache-bust the route so deploys never stick you on stale code
-        const url = `/api/clipper?t=${Date.now()}`;
-
-        const res = await fetch(url, {
+        const res = await fetch("/api/clipper", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ fileUrl: publicUrl, prompt }),
-          cache: "no-store",
-          credentials: "include",
         });
 
+        // handle limit reached
         if (res.status === 402) {
           setLimitReached(true);
+          await refreshPlan();
           return;
         }
 
@@ -90,6 +154,7 @@ export default function CreatePage() {
         if (!data.success) {
           if (data?.error === "limit_reached") {
             setLimitReached(true);
+            await refreshPlan();
             return;
           }
           setError(data.error || "Failed to find hooks.");
@@ -132,24 +197,23 @@ export default function CreatePage() {
 
         setResult(text);
         setEditedUrl(null);
+
+        await refreshPlan();
         return;
       }
 
       // CASE 2: NO FILE → hook generator
       const body = { prompt, platform, goal, lengthSeconds, tone };
 
-      const url = `/api/generate?t=${Date.now()}`;
-
-      const res = await fetch(url, {
+      const res = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-        cache: "no-store",
-        credentials: "include",
       });
 
       if (res.status === 402) {
         setLimitReached(true);
+        await refreshPlan();
         return;
       }
 
@@ -169,6 +233,7 @@ export default function CreatePage() {
       if (!data.success) {
         if (data?.error === "limit_reached") {
           setLimitReached(true);
+          await refreshPlan();
           return;
         }
         setError(data.error || "Failed to generate hooks.");
@@ -177,10 +242,9 @@ export default function CreatePage() {
 
       const notes = data?.text || "Generated successfully, but no hooks were returned.";
       setResult(notes);
+      setEditedUrl(null);
 
-      const job = data?.job;
-      const url2 = job?.output_video_url || job?.edited_url || job?.source_url || null;
-      setEditedUrl(url2);
+      await refreshPlan();
     } catch (err: any) {
       console.error("Generate error (client):", err);
       setError(err?.message || "Unexpected error.");
@@ -205,14 +269,10 @@ export default function CreatePage() {
         return;
       }
 
-      const url = `/api/checkout?t=${Date.now()}`;
-
-      const res = await fetch(url, {
+      const res = await fetch("/api/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ priceId }),
-        cache: "no-store",
-        credentials: "include",
       });
 
       const data = await res.json();
@@ -234,7 +294,37 @@ export default function CreatePage() {
     <main className="create-root">
       <section className="create-shell">
         <header className="create-header">
-          <h1>Fix your hook before you post</h1>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <h1 style={{ marginBottom: 0 }}>Fix your hook before you post</h1>
+
+            {/* ✅ plan badge line */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span
+                style={{
+                  fontSize: 12,
+                  color: plan.isPro ? "rgba(160, 255, 200, 0.9)" : "rgba(255,255,255,0.55)",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  background: "rgba(0,0,0,0.20)",
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                }}
+              >
+                {statusLine}
+              </span>
+
+              {upgraded && (
+                <span style={{ fontSize: 12, color: "rgba(160, 255, 200, 0.9)" }}>
+                  ✅ Payment received — Pro is active
+                </span>
+              )}
+
+              {canceled && (
+                <span style={{ fontSize: 12, color: "rgba(255, 190, 120, 0.9)" }}>
+                  Checkout canceled — you can upgrade anytime
+                </span>
+              )}
+            </div>
+          </div>
 
           <div className="create-mode-toggle">
             <button
@@ -329,7 +419,7 @@ export default function CreatePage() {
               </button>
 
               <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
-                3 free generations • then $19/mo for unlimited hooks
+                {plan.isPro ? "✅ Pro active • unlimited generations" : "3 free generations • then $19/mo for unlimited hooks"}
               </span>
             </div>
           </div>
@@ -340,7 +430,8 @@ export default function CreatePage() {
 
           {error && <p className="create-error">{error}</p>}
 
-          {limitReached && !error && (
+          {/* ✅ CONVERSION PAYWALL CARD */}
+          {limitReached && !error && !plan.isPro && (
             <div className="create-result">
               <h3>You’ve used your free hooks.</h3>
               <p style={{ margin: "8px 0 12px", color: "rgba(255,255,255,0.75)", fontSize: 13, lineHeight: 1.5 }}>
