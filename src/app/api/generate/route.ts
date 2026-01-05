@@ -1,12 +1,8 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createServerClient } from "@/lib/supabase/server";
-import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-const BUILD_TAG = "generate_limit_fix_v4";
 
 function safeStr(v: unknown) {
   return typeof v === "string" ? v : v == null ? "" : String(v);
@@ -45,42 +41,19 @@ type GenerateBody = {
   tone?: string;
 };
 
+const FREE_LIMIT = 3;
+
 export async function POST(req: Request) {
   try {
-    // hard no-cache headers
-    const noStoreHeaders = {
-      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-      Pragma: "no-cache",
-      Expires: "0",
-    };
-
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
-        { success: false, error: "OPENAI_API_KEY missing", build: BUILD_TAG },
-        { status: 500, headers: noStoreHeaders }
+        { success: false, error: "OPENAI_API_KEY is not set on the server." },
+        { status: 500 }
       );
     }
 
-    const supabaseUrl =
-      process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
-    const serviceKey =
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || "";
-
-    if (!supabaseUrl || !serviceKey) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "missing_service_role",
-          details:
-            "Set NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY in Vercel env.",
-          build: BUILD_TAG,
-        },
-        { status: 500, headers: noStoreHeaders }
-      );
-    }
-
-    // auth (cookie session)
     const supabase = await createServerClient();
+
     const {
       data: { user },
       error: userErr,
@@ -88,124 +61,135 @@ export async function POST(req: Request) {
 
     if (userErr) {
       return NextResponse.json(
-        { success: false, error: "auth_getUser_failed", details: userErr.message, build: BUILD_TAG },
-        { status: 500, headers: noStoreHeaders }
+        { success: false, error: "auth_getUser_failed", details: userErr.message },
+        { status: 500 }
       );
     }
+
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: "unauthorized", build: BUILD_TAG },
-        { status: 401, headers: noStoreHeaders }
-      );
+      return NextResponse.json({ success: false, error: "unauthorized" }, { status: 401 });
     }
 
-    // admin client (bypass RLS for usage counters)
-    const admin = createClient(supabaseUrl, serviceKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-
-    // ✅ 1) Fetch profile FIRST (do NOT upsert generations_used=0 every time)
-    let profile: { is_pro: boolean | null; generations_used: number | null } | null = null;
-
-    const { data: prof, error: profErr } = await admin
+    // Ensure profile exists (do NOT include updated_at)
+    const { error: upsertError } = await supabase
       .from("profiles")
-      .select("is_pro, generations_used")
-      .eq("id", user.id)
-      .maybeSingle();
+      .upsert({ id: user.id, is_pro: false, generations_used: 0 }, { onConflict: "id" });
 
-    if (profErr) {
-      return NextResponse.json(
-        { success: false, error: "profile_fetch_failed", details: profErr.message, build: BUILD_TAG },
-        { status: 500, headers: noStoreHeaders }
-      );
-    }
-
-    profile = prof ?? null;
-
-    // ✅ 2) If no profile row, INSERT defaults once
-    if (!profile) {
-      const { error: insErr } = await admin
-        .from("profiles")
-        .insert({ id: user.id, is_pro: false, generations_used: 0 });
-
-      if (insErr) {
-        return NextResponse.json(
-          { success: false, error: "profile_insert_failed", details: insErr.message, build: BUILD_TAG },
-          { status: 500, headers: noStoreHeaders }
-        );
-      }
-
-      profile = { is_pro: false, generations_used: 0 };
-    }
-
-    const FREE_LIMIT = 3;
-    const isPro = !!profile.is_pro;
-    const usedBefore = Number(profile.generations_used ?? 0);
-
-    // ✅ 3) Limit guard
-    if (!isPro && usedBefore >= FREE_LIMIT) {
+    if (upsertError) {
       return NextResponse.json(
         {
           success: false,
-          error: "limit_reached",
-          build: BUILD_TAG,
-          usage: { isPro, usedBefore, usedAfter: usedBefore, freeLimit: FREE_LIMIT },
+          error: "profile_upsert_failed",
+          details: upsertError.message,
+          code: (upsertError as any).code ?? null,
+          hint: (upsertError as any).hint ?? null,
         },
-        { status: 402, headers: noStoreHeaders }
+        { status: 500 }
       );
     }
 
-    // input
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("is_pro, generations_used")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "profile_fetch_failed",
+          details: profileError?.message ?? "no_profile_row_returned",
+          code: (profileError as any)?.code ?? null,
+          hint: (profileError as any)?.hint ?? null,
+        },
+        { status: 500 }
+      );
+    }
+
+    const isPro = !!profile.is_pro;
+    const usedBefore = Number(profile.generations_used ?? 0);
+
+    if (!isPro && usedBefore >= FREE_LIMIT) {
+      return NextResponse.json({ success: false, error: "limit_reached" }, { status: 402 });
+    }
+
     const contentType = req.headers.get("content-type") || "";
-    if (!contentType.includes("application/json")) {
+
+    let prompt = "";
+    let platform = "TikTok";
+    let goal = "Get more views, drive sales, grow page, etc.";
+    let lengthSeconds = "30";
+    let tone = "Casual";
+
+    if (contentType.includes("application/json")) {
+      const body = (await req.json()) as GenerateBody;
+      prompt = safeStr(body.prompt).trim();
+      platform = safeStr(body.platform).trim() || platform;
+      goal = safeStr(body.goal).trim() || goal;
+      lengthSeconds = safeStr(body.lengthSeconds).trim() || lengthSeconds;
+      tone = safeStr(body.tone).trim() || tone;
+    } else {
       return NextResponse.json(
         {
           success: false,
           error: "unsupported_content_type",
           details: 'Content-Type must be "application/json".',
-          build: BUILD_TAG,
         },
-        { status: 415, headers: noStoreHeaders }
+        { status: 415 }
       );
     }
-
-    const body = (await req.json()) as GenerateBody;
-
-    const prompt = safeStr(body.prompt).trim();
-    const platform = safeStr(body.platform).trim() || "TikTok";
-    const goal = safeStr(body.goal).trim() || "Get more views";
-    const lengthSeconds = safeStr(body.lengthSeconds).trim() || "30";
-    const tone = safeStr(body.tone).trim() || "Casual";
 
     if (!prompt) {
-      return NextResponse.json(
-        { success: false, error: "Missing prompt", build: BUILD_TAG },
-        { status: 400, headers: noStoreHeaders }
-      );
+      return NextResponse.json({ success: false, error: "missing_prompt" }, { status: 400 });
     }
 
-    // AI
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    const system =
-      "You are Directr, an expert short-form hook writer. Return clean, scroll-stopping hooks and captions.";
+    // 🔥 Strong anti-generic hook rules
+    const system = `
+You are Directr: an elite short-form hook writer for TikTok/Reels/Shorts.
+Your job is to write hooks that sound like a real creator, not an AI.
+
+Hard rules:
+- NO generic clickbait phrases like: "Stop scrolling", "You won’t believe", "game-changer", "this will change your life", "watch till the end", "secret trick", "mind blown".
+- NO brackets like [topic]. Write the actual topic.
+- Every hook must be SPECIFIC to the user prompt, with concrete details.
+- Write in the tone of a human creator speaking on camera.
+- Prefer short sentences. Punchy. Natural.
+
+Output format must be clean, plain text. No JSON.
+`.trim();
 
     const userMsg = `
-PROMPT:
+Write hooks for this video idea:
+
+IDEA:
 ${prompt}
 
-CONTEXT:
-- platform: ${platform}
-- goal: ${goal}
-- lengthSeconds: ${lengthSeconds}
-- tone: ${tone}
+Context:
+- Platform: ${platform}
+- Goal: ${goal}
+- Video length: ${lengthSeconds}s
+- Tone: ${tone}
 
-Return:
-- 10 scroll-stopping hook options (numbered)
-- 3 caption options (with CTA)
-- 1 quick posting note
+Return EXACTLY this structure:
 
-Plain text only.
+A) 10 HOOKS (each must be 2 lines)
+Format:
+1) Hook line (first words out of mouth)
+   Next line (the follow-up that keeps attention)
+
+B) 3 CAPTIONS (short, not cringe)
+- Each caption includes a simple CTA (comment/follow/save/link in bio)
+
+C) 1 POSTING NOTE
+- One sentence, specific to the platform and goal
+
+Quality bar:
+- Hooks should vary in style: curiosity, contrarian, proof/credibility, story, direct benefit.
+- At least 3 hooks must include a specific number/time/result (if possible).
+- At least 2 hooks should be contrarian (“Most people do X, but…”).
 `.trim();
 
     const aiRes = await client.responses.create({
@@ -218,55 +202,39 @@ Plain text only.
 
     const text = extractOutputText(aiRes);
 
-    // ✅ 4) Increment usage AFTER success (and NEVER reset it)
-    let usedAfter = usedBefore;
+    // Best-effort job write, but keep schema-safe (only fields you likely have)
+    const { error: jobError } = await supabase.from("jobs").insert({
+      type: "hooks",
+      prompt,
+      result_text: text,
+      user_id: user.id,
+    });
 
+    // Increment usage AFTER success (free users only)
     if (!isPro) {
-      const { data: upd, error: updErr } = await admin
+      const { error: incError } = await supabase
         .from("profiles")
         .update({ generations_used: usedBefore + 1 })
-        .eq("id", user.id)
-        .select("generations_used")
-        .single();
+        .eq("id", user.id);
 
-      if (updErr) {
-        // still return output
-        return NextResponse.json(
-          {
-            success: true,
-            text,
-            job: null,
-            warning: "Output ok but usage increment failed.",
-            inc_error: updErr.message,
-            build: BUILD_TAG,
-            usage: { isPro, usedBefore, usedAfter: usedBefore, freeLimit: FREE_LIMIT },
-          },
-          { status: 200, headers: noStoreHeaders }
-        );
+      if (incError) {
+        // Still return success; logging only
+        console.error("Failed to increment generations_used:", incError);
       }
-
-      usedAfter = Number(upd?.generations_used ?? usedBefore + 1);
     }
 
-    return NextResponse.json(
-      {
-        success: true,
-        text,
-        job: null,
-        build: BUILD_TAG,
-        usage: { isPro, usedBefore, usedAfter, freeLimit: FREE_LIMIT },
-      },
-      { status: 200, headers: noStoreHeaders }
-    );
+    return NextResponse.json({
+      success: true,
+      text,
+      job: jobError ? null : true,
+      build: "prod_generate_hookquality_v2",
+      usage: { isPro, usedBefore, freeLimit: FREE_LIMIT },
+    });
   } catch (err: any) {
+    console.error("generate route error:", err);
     return NextResponse.json(
-      {
-        success: false,
-        error: "server_error",
-        details: err?.message ?? String(err),
-        build: BUILD_TAG,
-      },
-      { status: 500, headers: { "Cache-Control": "no-store" } }
+      { success: false, error: "server_error", details: err?.message || String(err) },
+      { status: 500 }
     );
   }
 }
