@@ -4,6 +4,14 @@ import { createServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
+type GenerateBody = {
+  prompt?: string;
+  platform?: string;
+  goal?: string;
+  lengthSeconds?: string | number;
+  tone?: string;
+};
+
 function safeStr(v: unknown) {
   return typeof v === "string" ? v : v == null ? "" : String(v);
 }
@@ -15,7 +23,7 @@ function extractOutputText(res: any): string {
     }
 
     const out = res?.output;
-    if (!Array.isArray(out)) return "AI response format was unexpected.";
+    if (!Array.isArray(out)) return "Unexpected AI response.";
 
     const texts: string[] = [];
     for (const item of out) {
@@ -27,27 +35,17 @@ function extractOutputText(res: any): string {
         }
       }
     }
-    return texts.join("\n").trim() || "AI response format was unexpected.";
+    return texts.join("\n").trim() || "Unexpected AI response.";
   } catch {
-    return "AI response format was unexpected.";
+    return "Unexpected AI response.";
   }
 }
-
-type GenerateBody = {
-  prompt?: string;
-  platform?: string;
-  goal?: string;
-  lengthSeconds?: string | number;
-  tone?: string;
-};
-
-const FREE_LIMIT = 3;
 
 export async function POST(req: Request) {
   try {
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
-        { success: false, error: "OPENAI_API_KEY is not set on the server." },
+        { success: false, error: "OPENAI_API_KEY missing" },
         { status: 500 }
       );
     }
@@ -56,140 +54,155 @@ export async function POST(req: Request) {
 
     const {
       data: { user },
-      error: userErr,
     } = await supabase.auth.getUser();
 
-    if (userErr) {
-      return NextResponse.json(
-        { success: false, error: "auth_getUser_failed", details: userErr.message },
-        { status: 500 }
-      );
-    }
-
     if (!user) {
-      return NextResponse.json({ success: false, error: "unauthorized" }, { status: 401 });
-    }
-
-    // Ensure profile exists (do NOT include updated_at)
-    const { error: upsertError } = await supabase
-      .from("profiles")
-      .upsert({ id: user.id, is_pro: false, generations_used: 0 }, { onConflict: "id" });
-
-    if (upsertError) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "profile_upsert_failed",
-          details: upsertError.message,
-          code: (upsertError as any).code ?? null,
-          hint: (upsertError as any).hint ?? null,
-        },
-        { status: 500 }
+        { success: false, error: "unauthorized" },
+        { status: 401 }
       );
     }
 
-    const { data: profile, error: profileError } = await supabase
+    // ---- ensure profile exists ----
+    await supabase
+      .from("profiles")
+      .upsert(
+        { id: user.id, is_pro: false, generations_used: 0 },
+        { onConflict: "id" }
+      );
+
+    const { data: profile } = await supabase
       .from("profiles")
       .select("is_pro, generations_used")
       .eq("id", user.id)
       .single();
 
-    if (profileError || !profile) {
+    const isPro = !!profile?.is_pro;
+    const used = Number(profile?.generations_used ?? 0);
+    const FREE_LIMIT = 3;
+
+    if (!isPro && used >= FREE_LIMIT) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "profile_fetch_failed",
-          details: profileError?.message ?? "no_profile_row_returned",
-          code: (profileError as any)?.code ?? null,
-          hint: (profileError as any)?.hint ?? null,
-        },
-        { status: 500 }
+        { success: false, error: "limit_reached" },
+        { status: 402 }
       );
-    }
-
-    const isPro = !!profile.is_pro;
-    const usedBefore = Number(profile.generations_used ?? 0);
-
-    if (!isPro && usedBefore >= FREE_LIMIT) {
-      return NextResponse.json({ success: false, error: "limit_reached" }, { status: 402 });
     }
 
     const contentType = req.headers.get("content-type") || "";
 
     let prompt = "";
     let platform = "TikTok";
-    let goal = "Get more views, drive sales, grow page, etc.";
+    let goal = "Grow views";
     let lengthSeconds = "30";
     let tone = "Casual";
 
     if (contentType.includes("application/json")) {
       const body = (await req.json()) as GenerateBody;
       prompt = safeStr(body.prompt).trim();
-      platform = safeStr(body.platform).trim() || platform;
-      goal = safeStr(body.goal).trim() || goal;
-      lengthSeconds = safeStr(body.lengthSeconds).trim() || lengthSeconds;
-      tone = safeStr(body.tone).trim() || tone;
+      platform = safeStr(body.platform) || platform;
+      goal = safeStr(body.goal) || goal;
+      lengthSeconds = safeStr(body.lengthSeconds) || lengthSeconds;
+      tone = safeStr(body.tone) || tone;
     } else {
       return NextResponse.json(
-        {
-          success: false,
-          error: "unsupported_content_type",
-          details: 'Content-Type must be "application/json".',
-        },
+        { success: false, error: "unsupported_content_type" },
         { status: 415 }
       );
     }
 
     if (!prompt) {
-      return NextResponse.json({ success: false, error: "missing_prompt" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "missing_prompt" },
+        { status: 400 }
+      );
     }
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // 🔥 Strong anti-generic hook rules
+    // ===============================
+    // 🔒 CORE PROMPT — DO NOT WATER DOWN
+    // ===============================
     const system = `
-You are Directr: an elite short-form hook writer for TikTok/Reels/Shorts.
-Your job is to write hooks that sound like a real creator, not an AI.
+You are Directr.
 
-Hard rules:
-- NO generic clickbait phrases like: "Stop scrolling", "You won’t believe", "game-changer", "this will change your life", "watch till the end", "secret trick", "mind blown".
-- NO brackets like [topic]. Write the actual topic.
-- Every hook must be SPECIFIC to the user prompt, with concrete details.
-- Write in the tone of a human creator speaking on camera.
-- Prefer short sentences. Punchy. Natural.
+You are NOT an AI writer.
+You are a short-form content director who has worked with real creators.
 
-Output format must be clean, plain text. No JSON.
-`.trim();
+Your job:
+Create hooks and frameworks that sound SPOKEN, NATURAL, and HUMAN.
+
+STRICT RULES:
+- Do NOT use generic phrases like:
+  "stop scrolling", "game changer", "you won’t believe", "this changed everything"
+- Hooks must sound like something a real person would say on camera
+- Assume the creator is talking to ONE person
+- Write in short, punchy, conversational sentences
+- Specific > clever
+- Clarity > hype
+
+If something sounds like AI, rewrite it.
+
+Platform language matters.
+Hooks must fit how people actually talk on ${platform}.
+`;
 
     const userMsg = `
-Write hooks for this video idea:
-
-IDEA:
+CREATOR IDEA:
 ${prompt}
 
-Context:
-- Platform: ${platform}
-- Goal: ${goal}
-- Video length: ${lengthSeconds}s
-- Tone: ${tone}
+GOAL:
+${goal}
 
-Return EXACTLY this structure:
+PLATFORM:
+${platform}
 
-A) 10 HOOKS (each must be 2 lines)
-Format:
-1) Hook line (first words out of mouth)
-   Next line (the follow-up that keeps attention)
+VIDEO LENGTH:
+~${lengthSeconds} seconds
 
-B) 3 CAPTIONS (short, not cringe)
-- Each caption includes a simple CTA (comment/follow/save/link in bio)
+TONE:
+${tone}
 
-C) 1 POSTING NOTE
-- One sentence, specific to the platform and goal
+OUTPUT FORMAT (FOLLOW EXACTLY):
 
-Quality bar:
-- Hooks should vary in style: curiosity, contrarian, proof/credibility, story, direct benefit.
-- At least 3 hooks must include a specific number/time/result (if possible).
-- At least 2 hooks should be contrarian (“Most people do X, but…”).
+1. HOOK OPTIONS (8)
+- Each hook should be 1–2 spoken lines
+- Line 1 = pattern interrupt
+- Line 2 = retention / curiosity
+- Write them how someone would actually say them out loud
+
+2. BEST HOOK PICK
+- Choose the strongest hook
+- Explain WHY it works in 1 sentence
+
+3. OPENING DELIVERY NOTES
+- How to say the first 3 seconds
+- Pacing, pauses, emphasis
+
+4. VIDEO FLOW FRAMEWORK
+- 0–3s: Hook
+- 3–10s: Context
+- 10–25s: Core value
+- 25–end: Payoff or CTA
+
+5. SHOT LIST / B-ROLL IDEAS
+- 5–8 concrete shots
+- Simple phone-friendly ideas
+- Think jump cuts, movement, screen changes
+
+6. CAPTIONS (3)
+- Short
+- Native to ${platform}
+- 1 CTA max
+
+7. POSTING NOTES
+- When to post
+- How to reply to the first comments
+- One retention trick to boost watch time
+
+Return clean, readable text.
+No emojis.
+No markdown.
+No fluff.
 `.trim();
 
     const aiRes = await client.responses.create({
@@ -202,36 +215,24 @@ Quality bar:
 
     const text = extractOutputText(aiRes);
 
-    // Best-effort job write, but keep schema-safe (only fields you likely have)
-    const { error: jobError } = await supabase.from("jobs").insert({
-      type: "hooks",
-      prompt,
-      result_text: text,
-      user_id: user.id,
-    });
-
-    // Increment usage AFTER success (free users only)
+    // ---- increment usage AFTER success ----
     if (!isPro) {
-      const { error: incError } = await supabase
+      await supabase
         .from("profiles")
-        .update({ generations_used: usedBefore + 1 })
+        .update({ generations_used: used + 1 })
         .eq("id", user.id);
-
-      if (incError) {
-        // Still return success; logging only
-        console.error("Failed to increment generations_used:", incError);
-      }
     }
 
     return NextResponse.json({
       success: true,
       text,
-      job: jobError ? null : true,
-      build: "prod_generate_hookquality_v2",
-      usage: { isPro, usedBefore, freeLimit: FREE_LIMIT },
+      usage: {
+        isPro,
+        usedBefore: used,
+        freeLimit: FREE_LIMIT,
+      },
     });
   } catch (err: any) {
-    console.error("generate route error:", err);
     return NextResponse.json(
       { success: false, error: "server_error", details: err?.message || String(err) },
       { status: 500 }
