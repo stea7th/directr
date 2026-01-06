@@ -11,11 +11,10 @@ type Props = {
 export default function NavMobile(_props: Props) {
   const pathname = usePathname();
 
+  // Mobile nav: ONLY Create + Pricing
   const tabs = [
     { href: "/create", label: "Create" },
-    { href: "/jobs", label: "Jobs" },
     { href: "/pricing", label: "Pricing" },
-    { href: "/lock", label: "Lock" },
   ];
 
   return (
