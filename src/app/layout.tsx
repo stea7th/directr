@@ -1,7 +1,6 @@
 import "./globals.css";
 import NavMobile from "@/components/NavMobile";
 import Link from "next/link";
-import { relockAction } from "@/app/lock/actions";
 import { createServerClient } from "@/lib/supabase/server";
 import { Inter, JetBrains_Mono } from "next/font/google";
 
@@ -33,8 +32,6 @@ export default async function RootLayout({
     await s.auth.signOut();
   }
 
-  const showLockControls = process.env.SITE_LOCK_ENABLED === "true";
-
   return (
     <html lang="en" className={`${inter.variable} ${mono.variable}`}>
       <body className="site">
@@ -44,21 +41,12 @@ export default async function RootLayout({
               directr<span className="dot">.</span>
             </Link>
 
+            {/* Desktop menu: ONLY Create + Pricing */}
             <div className="menu">
               <Link href="/create">Create</Link>
-              <Link href="/clipper">Clipper</Link>
-              <Link href="/planner">Planner</Link>
-              <Link href="/jobs">Jobs</Link>
               <Link href="/pricing">Pricing</Link>
 
-              {showLockControls && (
-                <form action={relockAction}>
-                  <button className="btn btn--ghost" type="submit">
-                    Relock
-                  </button>
-                </form>
-              )}
-
+              {/* keep auth button (not part of “menu links”) */}
               {user ? (
                 <form action={signOut}>
                   <button className="btn btn--ghost" type="submit">
@@ -76,8 +64,8 @@ export default async function RootLayout({
 
         <main className="page">{children}</main>
 
-        {/* ✅ Mobile “app” nav */}
-        <NavMobile showLockControls={showLockControls} isAuthed={!!user} />
+        {/* Mobile nav still renders separately */}
+        <NavMobile showLockControls={false} isAuthed={!!user} />
       </body>
     </html>
   );
