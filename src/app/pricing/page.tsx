@@ -2,19 +2,13 @@
 "use client";
 
 import Link from "next/link";
-
-// Hard-coded Stripe price IDs
-const CREATOR_PRICE_ID = "price_1SaJGQGPmkdLhZZOj6zwnjxb";
-const STUDIO_PRICE_ID  = "price_1SaJGoGPmkdLhZZOlFe3ljRj";
-const AGENCY_PRICE_ID  = "price_1SaJHBGPmkdLhZZO1jG3jUci";
+import { useEffect, useMemo, useState } from "react";
 
 async function startCheckout(priceId: string) {
   try {
     const res = await fetch("/api/checkout", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ priceId }),
     });
 
@@ -38,13 +32,27 @@ async function startCheckout(priceId: string) {
 }
 
 export default function PricingPage() {
+  const [success, setSuccess] = useState(false);
+  const [canceled, setCanceled] = useState(false);
+
+  const priceId = useMemo(() => {
+    // ✅ single source of truth going forward (set this in Vercel env)
+    // NEXT_PUBLIC_STRIPE_PRICE_ID = your $19/mo price id
+    return process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || "";
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    setSuccess(params.get("success") === "1");
+    setCanceled(params.get("canceled") === "1");
+  }, []);
+
   return (
     <main className="pricing-root">
       <section className="pricing-hero">
-        <h1>Choose your Directr plan</h1>
-        <p>
-          Start simple, scale when you&apos;re ready.
-        </p>
+        <h1>Directr Pro</h1>
+        <p>Unlimited scroll-stopping hooks, captions, and a posting framework — in one click.</p>
       </section>
 
       <section className="pricing-toggle-row">
@@ -55,129 +63,78 @@ export default function PricingPage() {
           </button>
         </div>
         <div className="toggle-save-pill">
-          <span>Save up to 2 months on yearly</span>
+          <span>Cancel anytime</span>
         </div>
       </section>
 
+      {(success || canceled) && (
+        <section className="pricing-faq-hint" style={{ marginTop: -10 }}>
+          {success && (
+            <p style={{ color: "rgba(205, 230, 255, 0.9)" }}>
+              ✅ Payment successful. Your account is now Pro.{" "}
+              <Link href="/create" className="inline-link">
+                Go generate hooks
+              </Link>
+              .
+            </p>
+          )}
+          {canceled && (
+            <p>
+              Checkout canceled. You can upgrade anytime.
+            </p>
+          )}
+        </section>
+      )}
+
       <section className="pricing-grid">
-        {/* Starter - free */}
-        <article className="plan-card plan-card--muted">
-          <header className="plan-header">
-            <h2>Starter</h2>
-            <p>Test Directr with a limited free seat.</p>
-          </header>
-          <div className="plan-price-row">
-            <span className="plan-price">$0</span>
-            <span className="plan-period">/month</span>
-          </div>
-          <p className="plan-tagline">Perfect to feel the flow.</p>
-          <ul className="plan-features">
-            <li>5 clip generations / month</li>
-            <li>2 full video edits</li>
-            <li>Basic captions</li>
-            <li>Watermark on exports</li>
-            <li>SD quality</li>
-          </ul>
-          <button
-            type="button"
-            className="plan-cta plan-cta--ghost"
-            onClick={() => {
-              window.location.href = "/login";
-            }}
-          >
-            Get started free
-          </button>
-        </article>
-
-        {/* Creator */}
-        <article className="plan-card">
-          <header className="plan-header">
-            <h2>Creator</h2>
-            <p>For solo creators getting started.</p>
-          </header>
-          <div className="plan-price-row">
-            <span className="plan-price">$19.99</span>
-            <span className="plan-period">/month</span>
-          </div>
-          <p className="plan-tagline">X videos / month · single workspace.</p>
-          <ul className="plan-features">
-            <li>X videos / month</li>
-            <li>Basic clipping &amp; captions</li>
-            <li>Single workspace</li>
-          </ul>
-          <button
-            type="button"
-            className="plan-cta"
-            onClick={() => startCheckout(CREATOR_PRICE_ID)}
-          >
-            Start with Creator
-          </button>
-        </article>
-
-        {/* Studio (most popular) */}
+        {/* ✅ ONE PLAN ONLY (keep same UI/CSS structure) */}
         <article className="plan-card plan-card--pro">
-          <div className="plan-badge">Most popular</div>
+          <div className="plan-badge">Best value</div>
           <header className="plan-header">
-            <h2>Studio</h2>
-            <p>For creators posting daily across platforms.</p>
+            <h2>Pro</h2>
+            <p>For creators who post consistently and don’t guess hooks.</p>
           </header>
+
           <div className="plan-price-row">
-            <span className="plan-price">$49.99</span>
+            <span className="plan-price">$19</span>
             <span className="plan-period">/month</span>
           </div>
-          <p className="plan-tagline">
-            Higher video quota, multi-platform outputs.
-          </p>
+
+          <p className="plan-tagline">Unlimited hooks · captions · posting framework.</p>
+
           <ul className="plan-features">
-            <li>Higher video quota</li>
-            <li>Multi-platform outputs</li>
-            <li>Priority processing</li>
-            <li>2 team seats</li>
+            <li>Unlimited hook generations</li>
+            <li>Hooks that sound human (not AI)</li>
+            <li>3 captions + CTA per video</li>
+            <li>Shot list + b-roll ideas</li>
+            <li>Posting framework + retention notes</li>
+            <li>Cancel anytime</li>
           </ul>
+
           <button
             type="button"
             className="plan-cta plan-cta--pro"
-            onClick={() => startCheckout(STUDIO_PRICE_ID)}
+            onClick={() => {
+              // If env isn't set, don't break UX — send them to /create and show the paywall there.
+              if (!priceId) {
+                window.location.href = "/create";
+                return;
+              }
+              startCheckout(priceId);
+            }}
           >
-            Start with Studio
-          </button>
-        </article>
-
-        {/* Agency */}
-        <article className="plan-card plan-card--edge">
-          <header className="plan-header">
-            <h2>Agency</h2>
-            <p>For teams running multiple creators/brands.</p>
-          </header>
-          <div className="plan-price-row">
-            <span className="plan-price">$149.99</span>
-            <span className="plan-period">/month</span>
-          </div>
-          <p className="plan-tagline">
-            Bigger video quota and shared brand libraries.
-          </p>
-          <ul className="plan-features">
-            <li>Bigger video quota</li>
-            <li>Shared brand libraries</li>
-            <li>Priority support</li>
-            <li>5+ team seats</li>
-          </ul>
-          <button
-            type="button"
-            className="plan-cta plan-cta--outline"
-            onClick={() => startCheckout(AGENCY_PRICE_ID)}
-          >
-            Start with Agency
+            Start Pro
           </button>
         </article>
       </section>
 
       <section className="pricing-faq-hint">
         <p>
-          Just testing things?{" "}
-          <Link href="/login" className="inline-link">
-            Start on Starter and upgrade from inside Directr.
-          </Link>
+          Not ready yet?{" "}
+          <Link href="/create" className="inline-link">
+            Try 3 free generations
+          </Link>{" "}
+          then upgrade when you hit the limit.
         </p>
       </section>
 
@@ -298,11 +255,12 @@ export default function PricingPage() {
           display: grid;
           grid-template-columns: 1fr;
           gap: 18px;
+          justify-items: center;
         }
 
         @media (min-width: 900px) {
           .pricing-grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: 1fr;
           }
         }
 
@@ -329,6 +287,10 @@ export default function PricingPage() {
             box-shadow 0.22s ease-out,
             border-color 0.22s ease-out,
             background 0.22s ease-out;
+
+          /* keep single card feeling premium */
+          width: 100%;
+          max-width: 560px;
         }
 
         .plan-card:hover {
@@ -345,10 +307,6 @@ export default function PricingPage() {
             inset 0 0 0 0.5px rgba(255, 255, 255, 0.03);
         }
 
-        .plan-card--muted {
-          opacity: 0.9;
-        }
-
         .plan-card--pro {
           background: radial-gradient(
                 circle at 0 0,
@@ -360,15 +318,6 @@ export default function PricingPage() {
           box-shadow:
             0 30px 80px rgba(0, 0, 0, 0.95),
             0 0 0 1px rgba(35, 59, 100, 0.8);
-        }
-
-        .plan-card--edge {
-          background: radial-gradient(
-                circle at 100% 0,
-                rgba(255, 178, 102, 0.22),
-                transparent 65%
-              ),
-            #0d0b10;
         }
 
         .plan-header h2 {
@@ -457,14 +406,6 @@ export default function PricingPage() {
             background 0.2s ease-out;
         }
 
-        .plan-cta--ghost {
-          background: transparent;
-          border-color: rgba(255, 255, 255, 0.16);
-          box-shadow:
-            0 0 0 1px rgba(40, 40, 60, 0.7),
-            0 10px 24px rgba(0, 0, 0, 0.9);
-        }
-
         .plan-cta--pro {
           background: radial-gradient(
                 circle at 0 0,
@@ -473,14 +414,6 @@ export default function PricingPage() {
               ),
             #141823;
           color: #05060a;
-        }
-
-        .plan-cta--outline {
-          background: transparent;
-          border-color: rgba(255, 196, 140, 0.9);
-          box-shadow:
-            0 0 0 1px rgba(80, 50, 35, 0.9),
-            0 14px 30px rgba(0, 0, 0, 0.95);
         }
 
         .plan-badge {
