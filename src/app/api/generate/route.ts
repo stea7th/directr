@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   try {
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
-        { success: false, error: "OPENAI_API_KEY missing" },
+        { success: false, error: "OPENAI_API_KEY is not set on the server." },
         { status: 500 }
       );
     }
@@ -54,129 +54,136 @@ export async function POST(req: Request) {
 
     const {
       data: { user },
+      error: userErr,
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (userErr) {
       return NextResponse.json(
-        { success: false, error: "unauthorized" },
-        { status: 401 }
+        { success: false, error: "auth_getUser_failed", details: userErr.message },
+        { status: 500 }
       );
     }
 
-    // ---- ensure profile exists ----
-    await supabase
-      .from("profiles")
-      .upsert(
-        { id: user.id, is_pro: false, generations_used: 0 },
-        { onConflict: "id" }
-      );
+    if (!user) {
+      return NextResponse.json({ success: false, error: "unauthorized" }, { status: 401 });
+    }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_pro, generations_used")
-      .eq("id", user.id)
-      .single();
-
-    const isPro = !!profile?.is_pro;
-    const used = Number(profile?.generations_used ?? 0);
     const FREE_LIMIT = 3;
 
-    if (!isPro && used >= FREE_LIMIT) {
+    // ✅ Fetch profile
+    let { data: profile, error: profileErr } = await supabase
+      .from("profiles")
+      .select("id, is_pro, generations_used")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileErr) {
       return NextResponse.json(
-        { success: false, error: "limit_reached" },
+        { success: false, error: "profile_fetch_failed", details: profileErr.message },
+        { status: 500 }
+      );
+    }
+
+    // ✅ Insert ONLY if missing (DO NOT upsert counters)
+    if (!profile) {
+      const { error: insErr } = await supabase.from("profiles").insert({
+        id: user.id,
+        is_pro: false,
+        generations_used: 0,
+      });
+
+      if (insErr) {
+        return NextResponse.json(
+          { success: false, error: "profile_insert_failed", details: insErr.message },
+          { status: 500 }
+        );
+      }
+
+      // re-fetch
+      const refetch = await supabase
+        .from("profiles")
+        .select("id, is_pro, generations_used")
+        .eq("id", user.id)
+        .single();
+
+      if (refetch.error) {
+        return NextResponse.json(
+          { success: false, error: "profile_refetch_failed", details: refetch.error.message },
+          { status: 500 }
+        );
+      }
+
+      profile = refetch.data;
+    }
+
+    const isPro = !!profile.is_pro;
+    const usedBefore = Number(profile.generations_used ?? 0);
+
+    // ✅ Enforce limit BEFORE generation
+    if (!isPro && usedBefore >= FREE_LIMIT) {
+      return NextResponse.json(
+        { success: false, error: "limit_reached", usage: { isPro, usedBefore, freeLimit: FREE_LIMIT } },
         { status: 402 }
       );
     }
 
+    // ---- Parse input ----
     const contentType = req.headers.get("content-type") || "";
-
-    let prompt = "";
-    let platform = "TikTok";
-    let goal = "Grow views";
-    let lengthSeconds = "30";
-    let tone = "Casual";
-
-    if (contentType.includes("application/json")) {
-      const body = (await req.json()) as GenerateBody;
-      prompt = safeStr(body.prompt).trim();
-      platform = safeStr(body.platform) || platform;
-      goal = safeStr(body.goal) || goal;
-      lengthSeconds = safeStr(body.lengthSeconds) || lengthSeconds;
-      tone = safeStr(body.tone) || tone;
-    } else {
+    if (!contentType.includes("application/json")) {
       return NextResponse.json(
         { success: false, error: "unsupported_content_type" },
         { status: 415 }
       );
     }
 
+    const body = (await req.json()) as GenerateBody;
+
+    const prompt = safeStr(body.prompt).trim();
+    const platform = safeStr(body.platform).trim() || "TikTok";
+    const goal = safeStr(body.goal).trim() || "Get more views";
+    const lengthSeconds = safeStr(body.lengthSeconds).trim() || "30";
+    const tone = safeStr(body.tone).trim() || "Casual";
+
     if (!prompt) {
-      return NextResponse.json(
-        { success: false, error: "missing_prompt" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "missing_prompt" }, { status: 400 });
     }
 
+    // ---- OpenAI ----
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // ===============================
-    // 🔒 CORE PROMPT — DO NOT WATER DOWN
-    // ===============================
     const system = `
 You are Directr.
-
 You are NOT an AI writer.
 You are a short-form content director who has worked with real creators.
 
-Your job:
-Create hooks and frameworks that sound SPOKEN, NATURAL, and HUMAN.
-
 STRICT RULES:
-- Do NOT use generic phrases like:
-  "stop scrolling", "game changer", "you won’t believe", "this changed everything"
-- Hooks must sound like something a real person would say on camera
-- Assume the creator is talking to ONE person
-- Write in short, punchy, conversational sentences
-- Specific > clever
-- Clarity > hype
+- Do NOT use generic phrases like: "stop scrolling", "game changer", "you won’t believe", "this changed everything"
+- Hooks must sound SPOKEN, NATURAL, HUMAN
+- Specific > clever. Clarity > hype.
+- If it sounds AI, rewrite it.
 
-If something sounds like AI, rewrite it.
-
-Platform language matters.
-Hooks must fit how people actually talk on ${platform}.
-`;
+Output MUST follow the format exactly.
+`.trim();
 
     const userMsg = `
 CREATOR IDEA:
 ${prompt}
 
-GOAL:
-${goal}
-
-PLATFORM:
-${platform}
-
-VIDEO LENGTH:
-~${lengthSeconds} seconds
-
-TONE:
-${tone}
+PLATFORM: ${platform}
+GOAL: ${goal}
+VIDEO LENGTH: ~${lengthSeconds}s
+TONE: ${tone}
 
 OUTPUT FORMAT (FOLLOW EXACTLY):
 
 1. HOOK OPTIONS (8)
-- Each hook should be 1–2 spoken lines
-- Line 1 = pattern interrupt
-- Line 2 = retention / curiosity
-- Write them how someone would actually say them out loud
+- Each hook is 1–2 spoken lines (what someone would actually say)
 
 2. BEST HOOK PICK
-- Choose the strongest hook
-- Explain WHY it works in 1 sentence
+- Pick the strongest hook + 1 sentence why
 
 3. OPENING DELIVERY NOTES
-- How to say the first 3 seconds
-- Pacing, pauses, emphasis
+- How to say the first 3 seconds (pacing, pauses, emphasis)
 
 4. VIDEO FLOW FRAMEWORK
 - 0–3s: Hook
@@ -185,24 +192,17 @@ OUTPUT FORMAT (FOLLOW EXACTLY):
 - 25–end: Payoff or CTA
 
 5. SHOT LIST / B-ROLL IDEAS
-- 5–8 concrete shots
-- Simple phone-friendly ideas
-- Think jump cuts, movement, screen changes
+- 6–8 phone-friendly shots (jump cuts, movement, screen changes)
 
 6. CAPTIONS (3)
-- Short
-- Native to ${platform}
-- 1 CTA max
+- Short, native to ${platform}, 1 CTA max
 
 7. POSTING NOTES
 - When to post
-- How to reply to the first comments
-- One retention trick to boost watch time
+- What to reply to first comments
+- One retention trick
 
-Return clean, readable text.
-No emojis.
-No markdown.
-No fluff.
+No emojis. No markdown. No fluff.
 `.trim();
 
     const aiRes = await client.responses.create({
@@ -215,22 +215,35 @@ No fluff.
 
     const text = extractOutputText(aiRes);
 
-    // ---- increment usage AFTER success ----
+    // ✅ Increment usage AFTER success (atomic) for free users
+    let usedAfter = usedBefore;
+
     if (!isPro) {
-      await supabase
+      const { data: updated, error: incErr } = await supabase
         .from("profiles")
-        .update({ generations_used: used + 1 })
-        .eq("id", user.id);
+        .update({ generations_used: usedBefore + 1 })
+        .eq("id", user.id)
+        .select("generations_used")
+        .single();
+
+      if (incErr) {
+        // don’t block output, but surface it so you can see it
+        return NextResponse.json({
+          success: true,
+          text,
+          warning: "Output generated, but failed to increment usage.",
+          inc_error: incErr.message,
+          usage: { isPro, usedBefore, usedAfter: usedBefore, freeLimit: FREE_LIMIT },
+        });
+      }
+
+      usedAfter = Number(updated?.generations_used ?? usedBefore + 1);
     }
 
     return NextResponse.json({
       success: true,
       text,
-      usage: {
-        isPro,
-        usedBefore: used,
-        freeLimit: FREE_LIMIT,
-      },
+      usage: { isPro, usedBefore, usedAfter, freeLimit: FREE_LIMIT },
     });
   } catch (err: any) {
     return NextResponse.json(
