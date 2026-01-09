@@ -4,7 +4,6 @@ import "./page.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useRouter, useSearchParams } from "next/navigation";
-import SignInModal from "@/components/SignInModal";
 
 type Mode = "basic" | "advanced";
 
@@ -44,13 +43,17 @@ export default function CreatePage() {
     freeLimit: 3,
   });
 
-  // ✅ Sign-in popup state
+  // ✅ Sign-in modal (replaces red errors for auth)
   const [signinOpen, setSigninOpen] = useState(false);
-  const [signinMsg, setSigninMsg] = useState<string | undefined>(undefined);
+  const [signinMsg, setSigninMsg] = useState("Please sign in first.");
 
-  function openSignin(msg?: string) {
-    setSigninMsg(msg || "Create an account or sign in to continue.");
+  function openSignin(message?: string) {
+    setSigninMsg(message?.trim() || "Please sign in first.");
     setSigninOpen(true);
+  }
+
+  function closeSignin() {
+    setSigninOpen(false);
   }
 
   const statusLine = useMemo(() => {
@@ -101,6 +104,14 @@ export default function CreatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function isAuthFailure(res: Response, data: any) {
+    return (
+      res.status === 401 ||
+      data?.error === "signin_required" ||
+      data?.error === "unauthorized"
+    );
+  }
+
   async function handleGenerate() {
     setError(null);
     setLimitReached(false);
@@ -140,13 +151,6 @@ export default function CreatePage() {
           body: JSON.stringify({ fileUrl: publicUrl, prompt }),
         });
 
-        // ✅ not signed in → popup (no red error)
-        if (res.status === 401) {
-          const data = await res.json().catch(() => null);
-          openSignin(data?.message || "Please sign in to generate from uploads.");
-          return;
-        }
-
         // handle limit reached
         if (res.status === 402) {
           setLimitReached(true);
@@ -161,24 +165,25 @@ export default function CreatePage() {
             status: res.status,
             textSnippet: text.slice(0, 200),
           });
-          setError(
-            `Server returned non-JSON (status ${res.status}). Route might be misconfigured.`
-          );
+          setError(`Server returned non-JSON (status ${res.status}). Route might be misconfigured.`);
           return;
         }
 
         const data = await res.json();
 
         if (!data.success) {
-          if (data?.error === "signin_required") {
-            openSignin(data?.message || "Please sign in first.");
+          // ✅ SIGN-IN POPUP (instead of red error)
+          if (isAuthFailure(res, data)) {
+            openSignin(data?.message || "Please sign in to use file upload.");
             return;
           }
+
           if (data?.error === "limit_reached") {
             setLimitReached(true);
             await refreshPlan();
             return;
           }
+
           setError(data.error || "Failed to find hooks.");
           return;
         }
@@ -233,13 +238,6 @@ export default function CreatePage() {
         body: JSON.stringify(body),
       });
 
-      // ✅ not signed in → popup (no red error)
-      if (res.status === 401) {
-        const data = await res.json().catch(() => null);
-        openSignin(data?.message || "Please sign in to generate hooks.");
-        return;
-      }
-
       if (res.status === 402) {
         setLimitReached(true);
         await refreshPlan();
@@ -253,30 +251,30 @@ export default function CreatePage() {
           status: res.status,
           textSnippet: text.slice(0, 200),
         });
-        setError(
-          `Server returned non-JSON (status ${res.status}). Route might be misconfigured.`
-        );
+        setError(`Server returned non-JSON (status ${res.status}). Route might be misconfigured.`);
         return;
       }
 
       const data = await res.json();
 
       if (!data.success) {
-        if (data?.error === "signin_required") {
-          openSignin(data?.message || "Please sign in first.");
+        // ✅ SIGN-IN POPUP (instead of red error)
+        if (isAuthFailure(res, data)) {
+          openSignin(data?.message || "Please sign in to generate hooks.");
           return;
         }
+
         if (data?.error === "limit_reached") {
           setLimitReached(true);
           await refreshPlan();
           return;
         }
+
         setError(data.error || "Failed to generate hooks.");
         return;
       }
 
-      const notes =
-        data?.text || "Generated successfully, but no hooks were returned.";
+      const notes = data?.text || "Generated successfully, but no hooks were returned.";
       setResult(notes);
       setEditedUrl(null);
 
@@ -311,20 +309,15 @@ export default function CreatePage() {
         body: JSON.stringify({ priceId }),
       });
 
-      // ✅ not signed in → popup (no red error)
-      if (res.status === 401) {
-        const data = await res.json().catch(() => null);
-        openSignin(data?.message || "Please sign in to upgrade to Pro.");
+      const data = await res.json().catch(() => null);
+
+      // ✅ SIGN-IN POPUP if not logged in
+      if (!res.ok && (res.status === 401 || data?.error === "signin_required" || data?.error === "unauthorized")) {
+        openSignin(data?.message || "Please sign in first to upgrade.");
         return;
       }
 
-      const data = await res.json().catch(() => null);
-
       if (!res.ok || !data?.success || !data?.url) {
-        if (data?.error === "signin_required") {
-          openSignin(data?.message || "Please sign in to upgrade.");
-          return;
-        }
         setError(data?.error || "Could not start checkout. Try again.");
         return;
       }
@@ -339,12 +332,67 @@ export default function CreatePage() {
 
   return (
     <main className="create-root">
-      <SignInModal
-        open={signinOpen}
-        onClose={() => setSigninOpen(false)}
-        title="Please sign in first"
-        message={signinMsg}
-      />
+      {/* ✅ SIGN-IN MODAL */}
+      {signinOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={closeSignin}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            backdropFilter: "blur(6px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 18,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 420,
+              borderRadius: 18,
+              padding: 16,
+              background:
+                "radial-gradient(circle at 0 0, rgba(148,202,255,0.18), transparent 55%), #0a0b0f",
+              border: "1px solid rgba(255,255,255,0.10)",
+              boxShadow: "0 30px 80px rgba(0,0,0,0.75)",
+              color: "#f5f5f7",
+            }}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+              <div style={{ fontSize: 13, letterSpacing: "0.08em", opacity: 0.65, textTransform: "uppercase" }}>
+                directr
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>Sign in required</div>
+              <div style={{ fontSize: 13, opacity: 0.75, lineHeight: 1.45 }}>{signinMsg}</div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={closeSignin}
+                disabled={loading}
+              >
+                Not now
+              </button>
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() => router.push("/login")}
+                disabled={loading}
+              >
+                Sign in
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <section className="create-shell">
         <header className="create-header">
