@@ -14,6 +14,23 @@ type PlanState = {
   freeLimit: number;
 };
 
+function isAuthRedirect(res: Response) {
+  // If middleware redirects to /login (or any auth page), fetch will often return redirected=true
+  if (res.redirected) {
+    try {
+      const u = new URL(res.url);
+      if (u.pathname.startsWith("/login") || u.pathname.startsWith("/auth")) return true;
+    } catch {
+      // ignore
+    }
+  }
+  // Some setups return 302/307/308 (rarely visible) or 401
+  if (res.status === 401 || res.status === 302 || res.status === 303 || res.status === 307 || res.status === 308)
+    return true;
+
+  return false;
+}
+
 export default function CreatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -141,10 +158,16 @@ export default function CreatePage() {
           body: JSON.stringify({ fileUrl: publicUrl, prompt }),
         });
 
-        // ✅ Auth required → popup
-        if (res.status === 401) {
-          const j = await res.json().catch(() => null);
-          openAuthPopup(j?.message || "Please sign in first to use Directr.", "/create");
+        // ✅ Auth bounce (401 or redirected to /login)
+        if (isAuthRedirect(res)) {
+          // try to parse message if JSON
+          const ct = res.headers.get("content-type") || "";
+          if (ct.includes("application/json")) {
+            const j = await res.json().catch(() => null);
+            openAuthPopup(j?.message || "Please sign in first to use Directr.", "/create");
+          } else {
+            openAuthPopup("Please sign in first to use Directr.", "/create");
+          }
           return;
         }
 
@@ -174,7 +197,7 @@ export default function CreatePage() {
             await refreshPlan();
             return;
           }
-          if (data?.error === "signin_required") {
+          if (data?.error === "signin_required" || data?.error === "unauthorized") {
             openAuthPopup(data?.message || "Please sign in first.", "/create");
             return;
           }
@@ -232,10 +255,15 @@ export default function CreatePage() {
         body: JSON.stringify(body),
       });
 
-      // ✅ Auth required → popup
-      if (res.status === 401) {
-        const j = await res.json().catch(() => null);
-        openAuthPopup(j?.message || "Please sign in first to generate hooks.", "/create");
+      // ✅ Auth bounce (401 or redirected to /login)
+      if (isAuthRedirect(res)) {
+        const ct = res.headers.get("content-type") || "";
+        if (ct.includes("application/json")) {
+          const j = await res.json().catch(() => null);
+          openAuthPopup(j?.message || "Please sign in first to generate hooks.", "/create");
+        } else {
+          openAuthPopup("Please sign in first to generate hooks.", "/create");
+        }
         return;
       }
 
@@ -307,13 +335,19 @@ export default function CreatePage() {
         body: JSON.stringify({ priceId }),
       });
 
-      const data = await res.json().catch(() => null);
-
-      // ✅ Auth required → popup
-      if (res.status === 401) {
-        openAuthPopup(data?.message || "Please sign in first to upgrade to Pro.", "/create");
+      // ✅ Auth bounce
+      if (isAuthRedirect(res)) {
+        const ct = res.headers.get("content-type") || "";
+        if (ct.includes("application/json")) {
+          const j = await res.json().catch(() => null);
+          openAuthPopup(j?.message || "Please sign in first to upgrade to Pro.", "/pricing");
+        } else {
+          openAuthPopup("Please sign in first to upgrade to Pro.", "/pricing");
+        }
         return;
       }
+
+      const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.success || !data?.url) {
         setError(data?.error || "Could not start checkout. Try again.");
