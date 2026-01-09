@@ -4,36 +4,23 @@ import Stripe from "stripe";
 import { createServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-const stripeSecret = process.env.STRIPE_SECRET_KEY || "";
-
-const stripe = new Stripe(stripeSecret, {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
   apiVersion: "2024-06-20",
 });
 
 export async function POST(req: Request) {
   try {
-    if (!stripeSecret) {
-      return NextResponse.json(
-        { success: false, error: "stripe_key_missing", message: "Stripe is not configured." },
-        { status: 500 }
-      );
-    }
-
     const supabase = await createServerClient();
+
     const {
       data: { user },
       error: userErr,
     } = await supabase.auth.getUser();
 
-    if (userErr) {
-      return NextResponse.json(
-        { success: false, error: "auth_getUser_failed", message: userErr.message },
-        { status: 500 }
-      );
-    }
-
-    if (!user) {
+    // ✅ Treat missing/invalid session as "please sign in"
+    if (userErr || !user) {
       return NextResponse.json(
         { success: false, error: "signin_required", message: "Please sign in first." },
         { status: 401 }
@@ -41,7 +28,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const priceId = (body?.priceId as string | undefined) || "";
+    const priceId = (body as any)?.priceId as string | undefined;
 
     if (!priceId) {
       return NextResponse.json(
@@ -56,36 +43,43 @@ export async function POST(req: Request) {
 
     if (!siteUrl) {
       return NextResponse.json(
-        { success: false, error: "site_url_missing", message: "Missing NEXT_PUBLIC_SITE_URL" },
+        { success: false, error: "missing_site_url", message: "Missing NEXT_PUBLIC_SITE_URL" },
         { status: 500 }
       );
     }
 
-    // Send them back somewhere that *visibly* reflects upgrade
-    const successUrl = `${siteUrl}/create?upgraded=1`;
-    const cancelUrl = `${siteUrl}/pricing?canceled=1`;
-
+    // ✅ include user_id so webhook upgrades the right profile
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer_email: user.email ?? undefined,
       line_items: [{ price: priceId, quantity: 1 }],
-
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-
-      // ✅ easiest to debug in Stripe + webhook mapping
-      client_reference_id: user.id,
-
-      // ✅ keep this too (belt + suspenders)
-      metadata: {
-        user_id: user.id,
-      },
+      success_url: `${siteUrl}/pricing?success=1`,
+      cancel_url: `${siteUrl}/pricing?canceled=1`,
+      metadata: { user_id: user.id },
     });
+
+    if (!session.url) {
+      return NextResponse.json(
+        { success: false, error: "no_session_url", message: "Stripe did not return a checkout URL." },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ success: true, url: session.url });
   } catch (e: any) {
+    // ✅ If Supabase ever throws "Auth session missing" (or similar), convert to 401
+    const msg = e?.message || String(e);
+    const lower = msg.toLowerCase();
+
+    if (lower.includes("auth session missing") || lower.includes("jwt") || lower.includes("session")) {
+      return NextResponse.json(
+        { success: false, error: "signin_required", message: "Please sign in first." },
+        { status: 401 }
+      );
+    }
+
     return NextResponse.json(
-      { success: false, error: "checkout_error", message: e?.message ?? "Checkout error" },
+      { success: false, error: "checkout_error", message: msg },
       { status: 500 }
     );
   }
