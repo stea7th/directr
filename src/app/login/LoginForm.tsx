@@ -4,7 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-type Mode = "signin" | "signup";
+type Mode = "signin" | "signup" | "reset";
+
+function getSiteUrl() {
+  // Client-safe origin fallback (handles missing NEXT_PUBLIC_SITE_URL)
+  if (typeof window !== "undefined") return window.location.origin;
+  return process.env.NEXT_PUBLIC_SITE_URL || "";
+}
 
 export default function LoginForm() {
   const router = useRouter();
@@ -17,12 +23,21 @@ export default function LoginForm() {
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
-  async function onEmailSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function clearNotices() {
     setErr(null);
     setMsg(null);
+  }
 
-    if (!email || !password) {
+  async function onEmailSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    clearNotices();
+
+    if (!email) {
+      setErr("Enter your email.");
+      return;
+    }
+
+    if (mode !== "reset" && !password) {
       setErr("Enter email and password.");
       return;
     }
@@ -34,11 +49,11 @@ export default function LoginForm() {
 
     setLoading(true);
     try {
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || getSiteUrl();
+      const redirectTo = `${siteUrl}/auth/callback?next=/create`;
+
       if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
         router.push("/create");
@@ -46,20 +61,30 @@ export default function LoginForm() {
         return;
       }
 
-      // SIGN UP
-      const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?next=/create`;
+      if (mode === "signup") {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: redirectTo },
+        });
 
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: redirectTo },
+        if (error) throw error;
+
+        setMsg("Account created. Check your email to confirm, then sign in.");
+        setMode("signin");
+        setPassword("");
+        return;
+      }
+
+      // RESET PASSWORD
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo, // user lands in your /auth/callback -> you can route them to update-password screen if you have one
       });
 
       if (error) throw error;
 
-      setMsg("Account created. Check your email to confirm, then sign in.");
-      setMode("signin");
-      setPassword("");
+      setMsg("Password reset link sent. Check your email.");
+      // stay in reset mode so they can resend if needed
     } catch (e: any) {
       setErr(e?.message ?? "Authentication failed");
     } finally {
@@ -68,10 +93,11 @@ export default function LoginForm() {
   }
 
   async function onGoogle() {
-    setErr(null);
+    clearNotices();
     setLoading(true);
     try {
-      const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?next=/create`;
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || getSiteUrl();
+      const redirectTo = `${siteUrl}/auth/callback?next=/create`;
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -85,31 +111,37 @@ export default function LoginForm() {
     }
   }
 
+  const title =
+    mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Reset password";
+
+  const subtitle =
+    mode === "signin"
+      ? "Access your Directr account."
+      : mode === "signup"
+      ? "Create your Directr account in seconds."
+      : "We’ll email you a reset link.";
+
   return (
     <div className="card" style={{ maxWidth: 520, margin: "0 auto" }}>
       <div className="card__head">
         <div>
-          <div className="title">
-            {mode === "signin" ? "Sign in" : "Create account"}
-          </div>
-          <div className="subtitle">
-            {mode === "signin"
-              ? "Access your Directr account."
-              : "Create your Directr account in seconds."}
-          </div>
+          <div className="title">{title}</div>
+          <div className="subtitle">{subtitle}</div>
         </div>
       </div>
 
-      {/* GOOGLE */}
-      <button
-        type="button"
-        className="btn btn--primary"
-        style={{ width: "100%", marginBottom: 12 }}
-        onClick={onGoogle}
-        disabled={loading}
-      >
-        Continue with Google
-      </button>
+      {/* GOOGLE (hide on reset) */}
+      {mode !== "reset" && (
+        <button
+          type="button"
+          className="btn btn--primary"
+          style={{ width: "100%", marginBottom: 12 }}
+          onClick={onGoogle}
+          disabled={loading}
+        >
+          Continue with Google
+        </button>
+      )}
 
       {/* EMAIL FORM */}
       <form onSubmit={onEmailSubmit} className="field" style={{ gap: 10 }}>
@@ -122,32 +154,52 @@ export default function LoginForm() {
           disabled={loading}
         />
 
-        <input
-          className="input"
-          placeholder={
-            mode === "signin" ? "Password" : "Create password (6+ chars)"
-          }
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete={
-            mode === "signin" ? "current-password" : "new-password"
-          }
-          disabled={loading}
-        />
+        {mode !== "reset" && (
+          <input
+            className="input"
+            placeholder={mode === "signin" ? "Password" : "Create password (6+ chars)"}
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete={mode === "signin" ? "current-password" : "new-password"}
+            disabled={loading}
+          />
+        )}
 
         <button className="btn" type="submit" disabled={loading}>
           {loading
             ? mode === "signin"
               ? "Signing in…"
-              : "Creating account…"
+              : mode === "signup"
+              ? "Creating account…"
+              : "Sending link…"
             : mode === "signin"
             ? "Sign in"
-            : "Create account"}
+            : mode === "signup"
+            ? "Create account"
+            : "Send reset link"}
         </button>
 
         {err && <div style={{ color: "#fecaca", fontSize: 13 }}>{err}</div>}
         {msg && <div style={{ color: "#bbf7d0", fontSize: 13 }}>{msg}</div>}
+
+        {/* Forgot password (only on signin) */}
+        {mode === "signin" && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 2 }}>
+            <button
+              type="button"
+              className="btn btn--ghost"
+              style={{ padding: 0, fontSize: 13, opacity: 0.9 }}
+              onClick={() => {
+                clearNotices();
+                setMode("reset");
+              }}
+              disabled={loading}
+            >
+              Forgot password?
+            </button>
+          </div>
+        )}
       </form>
 
       {/* TOGGLE */}
@@ -167,8 +219,7 @@ export default function LoginForm() {
               className="btn btn--ghost"
               style={{ padding: 0 }}
               onClick={() => {
-                setErr(null);
-                setMsg(null);
+                clearNotices();
                 setMode("signup");
               }}
               disabled={loading}
@@ -176,7 +227,7 @@ export default function LoginForm() {
               Create an account
             </button>
           </>
-        ) : (
+        ) : mode === "signup" ? (
           <>
             Already have an account?{" "}
             <button
@@ -184,13 +235,28 @@ export default function LoginForm() {
               className="btn btn--ghost"
               style={{ padding: 0 }}
               onClick={() => {
-                setErr(null);
-                setMsg(null);
+                clearNotices();
                 setMode("signin");
               }}
               disabled={loading}
             >
               Sign in
+            </button>
+          </>
+        ) : (
+          <>
+            Remembered it?{" "}
+            <button
+              type="button"
+              className="btn btn--ghost"
+              style={{ padding: 0 }}
+              onClick={() => {
+                clearNotices();
+                setMode("signin");
+              }}
+              disabled={loading}
+            >
+              Back to sign in
             </button>
           </>
         )}
