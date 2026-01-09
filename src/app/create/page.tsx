@@ -90,7 +90,6 @@ export default function CreatePage() {
 
       setPlan({ loading: false, isPro, used, freeLimit: 3 });
 
-      // If pro, never show paywall UI state
       if (isPro) setLimitReached(false);
     } catch (e) {
       console.error("refreshPlan error:", e);
@@ -116,17 +115,6 @@ export default function CreatePage() {
 
     setLoading(true);
     try {
-      // Quick auth check so we can show popup immediately (instead of red error)
-      const {
-        data: { user },
-      } = await supabaseBrowser.auth.getUser();
-
-      if (!user) {
-        setLoading(false);
-        openAuthPopup("Please sign in first to generate hooks.", "/create");
-        return;
-      }
-
       // CASE 1: FILE PRESENT → upload to Supabase → send URL to /api/clipper
       if (file) {
         const path = `${Date.now()}-${file.name}`;
@@ -153,15 +141,14 @@ export default function CreatePage() {
           body: JSON.stringify({ fileUrl: publicUrl, prompt }),
         });
 
-        // ✅ if auth required, show popup
+        // ✅ Auth required → popup
         if (res.status === 401) {
           const j = await res.json().catch(() => null);
-          setLoading(false);
           openAuthPopup(j?.message || "Please sign in first to use Directr.", "/create");
           return;
         }
 
-        // handle limit reached
+        // ✅ Limit reached
         if (res.status === 402) {
           setLimitReached(true);
           await refreshPlan();
@@ -245,10 +232,9 @@ export default function CreatePage() {
         body: JSON.stringify(body),
       });
 
-      // ✅ if auth required, show popup
+      // ✅ Auth required → popup
       if (res.status === 401) {
         const j = await res.json().catch(() => null);
-        setLoading(false);
         openAuthPopup(j?.message || "Please sign in first to generate hooks.", "/create");
         return;
       }
@@ -278,12 +264,8 @@ export default function CreatePage() {
           await refreshPlan();
           return;
         }
-        if (data?.error === "signin_required") {
+        if (data?.error === "signin_required" || data?.error === "unauthorized") {
           openAuthPopup(data?.message || "Please sign in first to generate hooks.", "/create");
-          return;
-        }
-        if (data?.error === "unauthorized") {
-          openAuthPopup("Please sign in first to generate hooks.", "/create");
           return;
         }
         setError(data.error || "Failed to generate hooks.");
@@ -313,17 +295,6 @@ export default function CreatePage() {
       setError(null);
       setLoading(true);
 
-      // ✅ if logged out, show popup (instead of red message)
-      const {
-        data: { user },
-      } = await supabaseBrowser.auth.getUser();
-
-      if (!user) {
-        setLoading(false);
-        openAuthPopup("Please sign in first to upgrade to Pro.", "/create");
-        return;
-      }
-
       const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || "";
       if (!priceId) {
         router.push("/pricing");
@@ -338,10 +309,9 @@ export default function CreatePage() {
 
       const data = await res.json().catch(() => null);
 
-      // ✅ auth required
+      // ✅ Auth required → popup
       if (res.status === 401) {
-        setLoading(false);
-        openAuthPopup(data?.message || "Please sign in first to upgrade.", "/create");
+        openAuthPopup(data?.message || "Please sign in first to upgrade to Pro.", "/create");
         return;
       }
 
@@ -421,7 +391,6 @@ export default function CreatePage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <h1 style={{ marginBottom: 0 }}>Fix your hook before you post</h1>
 
-            {/* ✅ plan badge line */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span
                 style={{
@@ -554,7 +523,6 @@ export default function CreatePage() {
 
           {error && <p className="create-error">{error}</p>}
 
-          {/* ✅ CONVERSION PAYWALL CARD */}
           {limitReached && !error && !plan.isPro && (
             <div className="create-result">
               <h3>You’ve used your free hooks.</h3>
