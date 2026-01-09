@@ -3,42 +3,64 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 // ✅ SINGLE SOURCE OF TRUTH — YOUR REAL PRICE ID
 const STRIPE_PRICE_ID = "price_1SaJGQGPmkdLhZZOj6zwnjxb";
 
-async function startCheckout() {
-  try {
-    const res = await fetch("/api/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ priceId: STRIPE_PRICE_ID }),
-    });
-
-    const data = await res.json().catch(() => null);
-
-    if (!res.ok || !data?.success || !data?.url) {
-      console.error("Checkout error:", data || (await res.text()));
-      alert(data?.error || "Something went wrong starting checkout. Try again.");
-      return;
-    }
-
-    window.location.href = data.url;
-  } catch (err) {
-    console.error("Checkout error:", err);
-    alert("Something went wrong starting checkout. Try again.");
-  }
-}
-
 export default function PricingPage() {
+  const router = useRouter();
+
   const [success, setSuccess] = useState(false);
   const [canceled, setCanceled] = useState(false);
+
+  // ✅ Sign-in required modal
+  const [showSignin, setShowSignin] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setSuccess(params.get("success") === "1");
     setCanceled(params.get("canceled") === "1");
   }, []);
+
+  async function startCheckout() {
+    try {
+      setCheckoutLoading(true);
+
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priceId: STRIPE_PRICE_ID }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      // ✅ If not signed in → show clear modal
+      if (res.status === 401 && (data?.error === "signin_required" || data?.message)) {
+        setShowSignin(true);
+        return;
+      }
+
+      if (!res.ok || !data?.success || !data?.url) {
+        console.error("Checkout error:", data || (await res.text()));
+        alert(data?.message || data?.error || "Something went wrong starting checkout. Try again.");
+        return;
+      }
+
+      window.location.href = data.url;
+    } catch (err) {
+      console.error("Checkout error:", err);
+      alert("Something went wrong starting checkout. Try again.");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  }
+
+  function goToLogin() {
+    const next = encodeURIComponent("/pricing");
+    router.push(`/login?next=${next}`);
+  }
 
   return (
     <main className="pricing-root">
@@ -98,8 +120,13 @@ export default function PricingPage() {
             <li>Cancel anytime</li>
           </ul>
 
-          <button type="button" className="plan-cta plan-cta--pro" onClick={startCheckout}>
-            Start Pro — $19/mo
+          <button
+            type="button"
+            className="plan-cta plan-cta--pro"
+            onClick={startCheckout}
+            disabled={checkoutLoading}
+          >
+            {checkoutLoading ? "Opening checkout…" : "Start Pro — $19/mo"}
           </button>
         </article>
       </section>
@@ -113,6 +140,33 @@ export default function PricingPage() {
           then upgrade when you hit the limit.
         </p>
       </section>
+
+      {/* ✅ Sign-in required modal */}
+      {showSignin && (
+        <div className="modalOverlay" role="dialog" aria-modal="true">
+          <div className="modalCard">
+            <div className="modalTitle">Please sign in first</div>
+            <div className="modalText">
+              You need an account to upgrade to Pro so we can unlock unlimited generations on your profile.
+            </div>
+
+            <div className="modalActions">
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => setShowSignin(false)}
+                disabled={checkoutLoading}
+              >
+                Not now
+              </button>
+
+              <button type="button" className="btn btn--primary" onClick={goToLogin} disabled={checkoutLoading}>
+                Sign in / Create account
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
       .pricing-root {
@@ -389,6 +443,13 @@ export default function PricingPage() {
           color: #05060a;
         }
 
+        .plan-cta:disabled {
+          opacity: 0.8;
+          cursor: not-allowed;
+          transform: none;
+          filter: none;
+        }
+
         .plan-badge {
           position: absolute;
           top: 10px;
@@ -424,6 +485,57 @@ export default function PricingPage() {
         .inline-link:hover {
           color: #ffffff;
         }
+
+        /* ✅ Modal (matches your dark UI) */
+        .modalOverlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.62);
+          backdrop-filter: blur(10px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 18px;
+          z-index: 9999;
+        }
+
+        .modalCard {
+          width: 100%;
+          max-width: 440px;
+          border-radius: 22px;
+          padding: 18px;
+          background: radial-gradient(
+                circle at top left,
+                rgba(255, 255, 255, 0.04),
+                transparent 60%
+              ),
+            #0a0b0f;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          box-shadow: 0 40px 110px rgba(0, 0, 0, 0.95);
+        }
+
+        .modalTitle {
+          font-size: 14px;
+          font-weight: 600;
+          margin-bottom: 6px;
+          letter-spacing: 0.02em;
+        }
+
+        .modalText {
+          font-size: 12px;
+          line-height: 1.55;
+          color: rgba(255, 255, 255, 0.68);
+        }
+
+        .modalActions {
+          margin-top: 14px;
+          display: flex;
+          gap: 10px;
+          justify-content: flex-end;
+          flex-wrap: wrap;
+        }
+
+        /* Uses your global .btn styles */
       `}</style>
     </main>
   );
