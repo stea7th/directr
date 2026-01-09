@@ -4,6 +4,7 @@ import "./page.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useRouter, useSearchParams } from "next/navigation";
+import SignInModal from "@/components/SignInModal";
 
 type Mode = "basic" | "advanced";
 
@@ -43,6 +44,15 @@ export default function CreatePage() {
     freeLimit: 3,
   });
 
+  // ✅ Sign-in popup state
+  const [signinOpen, setSigninOpen] = useState(false);
+  const [signinMsg, setSigninMsg] = useState<string | undefined>(undefined);
+
+  function openSignin(msg?: string) {
+    setSigninMsg(msg || "Create an account or sign in to continue.");
+    setSigninOpen(true);
+  }
+
   const statusLine = useMemo(() => {
     if (plan.loading) return "Checking your plan…";
     if (plan.isPro) return "✅ Pro unlocked • unlimited hooks";
@@ -79,7 +89,6 @@ export default function CreatePage() {
 
       setPlan({ loading: false, isPro, used, freeLimit: 3 });
 
-      // If pro, never show paywall UI state
       if (isPro) setLimitReached(false);
     } catch (e) {
       console.error("refreshPlan error:", e);
@@ -131,6 +140,13 @@ export default function CreatePage() {
           body: JSON.stringify({ fileUrl: publicUrl, prompt }),
         });
 
+        // ✅ not signed in → popup (no red error)
+        if (res.status === 401) {
+          const data = await res.json().catch(() => null);
+          openSignin(data?.message || "Please sign in to generate from uploads.");
+          return;
+        }
+
         // handle limit reached
         if (res.status === 402) {
           setLimitReached(true);
@@ -145,13 +161,19 @@ export default function CreatePage() {
             status: res.status,
             textSnippet: text.slice(0, 200),
           });
-          setError(`Server returned non-JSON (status ${res.status}). Route might be misconfigured.`);
+          setError(
+            `Server returned non-JSON (status ${res.status}). Route might be misconfigured.`
+          );
           return;
         }
 
         const data = await res.json();
 
         if (!data.success) {
+          if (data?.error === "signin_required") {
+            openSignin(data?.message || "Please sign in first.");
+            return;
+          }
           if (data?.error === "limit_reached") {
             setLimitReached(true);
             await refreshPlan();
@@ -211,6 +233,13 @@ export default function CreatePage() {
         body: JSON.stringify(body),
       });
 
+      // ✅ not signed in → popup (no red error)
+      if (res.status === 401) {
+        const data = await res.json().catch(() => null);
+        openSignin(data?.message || "Please sign in to generate hooks.");
+        return;
+      }
+
       if (res.status === 402) {
         setLimitReached(true);
         await refreshPlan();
@@ -224,13 +253,19 @@ export default function CreatePage() {
           status: res.status,
           textSnippet: text.slice(0, 200),
         });
-        setError(`Server returned non-JSON (status ${res.status}). Route might be misconfigured.`);
+        setError(
+          `Server returned non-JSON (status ${res.status}). Route might be misconfigured.`
+        );
         return;
       }
 
       const data = await res.json();
 
       if (!data.success) {
+        if (data?.error === "signin_required") {
+          openSignin(data?.message || "Please sign in first.");
+          return;
+        }
         if (data?.error === "limit_reached") {
           setLimitReached(true);
           await refreshPlan();
@@ -240,7 +275,8 @@ export default function CreatePage() {
         return;
       }
 
-      const notes = data?.text || "Generated successfully, but no hooks were returned.";
+      const notes =
+        data?.text || "Generated successfully, but no hooks were returned.";
       setResult(notes);
       setEditedUrl(null);
 
@@ -275,9 +311,20 @@ export default function CreatePage() {
         body: JSON.stringify({ priceId }),
       });
 
-      const data = await res.json();
+      // ✅ not signed in → popup (no red error)
+      if (res.status === 401) {
+        const data = await res.json().catch(() => null);
+        openSignin(data?.message || "Please sign in to upgrade to Pro.");
+        return;
+      }
+
+      const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.success || !data?.url) {
+        if (data?.error === "signin_required") {
+          openSignin(data?.message || "Please sign in to upgrade.");
+          return;
+        }
         setError(data?.error || "Could not start checkout. Try again.");
         return;
       }
@@ -292,6 +339,13 @@ export default function CreatePage() {
 
   return (
     <main className="create-root">
+      <SignInModal
+        open={signinOpen}
+        onClose={() => setSigninOpen(false)}
+        title="Please sign in first"
+        message={signinMsg}
+      />
+
       <section className="create-shell">
         <header className="create-header">
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
