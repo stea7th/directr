@@ -1,88 +1,111 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 
 type Job = {
   id: string;
-  status: string | null;
-  input_path: string | null;
-  output_path: string | null;
-  created_at: string;
-  error: string | null;
-  meta: any | null;
+  created_at?: string | null;
+
+  type?: string | null;
+  prompt?: string | null;
+
+  // your app seems to use result_text now
+  result_text?: string | null;
+
+  // keep compatibility with older fields if they exist
+  output_script?: string | null;
+  output_video_url?: string | null;
+  edited_url?: string | null;
+  source_url?: string | null;
+
+  platform?: string | null;
+  goal?: string | null;
+  tone?: string | null;
+  length_seconds?: number | null;
+
+  file_name?: string | null;
+  file_type?: string | null;
+  file_size?: number | null;
+
+  user_id?: string | null;
 };
 
-export default function JobViewer() {
-  const { id } = useParams<{ id: string }>();
-  const [job, setJob] = useState<Job | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
+type Props = {
+  id: string;
+  initialJob?: Job | null;
+};
+
+export default function Viewer({ id, initialJob }: Props) {
+  const [job, setJob] = useState<Job | null>(initialJob ?? null);
 
   useEffect(() => {
-    const supabase = createClient();
+    let isMounted = true;
 
-    async function fetchJob() {
-      setLoading(true);
-      const { data, error } = await supabase
+    async function load() {
+      const { data, error } = await supabaseBrowser
         .from("jobs")
         .select("*")
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
-      if (error) setErr(error.message);
-      else setJob(data as Job);
-      setLoading(false);
+      if (!isMounted) return;
+
+      if (!error && data) setJob(data as Job);
     }
 
-    fetchJob();
+    load();
 
-    // live updates
-    const channel = supabase
-      .channel(`job:${id}`)
+    const channel = supabaseBrowser
+      .channel(`job-${id}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "jobs", filter: `id=eq.${id}` },
-        (payload) => {
-          setJob(payload.new as Job);
+        (payload: { new: unknown }) => {
+          // ✅ typed payload so TS strict stops complaining
+          if (!isMounted) return;
+          if (payload?.new) setJob(payload.new as Job);
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      isMounted = false;
+      supabaseBrowser.removeChannel(channel);
     };
   }, [id]);
 
-  if (loading) return <div className="container"><div className="card">Loading…</div></div>;
-  if (err) return <div className="container"><div className="card job__err">{err}</div></div>;
-  if (!job) return <div className="container"><div className="card">Not found.</div></div>;
+  if (!job) {
+    return (
+      <div style={{ padding: 18, opacity: 0.8 }}>
+        Loading…
+      </div>
+    );
+  }
+
+  const output =
+    job.result_text ||
+    job.output_script ||
+    "No output on this job yet.";
+
+  const url =
+    job.output_video_url ||
+    job.edited_url ||
+    job.source_url ||
+    null;
 
   return (
-    <div className="container">
-      <div className="card">
-        <div className="card__head">
-          <div className="job__title">Job {job.id}</div>
-          <span className={`badge ${job.status === "done" ? "badge--ok" : job.status === "error" ? "badge--err" : "badge--warn"}`}>
-            {job.status ?? "unknown"}
-          </span>
-        </div>
-        <div className="job__meta">
-          Created {new Date(job.created_at).toLocaleString()}
-        </div>
-        {job.error && <div className="job__err">Error: {job.error}</div>}
-        <div className="grid" style={{gridTemplateColumns: "1fr 1fr"}}>
-          <div>
-            <span>Input</span>
-            <div className="job__meta">{job.input_path ?? "—"}</div>
-          </div>
-          <div>
-            <span>Output</span>
-            <div className="job__meta">{job.output_path ?? "—"}</div>
-          </div>
-        </div>
-      </div>
+    <div style={{ width: "100%" }}>
+      {url && (
+        <p style={{ marginBottom: 10 }}>
+          <strong>Clip:</strong>{" "}
+          <a href={url} target="_blank" rel="noreferrer">
+            Open
+          </a>
+        </p>
+      )}
+
+      <pre style={{ whiteSpace: "pre-wrap" }}>{output}</pre>
     </div>
   );
 }
