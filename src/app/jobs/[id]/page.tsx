@@ -1,9 +1,10 @@
 import JobViewer from "./viewer";
 
-export default function JobPage({
+export default async function JobPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  return <JobViewer id={params.id} />;
+  const { id } = await params;
+  return <JobViewer id={id} />;
 }
