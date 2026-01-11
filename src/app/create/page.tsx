@@ -36,6 +36,15 @@ export default function CreatePage() {
   const [result, setResult] = useState<string | null>(null);
   const [editedUrl, setEditedUrl] = useState<string | null>(null);
 
+  // ✅ Auth state (source of truth — prevents popup when already signed in)
+  const [isAuthed, setIsAuthed] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // ✅ Sign-in modal
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMsg, setAuthMsg] = useState("Please sign in first to use Directr.");
+  const [authNext, setAuthNext] = useState("/create");
+
   const [plan, setPlan] = useState<PlanState>({
     loading: true,
     isPro: false,
@@ -43,12 +52,41 @@ export default function CreatePage() {
     freeLimit: 3,
   });
 
-  // ---------- Auth popup (clean, not annoying) ----------
-  const [authOpen, setAuthOpen] = useState(false);
-  const [authMsg, setAuthMsg] = useState("Please sign in first.");
-  const [authNext, setAuthNext] = useState("/create");
+  const statusLine = useMemo(() => {
+    if (plan.loading) return "Checking your plan…";
+    if (plan.isPro) return "✅ Pro unlocked • unlimited hooks";
+    return `${Math.min(plan.used, plan.freeLimit)} / ${plan.freeLimit} free generations used • then $19/mo`;
+  }, [plan.loading, plan.isPro, plan.used, plan.freeLimit]);
 
-  function openAuthPopup(message = "Please sign in first.", next = "/create") {
+  // ✅ Keep auth state in sync (prevents false popups)
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        const { data } = await supabaseBrowser.auth.getSession();
+        if (!mounted) return;
+        setIsAuthed(!!data?.session);
+        setAuthChecked(true);
+      } catch {
+        if (!mounted) return;
+        setIsAuthed(false);
+        setAuthChecked(true);
+      }
+    })();
+
+    const { data: sub } = supabaseBrowser.auth.onAuthStateChange((_event, session) => {
+      setIsAuthed(!!session);
+      setAuthChecked(true);
+    });
+
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  function openAuthPopup(message = "Please sign in first to use Directr.", next = "/create") {
     setAuthMsg(message);
     setAuthNext(next);
     setAuthOpen(true);
@@ -58,64 +96,31 @@ export default function CreatePage() {
     setAuthOpen(false);
   }
 
-  async function hasSession(): Promise<boolean> {
-    try {
-      const { data } = await supabaseBrowser.auth.getSession();
-      return !!data?.session;
-    } catch {
+  async function requireAuthOrPopup(next = "/create") {
+    // Avoid popping before we even know auth state
+    if (!authChecked) {
+      openAuthPopup("Loading your session…", next);
       return false;
     }
-  }
 
-  /**
-   * Returns:
-   * - null ONLY when truly logged out (no session) => we popup
-   * - a user object when available
-   * - a truthy sentinel when session exists but getUser hiccups => no popup
-   */
-  async function requireAuthOrPopup(next = "/create") {
-    const sessionExists = await hasSession();
-    if (!sessionExists) {
+    if (!isAuthed) {
       openAuthPopup("Please sign in first to use Directr.", next);
-      return null;
+      return false;
     }
 
-    const { data, error: getUserErr } = await supabaseBrowser.auth.getUser();
-
-    // IMPORTANT: If session exists but getUser fails, DO NOT popup (this was your bug).
-    if (getUserErr || !data?.user) {
-      console.warn("getUser returned null/error but session exists:", getUserErr);
-      return { id: "session_exists_but_user_missing" } as any;
-    }
-
-    return data.user;
+    return true;
   }
-
-  const statusLine = useMemo(() => {
-    if (plan.loading) return "Checking your plan…";
-    if (plan.isPro) return "✅ Pro unlocked • unlimited hooks";
-    return `${Math.min(plan.used, plan.freeLimit)} / ${plan.freeLimit} free generations used • then $19/mo`;
-  }, [plan.loading, plan.isPro, plan.used, plan.freeLimit]);
 
   async function refreshPlan() {
     try {
       setPlan((p) => ({ ...p, loading: true }));
 
-      // Use session first (more reliable). If no session, treat as logged out.
-      const sessionExists = await hasSession();
-      if (!sessionExists) {
-        setPlan({ loading: false, isPro: false, used: 0, freeLimit: 3 });
-        setLimitReached(false);
-        return;
-      }
-
-      // If session exists, try to get user. If it hiccups, don't show errors.
-      const { data: userData } = await supabaseBrowser.auth.getUser();
-      const user = userData?.user;
+      const {
+        data: { user },
+      } = await supabaseBrowser.auth.getUser();
 
       if (!user) {
-        // Session exists but user not ready yet; don't show scary red errors.
-        setPlan((p) => ({ ...p, loading: false }));
+        setPlan({ loading: false, isPro: false, used: 0, freeLimit: 3 });
         return;
       }
 
@@ -154,14 +159,14 @@ export default function CreatePage() {
     setResult(null);
     setEditedUrl(null);
 
+    // ✅ force sign-in for Create (this is the point of the popup)
+    const ok = await requireAuthOrPopup("/create");
+    if (!ok) return;
+
     if (!prompt.trim() && !file) {
       setError("Add a quick idea or upload a file first.");
       return;
     }
-
-    // ✅ Auth gate (popup only when truly logged out)
-    const user = await requireAuthOrPopup("/create");
-    if (!user) return;
 
     setLoading(true);
     try {
@@ -169,9 +174,8 @@ export default function CreatePage() {
       if (file) {
         const path = `${Date.now()}-${file.name}`;
 
-        const { data: uploadData, error: uploadError } = await supabaseBrowser.storage
-          .from("raw_uploads")
-          .upload(path, file, {
+        const { data: uploadData, error: uploadError } =
+          await supabaseBrowser.storage.from("raw_uploads").upload(path, file, {
             cacheControl: "3600",
             upsert: false,
           });
@@ -192,13 +196,9 @@ export default function CreatePage() {
           body: JSON.stringify({ fileUrl: publicUrl, prompt }),
         });
 
-        // ✅ if unauthorized, popup only if truly no session
+        // ✅ Not signed in → popup instead of red error
         if (res.status === 401) {
-          if (!(await hasSession())) {
-            openAuthPopup("Please sign in first to use Directr.", "/create");
-            return;
-          }
-          setError("Session error. Refresh and try again.");
+          openAuthPopup("Please sign in first to use Directr.", "/create");
           return;
         }
 
@@ -226,6 +226,10 @@ export default function CreatePage() {
           if (data?.error === "limit_reached") {
             setLimitReached(true);
             await refreshPlan();
+            return;
+          }
+          if (data?.error === "unauthorized" || data?.error === "signin_required") {
+            openAuthPopup("Please sign in first to use Directr.", "/create");
             return;
           }
           setError(data.error || "Failed to find hooks.");
@@ -282,13 +286,9 @@ export default function CreatePage() {
         body: JSON.stringify(body),
       });
 
-      // ✅ if unauthorized, popup only if truly no session
+      // ✅ Not signed in → popup instead of red error
       if (res.status === 401) {
-        if (!(await hasSession())) {
-          openAuthPopup("Please sign in first to use Directr.", "/create");
-          return;
-        }
-        setError("Session error. Refresh and try again.");
+        openAuthPopup("Please sign in first to use Directr.", "/create");
         return;
       }
 
@@ -317,6 +317,10 @@ export default function CreatePage() {
           await refreshPlan();
           return;
         }
+        if (data?.error === "unauthorized" || data?.error === "signin_required") {
+          openAuthPopup("Please sign in first to use Directr.", "/create");
+          return;
+        }
         setError(data.error || "Failed to generate hooks.");
         return;
       }
@@ -340,6 +344,10 @@ export default function CreatePage() {
   }
 
   async function handleUpgrade() {
+    // ✅ if not signed in → popup (same as Pricing)
+    const ok = await requireAuthOrPopup("/pricing");
+    if (!ok) return;
+
     try {
       setError(null);
       setLoading(true);
@@ -356,20 +364,20 @@ export default function CreatePage() {
         body: JSON.stringify({ priceId }),
       });
 
-      // ✅ if unauthorized, popup only if truly no session
+      // ✅ if server says signin required
       if (res.status === 401) {
-        if (!(await hasSession())) {
-          openAuthPopup("Please sign in first to upgrade.", "/create");
-          return;
-        }
-        setError("Session error. Refresh and try again.");
+        openAuthPopup("Please sign in first to upgrade to Pro.", "/pricing");
         return;
       }
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.success || !data?.url) {
-        setError(data?.message || data?.error || "Could not start checkout. Try again.");
+        if (data?.error === "signin_required") {
+          openAuthPopup(data?.message || "Please sign in first.", "/pricing");
+          return;
+        }
+        setError(data?.error || "Could not start checkout. Try again.");
         return;
       }
 
@@ -383,64 +391,50 @@ export default function CreatePage() {
 
   return (
     <main className="create-root">
-      {/* ✅ Auth popup */}
+      {/* ✅ SIGN IN POPUP */}
       {authOpen && (
         <div
-          role="dialog"
-          aria-modal="true"
-          onClick={closeAuthPopup}
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.55)",
-            backdropFilter: "blur(6px)",
+            background: "rgba(0,0,0,0.65)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             zIndex: 9999,
-            padding: 20,
+            padding: 16,
           }}
+          onClick={closeAuthPopup}
         >
           <div
+            className="card"
+            style={{ width: "100%", maxWidth: 520 }}
             onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: 420,
-              borderRadius: 18,
-              border: "1px solid rgba(255,255,255,0.10)",
-              background:
-                "radial-gradient(circle at top left, rgba(148,202,255,0.20), transparent 60%), rgba(10,10,12,0.92)",
-              boxShadow: "0 30px 90px rgba(0,0,0,0.85)",
-              padding: 16,
-            }}
           >
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
-              <div style={{ fontSize: 13, letterSpacing: 0.08, opacity: 0.7, textTransform: "uppercase" }}>
-                Directr
+            <div className="card__head">
+              <div>
+                <div className="title">Sign in required</div>
+                <div className="subtitle">{authMsg}</div>
               </div>
-              <div style={{ fontSize: 18, fontWeight: 600 }}>Sign in required</div>
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.70)", lineHeight: 1.45 }}>{authMsg}</div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
               <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={closeAuthPopup}
-                style={{ borderRadius: 999 }}
-              >
-                Not now
-              </button>
-              <button
-                type="button"
                 className="btn btn--primary"
+                style={{ width: "100%" }}
                 onClick={() => {
-                  closeAuthPopup();
-                  router.push(`/login?next=${encodeURIComponent(authNext)}`);
+                  const next = encodeURIComponent(authNext || "/create");
+                  router.push(`/login?next=${next}`);
                 }}
-                style={{ borderRadius: 999 }}
               >
                 Sign in
+              </button>
+              <button
+                className="btn btn--ghost"
+                style={{ width: "100%" }}
+                onClick={closeAuthPopup}
+              >
+                Not now
               </button>
             </div>
           </div>
@@ -452,7 +446,6 @@ export default function CreatePage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <h1 style={{ marginBottom: 0 }}>Fix your hook before you post</h1>
 
-            {/* ✅ plan badge line */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span
                 style={{
@@ -585,7 +578,6 @@ export default function CreatePage() {
 
           {error && <p className="create-error">{error}</p>}
 
-          {/* ✅ CONVERSION PAYWALL CARD */}
           {limitReached && !error && !plan.isPro && (
             <div className="create-result">
               <h3>You’ve used your free hooks.</h3>
