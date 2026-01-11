@@ -36,14 +36,13 @@ export default function CreatePage() {
   const [result, setResult] = useState<string | null>(null);
   const [editedUrl, setEditedUrl] = useState<string | null>(null);
 
-  // ✅ Auth state (source of truth — prevents popup when already signed in)
-  const [isAuthed, setIsAuthed] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-
-  // ✅ Sign-in modal
+  // ✅ Auth popup
   const [authOpen, setAuthOpen] = useState(false);
   const [authMsg, setAuthMsg] = useState("Please sign in first to use Directr.");
   const [authNext, setAuthNext] = useState("/create");
+
+  // ✅ For UI labels only (NOT used as the gate)
+  const [isAuthedUi, setIsAuthedUi] = useState(false);
 
   const [plan, setPlan] = useState<PlanState>({
     loading: true,
@@ -58,34 +57,6 @@ export default function CreatePage() {
     return `${Math.min(plan.used, plan.freeLimit)} / ${plan.freeLimit} free generations used • then $19/mo`;
   }, [plan.loading, plan.isPro, plan.used, plan.freeLimit]);
 
-  // ✅ Keep auth state in sync (prevents false popups)
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      try {
-        const { data } = await supabaseBrowser.auth.getSession();
-        if (!mounted) return;
-        setIsAuthed(!!data?.session);
-        setAuthChecked(true);
-      } catch {
-        if (!mounted) return;
-        setIsAuthed(false);
-        setAuthChecked(true);
-      }
-    })();
-
-    const { data: sub } = supabaseBrowser.auth.onAuthStateChange((_event, session) => {
-      setIsAuthed(!!session);
-      setAuthChecked(true);
-    });
-
-    return () => {
-      mounted = false;
-      sub?.subscription?.unsubscribe();
-    };
-  }, []);
-
   function openAuthPopup(message = "Please sign in first to use Directr.", next = "/create") {
     setAuthMsg(message);
     setAuthNext(next);
@@ -96,20 +67,59 @@ export default function CreatePage() {
     setAuthOpen(false);
   }
 
+  // ✅ Always check session at click-time (NO flaky state)
   async function requireAuthOrPopup(next = "/create") {
-    // Avoid popping before we even know auth state
-    if (!authChecked) {
-      openAuthPopup("Loading your session…", next);
-      return false;
-    }
+    try {
+      const { data } = await supabaseBrowser.auth.getSession();
+      const authed = !!data?.session;
 
-    if (!isAuthed) {
+      // keep UI indicator in sync
+      setIsAuthedUi(authed);
+
+      if (!authed) {
+        openAuthPopup("Please sign in first to use Directr.", next);
+        return false;
+      }
+
+      // if user is authed, ensure popup is closed
+      if (authOpen) setAuthOpen(false);
+
+      return true;
+    } catch (e) {
+      console.error("Auth check failed:", e);
       openAuthPopup("Please sign in first to use Directr.", next);
       return false;
     }
-
-    return true;
   }
+
+  // ✅ Keep UI auth indicator fresh + auto-close popup if session becomes valid
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        const { data } = await supabaseBrowser.auth.getSession();
+        if (!mounted) return;
+        const authed = !!data?.session;
+        setIsAuthedUi(authed);
+        if (authed) setAuthOpen(false);
+      } catch {
+        if (!mounted) return;
+        setIsAuthedUi(false);
+      }
+    })();
+
+    const { data: sub } = supabaseBrowser.auth.onAuthStateChange((_event, session) => {
+      const authed = !!session;
+      setIsAuthedUi(authed);
+      if (authed) setAuthOpen(false);
+    });
+
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe();
+    };
+  }, [authOpen]);
 
   async function refreshPlan() {
     try {
@@ -159,7 +169,6 @@ export default function CreatePage() {
     setResult(null);
     setEditedUrl(null);
 
-    // ✅ force sign-in for Create (this is the point of the popup)
     const ok = await requireAuthOrPopup("/create");
     if (!ok) return;
 
@@ -196,13 +205,11 @@ export default function CreatePage() {
           body: JSON.stringify({ fileUrl: publicUrl, prompt }),
         });
 
-        // ✅ Not signed in → popup instead of red error
         if (res.status === 401) {
           openAuthPopup("Please sign in first to use Directr.", "/create");
           return;
         }
 
-        // handle limit reached
         if (res.status === 402) {
           setLimitReached(true);
           await refreshPlan();
@@ -286,7 +293,6 @@ export default function CreatePage() {
         body: JSON.stringify(body),
       });
 
-      // ✅ Not signed in → popup instead of red error
       if (res.status === 401) {
         openAuthPopup("Please sign in first to use Directr.", "/create");
         return;
@@ -344,7 +350,6 @@ export default function CreatePage() {
   }
 
   async function handleUpgrade() {
-    // ✅ if not signed in → popup (same as Pricing)
     const ok = await requireAuthOrPopup("/pricing");
     if (!ok) return;
 
@@ -364,7 +369,6 @@ export default function CreatePage() {
         body: JSON.stringify({ priceId }),
       });
 
-      // ✅ if server says signin required
       if (res.status === 401) {
         openAuthPopup("Please sign in first to upgrade to Pro.", "/pricing");
         return;
