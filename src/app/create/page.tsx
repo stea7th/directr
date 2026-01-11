@@ -36,13 +36,10 @@ export default function CreatePage() {
   const [result, setResult] = useState<string | null>(null);
   const [editedUrl, setEditedUrl] = useState<string | null>(null);
 
-  // ✅ Auth popup
-  const [authOpen, setAuthOpen] = useState(false);
-  const [authMsg, setAuthMsg] = useState("Please sign in first to use Directr.");
-  const [authNext, setAuthNext] = useState("/create");
-
-  // ✅ For UI labels only (NOT used as the gate)
-  const [isAuthedUi, setIsAuthedUi] = useState(false);
+  // ✅ Auth + sign-in popup
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isAuthed, setIsAuthed] = useState(false);
+  const [showSignin, setShowSignin] = useState(false);
 
   const [plan, setPlan] = useState<PlanState>({
     loading: true,
@@ -57,69 +54,22 @@ export default function CreatePage() {
     return `${Math.min(plan.used, plan.freeLimit)} / ${plan.freeLimit} free generations used • then $19/mo`;
   }, [plan.loading, plan.isPro, plan.used, plan.freeLimit]);
 
-  function openAuthPopup(message = "Please sign in first to use Directr.", next = "/create") {
-    setAuthMsg(message);
-    setAuthNext(next);
-    setAuthOpen(true);
-  }
-
-  function closeAuthPopup() {
-    setAuthOpen(false);
-  }
-
-  // ✅ Always check session at click-time (NO flaky state)
-  async function requireAuthOrPopup(next = "/create") {
+  async function refreshAuth() {
     try {
-      const { data } = await supabaseBrowser.auth.getSession();
-      const authed = !!data?.session;
+      setAuthLoading(true);
+      const { data } = await supabaseBrowser.auth.getUser();
+      const authed = !!data?.user;
+      setIsAuthed(authed);
 
-      // keep UI indicator in sync
-      setIsAuthedUi(authed);
-
-      if (!authed) {
-        openAuthPopup("Please sign in first to use Directr.", next);
-        return false;
-      }
-
-      // if user is authed, ensure popup is closed
-      if (authOpen) setAuthOpen(false);
-
-      return true;
+      // ✅ critical: if authed, never leave signin popup open
+      if (authed) setShowSignin(false);
     } catch (e) {
-      console.error("Auth check failed:", e);
-      openAuthPopup("Please sign in first to use Directr.", next);
-      return false;
+      console.error("refreshAuth error:", e);
+      setIsAuthed(false);
+    } finally {
+      setAuthLoading(false);
     }
   }
-
-  // ✅ Keep UI auth indicator fresh + auto-close popup if session becomes valid
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      try {
-        const { data } = await supabaseBrowser.auth.getSession();
-        if (!mounted) return;
-        const authed = !!data?.session;
-        setIsAuthedUi(authed);
-        if (authed) setAuthOpen(false);
-      } catch {
-        if (!mounted) return;
-        setIsAuthedUi(false);
-      }
-    })();
-
-    const { data: sub } = supabaseBrowser.auth.onAuthStateChange((_event, session) => {
-      const authed = !!session;
-      setIsAuthedUi(authed);
-      if (authed) setAuthOpen(false);
-    });
-
-    return () => {
-      mounted = false;
-      sub?.subscription?.unsubscribe();
-    };
-  }, [authOpen]);
 
   async function refreshPlan() {
     try {
@@ -159,9 +109,28 @@ export default function CreatePage() {
   }
 
   useEffect(() => {
-    refreshPlan();
+    (async () => {
+      await refreshAuth();
+      await refreshPlan();
+    })();
+
+    // keep auth state in sync (login/logout)
+    const { data: sub } = supabaseBrowser.auth.onAuthStateChange(() => {
+      refreshAuth();
+      refreshPlan();
+    });
+
+    return () => {
+      sub?.subscription?.unsubscribe?.();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function openSigninPopup() {
+    // ✅ never show if authed
+    if (isAuthed) return;
+    setShowSignin(true);
+  }
 
   async function handleGenerate() {
     setError(null);
@@ -169,8 +138,11 @@ export default function CreatePage() {
     setResult(null);
     setEditedUrl(null);
 
-    const ok = await requireAuthOrPopup("/create");
-    if (!ok) return;
+    // ✅ If not logged in, show popup immediately (this is what you want)
+    if (!isAuthed) {
+      openSigninPopup();
+      return;
+    }
 
     if (!prompt.trim() && !file) {
       setError("Add a quick idea or upload a file first.");
@@ -205,11 +177,13 @@ export default function CreatePage() {
           body: JSON.stringify({ fileUrl: publicUrl, prompt }),
         });
 
+        // ✅ if API says sign in, show popup (only happens if session expired)
         if (res.status === 401) {
-          openAuthPopup("Please sign in first to use Directr.", "/create");
+          openSigninPopup();
           return;
         }
 
+        // handle limit reached
         if (res.status === 402) {
           setLimitReached(true);
           await refreshPlan();
@@ -235,8 +209,8 @@ export default function CreatePage() {
             await refreshPlan();
             return;
           }
-          if (data?.error === "unauthorized" || data?.error === "signin_required") {
-            openAuthPopup("Please sign in first to use Directr.", "/create");
+          if (data?.error === "signin_required") {
+            openSigninPopup();
             return;
           }
           setError(data.error || "Failed to find hooks.");
@@ -293,8 +267,9 @@ export default function CreatePage() {
         body: JSON.stringify(body),
       });
 
+      // ✅ sign in required
       if (res.status === 401) {
-        openAuthPopup("Please sign in first to use Directr.", "/create");
+        openSigninPopup();
         return;
       }
 
@@ -323,8 +298,8 @@ export default function CreatePage() {
           await refreshPlan();
           return;
         }
-        if (data?.error === "unauthorized" || data?.error === "signin_required") {
-          openAuthPopup("Please sign in first to use Directr.", "/create");
+        if (data?.error === "signin_required") {
+          openSigninPopup();
           return;
         }
         setError(data.error || "Failed to generate hooks.");
@@ -350,11 +325,15 @@ export default function CreatePage() {
   }
 
   async function handleUpgrade() {
-    const ok = await requireAuthOrPopup("/pricing");
-    if (!ok) return;
-
     try {
       setError(null);
+
+      // ✅ If not logged in, show popup instead of doing anything
+      if (!isAuthed) {
+        openSigninPopup();
+        return;
+      }
+
       setLoading(true);
 
       const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || "";
@@ -369,19 +348,17 @@ export default function CreatePage() {
         body: JSON.stringify({ priceId }),
       });
 
+      // ✅ If checkout route returns 401, show popup
       if (res.status === 401) {
-        openAuthPopup("Please sign in first to upgrade to Pro.", "/pricing");
+        openSigninPopup();
         return;
       }
 
       const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.success || !data?.url) {
-        if (data?.error === "signin_required") {
-          openAuthPopup(data?.message || "Please sign in first.", "/pricing");
-          return;
-        }
-        setError(data?.error || "Could not start checkout. Try again.");
+        if (data?.error === "signin_required") openSigninPopup();
+        else setError(data?.message || data?.error || "Could not start checkout. Try again.");
         return;
       }
 
@@ -395,20 +372,21 @@ export default function CreatePage() {
 
   return (
     <main className="create-root">
-      {/* ✅ SIGN IN POPUP */}
-      {authOpen && (
+      {/* ✅ Sign-in popup */}
+      {showSignin && !isAuthed && (
         <div
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.65)",
+            background: "rgba(0,0,0,0.62)",
+            backdropFilter: "blur(6px)",
+            zIndex: 9999,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 9999,
-            padding: 16,
+            padding: 18,
           }}
-          onClick={closeAuthPopup}
+          onClick={() => setShowSignin(false)}
         >
           <div
             className="card"
@@ -417,29 +395,31 @@ export default function CreatePage() {
           >
             <div className="card__head">
               <div>
-                <div className="title">Sign in required</div>
-                <div className="subtitle">{authMsg}</div>
+                <div className="title">Please sign in</div>
+                <div className="subtitle">You need an account to generate hooks.</div>
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <button
                 className="btn btn--primary"
-                style={{ width: "100%" }}
-                onClick={() => {
-                  const next = encodeURIComponent(authNext || "/create");
-                  router.push(`/login?next=${next}`);
-                }}
+                type="button"
+                onClick={() => router.push("/login?next=/create")}
               >
-                Sign in
+                Sign in / Create account
               </button>
+
               <button
                 className="btn btn--ghost"
-                style={{ width: "100%" }}
-                onClick={closeAuthPopup}
+                type="button"
+                onClick={() => setShowSignin(false)}
               >
                 Not now
               </button>
+
+              <div style={{ fontSize: 12, opacity: 0.7, lineHeight: 1.5 }}>
+                Tip: 3 free generations after you sign in.
+              </div>
             </div>
           </div>
         </div>
