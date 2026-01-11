@@ -1,9 +1,9 @@
-import Viewer from "./viewer";
+import JobViewer from "./viewer";
 
 export default function JobPage({
   params,
 }: {
   params: { id: string };
 }) {
-  return <Viewer id={params.id} />;
+  return <JobViewer id={params.id} />;
 }
