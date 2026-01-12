@@ -28,7 +28,6 @@ export default function CreatePage() {
   const [goal, setGoal] = useState("Get more views, drive sales, grow page, etc.");
   const [lengthSeconds, setLengthSeconds] = useState("30");
   const [tone, setTone] = useState("Casual");
-  const [file, setFile] = useState<File | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -161,119 +160,14 @@ export default function CreatePage() {
     const ok = await requireAuthOrPopup();
     if (!ok) return;
 
-    if (!prompt.trim() && !file) {
-      setError("Add a quick idea or upload a file first.");
+    if (!prompt.trim()) {
+      setError("Add a quick idea first.");
       return;
     }
 
     setLoading(true);
     try {
-      // CASE 1: FILE PRESENT → upload to Supabase → send URL to /api/clipper
-      if (file) {
-        const path = `${Date.now()}-${file.name}`;
-
-        const { data: uploadData, error: uploadError } =
-          await supabase.storage.from("raw_uploads").upload(path, file, {
-            cacheControl: "3600",
-            upsert: false,
-          });
-
-        if (uploadError || !uploadData) {
-          console.error("Supabase upload error:", uploadError);
-          setError("Failed to upload file. Try a smaller file or different format.");
-          return;
-        }
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("raw_uploads").getPublicUrl(uploadData.path);
-
-        const res = await fetch("/api/clipper", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fileUrl: publicUrl, prompt }),
-        });
-
-        if (res.status === 401) {
-          setShowSignin(true);
-          return;
-        }
-
-        if (res.status === 402) {
-          setLimitReached(true);
-          await refreshPlan();
-          return;
-        }
-
-        const contentType = res.headers.get("content-type") || "";
-        if (!contentType.includes("application/json")) {
-          const text = await res.text();
-          console.error("Non-JSON response from /api/clipper:", {
-            status: res.status,
-            textSnippet: text.slice(0, 200),
-          });
-          setError(`Server returned non-JSON (status ${res.status}). Route might be misconfigured.`);
-          return;
-        }
-
-        const data = await res.json();
-
-        if (!data.success) {
-          if (data?.error === "limit_reached") {
-            setLimitReached(true);
-            await refreshPlan();
-            return;
-          }
-          if (data?.error === "signin_required") {
-            setShowSignin(true);
-            return;
-          }
-          setError(data.error || "Failed to find hooks.");
-          return;
-        }
-
-        const transcript: string = data.transcript || "";
-        const clips: any[] = Array.isArray(data.clips) ? data.clips : [];
-
-        let text = "";
-
-        if (transcript) {
-          text += "TRANSCRIPT\n──────────\n";
-          text += transcript.trim();
-          text += "\n\n";
-        }
-
-        if (clips.length > 0) {
-          text += "HOOKS + MOMENTS\n──────────────\n";
-          text += clips
-            .map((clip, idx) => {
-              const start = clip.start ?? clip.start_seconds ?? 0;
-              const end = clip.end ?? clip.end_seconds ?? 0;
-              const hook = clip.hook_line || "";
-              const desc = clip.description || "";
-
-              return [
-                `Moment ${idx + 1}`,
-                `  Time: ${start.toFixed?.(2) ?? start} → ${end.toFixed?.(2) ?? end}s`,
-                hook ? `  Hook: ${hook}` : null,
-                desc ? `  Why it works: ${desc}` : null,
-              ]
-                .filter(Boolean)
-                .join("\n");
-            })
-            .join("\n\n");
-        } else {
-          text += "No moments were returned, but the transcript is available above.";
-        }
-
-        setResult(text);
-        setEditedUrl(null);
-
-        await refreshPlan();
-        return;
-      }
-
-      // CASE 2: NO FILE → hook generator
+      // TEXT ONLY → hook generator
       const body = { prompt, platform, goal, lengthSeconds, tone };
 
       const res = await fetch("/api/generate", {
@@ -331,11 +225,6 @@ export default function CreatePage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (f) setFile(f);
   }
 
   async function handleUpgrade() {
@@ -493,17 +382,13 @@ export default function CreatePage() {
             <textarea
               name="prompt"
               className="create-textarea"
-              placeholder={
-                file
-                  ? "Optional: what should viewers feel / do after watching?"
-                  : "Example: Give me 10 scroll-stopping hooks for a video about (topic)."
-              }
+              placeholder={"Example: I’m making a video about (topic). Give me 10 hooks that sound human."}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
             />
           </div>
 
-          {mode === "advanced" && !file && (
+          {mode === "advanced" && (
             <div className="create-advanced-row">
               <div className="create-adv-field">
                 <label>Platform</label>
@@ -549,17 +434,9 @@ export default function CreatePage() {
           )}
 
           <div className="create-bottom-row">
-            <label className="create-file-bar">
-              <span className="create-file-label">
-                <span className="create-file-bullet">•</span>
-                {file ? file.name : "Choose file / drop here"}
-              </span>
-              <input type="file" name="file" className="create-file-input" onChange={handleFileChange} />
-            </label>
-
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, width: "100%" }}>
               <button type="button" className="create-generate-btn" onClick={handleGenerate} disabled={loading}>
-                {loading ? "Finding hooks..." : file ? "Find hooks from file" : "Generate viral hooks"}
+                {loading ? "Finding hooks..." : "Generate hooks"}
               </button>
 
               <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
@@ -569,7 +446,7 @@ export default function CreatePage() {
           </div>
 
           <p className="create-tip">
-            Tip: Drop a video/audio to auto-find the strongest moments + hook lines, or type your idea to generate scroll-stopping hooks.
+            Tip: Paste your idea + what the video is about. The first 3 seconds decide everything.
           </p>
 
           {error && <p className="create-error">{error}</p>}
@@ -621,17 +498,17 @@ export default function CreatePage() {
         <div className="create-tiles-grid">
           <article className="create-tile">
             <h2>Hooks</h2>
-            <p>Upload → get scroll-stopping hook lines</p>
-          </article>
-
-          <article className="create-tile">
-            <h2>Moments</h2>
-            <p>Auto-find the strongest points to clip</p>
+            <p>Scroll-stopping hook lines</p>
           </article>
 
           <article className="create-tile">
             <h2>Captions</h2>
-            <p>Captions designed to keep viewers watching</p>
+            <p>3 captions + 1 CTA per video</p>
+          </article>
+
+          <article className="create-tile">
+            <h2>Flow</h2>
+            <p>Opening delivery + video structure</p>
           </article>
         </div>
       </section>
