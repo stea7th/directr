@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Mode = "signin" | "signup" | "reset";
@@ -14,7 +14,14 @@ function getSiteUrl() {
 
 export default function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  const nextPath = useMemo(() => {
+    const n = searchParams.get("next");
+    if (n && n.startsWith("/")) return n;
+    return "/create";
+  }, [searchParams]);
 
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -27,6 +34,33 @@ export default function LoginForm() {
     setErr(null);
     setMsg(null);
   }
+
+  // ✅ If already authed, bounce immediately
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      if (data?.session) {
+        router.replace(nextPath);
+        router.refresh();
+      }
+    })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        router.replace(nextPath);
+        router.refresh();
+      }
+    });
+
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nextPath]);
 
   async function onEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,13 +84,22 @@ export default function LoginForm() {
     setLoading(true);
     try {
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || getSiteUrl();
-      const redirectTo = `${siteUrl}/auth/callback?next=/create`;
+      const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(nextPath)}`;
 
       if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
         if (error) throw error;
 
-        router.push("/create");
+        // ✅ confirm session exists (prevents “sign in but not signed in”)
+        const { data: sess } = await supabase.auth.getSession();
+        if (!sess?.session) {
+          throw new Error("Sign-in didn’t create a session. Refresh and try again.");
+        }
+
+        router.replace(nextPath);
         router.refresh();
         return;
       }
@@ -78,7 +121,7 @@ export default function LoginForm() {
 
       // RESET PASSWORD
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo, // user lands in your /auth/callback -> you can route them to update-password screen if you have one
+        redirectTo,
       });
 
       if (error) throw error;
@@ -97,7 +140,7 @@ export default function LoginForm() {
     setLoading(true);
     try {
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || getSiteUrl();
-      const redirectTo = `${siteUrl}/auth/callback?next=/create`;
+      const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(nextPath)}`;
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -105,6 +148,7 @@ export default function LoginForm() {
       });
 
       if (error) throw error;
+      // OAuth redirects away
     } catch (e: any) {
       setErr(e?.message ?? "Google login failed");
       setLoading(false);
