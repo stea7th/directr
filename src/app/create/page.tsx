@@ -2,7 +2,7 @@
 
 import "./page.css";
 import React, { useEffect, useMemo, useState } from "react";
-import { supabaseBrowser } from "@/lib/supabase/browser";
+import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type Mode = "basic" | "advanced";
