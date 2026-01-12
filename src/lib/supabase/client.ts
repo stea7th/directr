@@ -1,20 +1,15 @@
+// src/lib/supabase/client.ts
 "use client";
 
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 
 export function createClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-  if (!url || !anonKey) {
+  if (!url || !anon) {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
   }
 
-  return createSupabaseClient(url, anonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-    },
-  });
+  return createBrowserClient(url, anon);
 }
