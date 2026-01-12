@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Mode = "signin" | "signup" | "reset";
 
 function getSiteUrl() {
-  // Client-safe origin fallback (handles missing NEXT_PUBLIC_SITE_URL)
   if (typeof window !== "undefined") return window.location.origin;
   return process.env.NEXT_PUBLIC_SITE_URL || "";
 }
@@ -23,10 +22,14 @@ export default function LoginForm() {
     return "/create";
   }, [searchParams]);
 
+  const didRedirectRef = useRef(false);
+
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true); // ✅ prevents weird flash states
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -35,23 +38,43 @@ export default function LoginForm() {
     setMsg(null);
   }
 
-  // ✅ If already authed, bounce immediately
+  function goNext() {
+    if (didRedirectRef.current) return;
+    didRedirectRef.current = true;
+    router.replace(nextPath);
+    router.refresh();
+  }
+
+  // ✅ Only redirect if the user is REAL (server-verified)
   useEffect(() => {
     let mounted = true;
 
     (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
-      if (data?.session) {
-        router.replace(nextPath);
-        router.refresh();
+      try {
+        setChecking(true);
+
+        // getUser() verifies the JWT with Supabase (more reliable than getSession())
+        const { data, error } = await supabase.auth.getUser();
+        if (!mounted) return;
+
+        if (!error && data?.user) {
+          goNext();
+          return;
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (mounted) setChecking(false);
       }
     })();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        router.replace(nextPath);
-        router.refresh();
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      // Only redirect on actual sign-in (prevents random redirects)
+      if (
+        (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") &&
+        session?.user
+      ) {
+        goNext();
       }
     });
 
@@ -84,7 +107,9 @@ export default function LoginForm() {
     setLoading(true);
     try {
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || getSiteUrl();
-      const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+      const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(
+        nextPath
+      )}`;
 
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({
@@ -93,14 +118,13 @@ export default function LoginForm() {
         });
         if (error) throw error;
 
-        // ✅ confirm session exists (prevents “sign in but not signed in”)
-        const { data: sess } = await supabase.auth.getSession();
-        if (!sess?.session) {
-          throw new Error("Sign-in didn’t create a session. Refresh and try again.");
+        // ✅ verify real user session (prevents “signed in but not signed in”)
+        const { data, error: uErr } = await supabase.auth.getUser();
+        if (uErr || !data?.user) {
+          throw new Error("Sign-in didn’t stick. Refresh and try again.");
         }
 
-        router.replace(nextPath);
-        router.refresh();
+        goNext();
         return;
       }
 
@@ -127,7 +151,6 @@ export default function LoginForm() {
       if (error) throw error;
 
       setMsg("Password reset link sent. Check your email.");
-      // stay in reset mode so they can resend if needed
     } catch (e: any) {
       setErr(e?.message ?? "Authentication failed");
     } finally {
@@ -140,7 +163,9 @@ export default function LoginForm() {
     setLoading(true);
     try {
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || getSiteUrl();
-      const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+      const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(
+        nextPath
+      )}`;
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -148,7 +173,6 @@ export default function LoginForm() {
       });
 
       if (error) throw error;
-      // OAuth redirects away
     } catch (e: any) {
       setErr(e?.message ?? "Google login failed");
       setLoading(false);
@@ -156,7 +180,11 @@ export default function LoginForm() {
   }
 
   const title =
-    mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Reset password";
+    mode === "signin"
+      ? "Sign in"
+      : mode === "signup"
+      ? "Create account"
+      : "Reset password";
 
   const subtitle =
     mode === "signin"
@@ -164,6 +192,22 @@ export default function LoginForm() {
       : mode === "signup"
       ? "Create your Directr account in seconds."
       : "We’ll email you a reset link.";
+
+  // Optional: while checking auth, keep the card so it doesn't “flash away”
+  // (it'll redirect only if truly authed)
+  if (checking) {
+    return (
+      <div className="card" style={{ maxWidth: 520, margin: "0 auto" }}>
+        <div className="card__head">
+          <div>
+            <div className="title">Sign in</div>
+            <div className="subtitle">Checking session…</div>
+          </div>
+        </div>
+        <div style={{ fontSize: 13, opacity: 0.7 }}> </div>
+      </div>
+    );
+  }
 
   return (
     <div className="card" style={{ maxWidth: 520, margin: "0 auto" }}>
@@ -201,7 +245,9 @@ export default function LoginForm() {
         {mode !== "reset" && (
           <input
             className="input"
-            placeholder={mode === "signin" ? "Password" : "Create password (6+ chars)"}
+            placeholder={
+              mode === "signin" ? "Password" : "Create password (6+ chars)"
+            }
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
