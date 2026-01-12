@@ -36,17 +36,17 @@ export default function CreatePage() {
   const [result, setResult] = useState<string | null>(null);
   const [editedUrl, setEditedUrl] = useState<string | null>(null);
 
-  // ✅ Auth + sign-in popup
-  const [authLoading, setAuthLoading] = useState(true);
-  const [isAuthed, setIsAuthed] = useState(false);
-  const [showSignin, setShowSignin] = useState(false);
-
   const [plan, setPlan] = useState<PlanState>({
     loading: true,
     isPro: false,
     used: 0,
     freeLimit: 3,
   });
+
+  // ✅ Auth state + popup
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isAuthed, setIsAuthed] = useState(false);
+  const [showSignin, setShowSignin] = useState(false);
 
   const statusLine = useMemo(() => {
     if (plan.loading) return "Checking your plan…";
@@ -57,11 +57,15 @@ export default function CreatePage() {
   async function refreshAuth() {
     try {
       setAuthLoading(true);
-      const { data } = await supabaseBrowser.auth.getUser();
-      const authed = !!data?.user;
+
+      // ✅ getSession is more reliable than getUser() for “am I signed in?”
+      const { data, error } = await supabaseBrowser.auth.getSession();
+      if (error) console.error("getSession error:", error);
+
+      const authed = !!data?.session?.user;
       setIsAuthed(authed);
 
-      // ✅ critical: if authed, never leave signin popup open
+      // if authed, never show the popup
       if (authed) setShowSignin(false);
     } catch (e) {
       console.error("refreshAuth error:", e);
@@ -71,13 +75,31 @@ export default function CreatePage() {
     }
   }
 
+  async function requireAuthOrPopup(): Promise<boolean> {
+    // If auth is still loading, don't incorrectly pop
+    if (authLoading) return false;
+
+    const { data } = await supabaseBrowser.auth.getSession();
+    const authed = !!data?.session?.user;
+
+    // keep state synced
+    setIsAuthed(authed);
+
+    if (authed) {
+      setShowSignin(false);
+      return true;
+    }
+
+    setShowSignin(true);
+    return false;
+  }
+
   async function refreshPlan() {
     try {
       setPlan((p) => ({ ...p, loading: true }));
 
-      const {
-        data: { user },
-      } = await supabaseBrowser.auth.getUser();
+      const { data } = await supabaseBrowser.auth.getSession();
+      const user = data?.session?.user;
 
       if (!user) {
         setPlan({ loading: false, isPro: false, used: 0, freeLimit: 3 });
@@ -109,28 +131,21 @@ export default function CreatePage() {
   }
 
   useEffect(() => {
-    (async () => {
-      await refreshAuth();
-      await refreshPlan();
-    })();
+    // initial checks
+    refreshAuth();
+    refreshPlan();
 
-    // keep auth state in sync (login/logout)
+    // ✅ keep auth state synced in realtime
     const { data: sub } = supabaseBrowser.auth.onAuthStateChange(() => {
       refreshAuth();
       refreshPlan();
     });
 
     return () => {
-      sub?.subscription?.unsubscribe?.();
+      sub?.subscription?.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  function openSigninPopup() {
-    // ✅ never show if authed
-    if (isAuthed) return;
-    setShowSignin(true);
-  }
 
   async function handleGenerate() {
     setError(null);
@@ -138,11 +153,9 @@ export default function CreatePage() {
     setResult(null);
     setEditedUrl(null);
 
-    // ✅ If not logged in, show popup immediately (this is what you want)
-    if (!isAuthed) {
-      openSigninPopup();
-      return;
-    }
+    // ✅ gate with reliable session check
+    const ok = await requireAuthOrPopup();
+    if (!ok) return;
 
     if (!prompt.trim() && !file) {
       setError("Add a quick idea or upload a file first.");
@@ -177,9 +190,9 @@ export default function CreatePage() {
           body: JSON.stringify({ fileUrl: publicUrl, prompt }),
         });
 
-        // ✅ if API says sign in, show popup (only happens if session expired)
+        // ✅ if server says sign in, show popup
         if (res.status === 401) {
-          openSigninPopup();
+          setShowSignin(true);
           return;
         }
 
@@ -210,7 +223,7 @@ export default function CreatePage() {
             return;
           }
           if (data?.error === "signin_required") {
-            openSigninPopup();
+            setShowSignin(true);
             return;
           }
           setError(data.error || "Failed to find hooks.");
@@ -267,9 +280,8 @@ export default function CreatePage() {
         body: JSON.stringify(body),
       });
 
-      // ✅ sign in required
       if (res.status === 401) {
-        openSigninPopup();
+        setShowSignin(true);
         return;
       }
 
@@ -299,7 +311,7 @@ export default function CreatePage() {
           return;
         }
         if (data?.error === "signin_required") {
-          openSigninPopup();
+          setShowSignin(true);
           return;
         }
         setError(data.error || "Failed to generate hooks.");
@@ -325,15 +337,12 @@ export default function CreatePage() {
   }
 
   async function handleUpgrade() {
+    // ✅ gate with reliable session check
+    const ok = await requireAuthOrPopup();
+    if (!ok) return;
+
     try {
       setError(null);
-
-      // ✅ If not logged in, show popup instead of doing anything
-      if (!isAuthed) {
-        openSigninPopup();
-        return;
-      }
-
       setLoading(true);
 
       const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || "";
@@ -348,17 +357,21 @@ export default function CreatePage() {
         body: JSON.stringify({ priceId }),
       });
 
-      // ✅ If checkout route returns 401, show popup
+      // ✅ if API says sign in required, show popup (instead of red error)
       if (res.status === 401) {
-        openSigninPopup();
+        setShowSignin(true);
         return;
       }
 
       const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.success || !data?.url) {
-        if (data?.error === "signin_required") openSigninPopup();
-        else setError(data?.message || data?.error || "Could not start checkout. Try again.");
+        // if your checkout route returns signin_required in json too
+        if (data?.error === "signin_required") {
+          setShowSignin(true);
+          return;
+        }
+        setError(data?.error || "Could not start checkout. Try again.");
         return;
       }
 
@@ -370,57 +383,57 @@ export default function CreatePage() {
     }
   }
 
+  function goToLogin() {
+    const next = encodeURIComponent("/create");
+    router.push(`/login?next=${next}`);
+  }
+
   return (
     <main className="create-root">
-      {/* ✅ Sign-in popup */}
-      {showSignin && !isAuthed && (
+      {/* ✅ Sign-in popup (only shows when truly not authed) */}
+      {showSignin && !isAuthed && !authLoading && (
         <div
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.62)",
-            backdropFilter: "blur(6px)",
-            zIndex: 9999,
+            zIndex: 50,
+            background: "rgba(0,0,0,0.65)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: 18,
+            padding: 16,
           }}
           onClick={() => setShowSignin(false)}
         >
           <div
             className="card"
-            style={{ width: "100%", maxWidth: 520 }}
+            style={{ maxWidth: 520, width: "100%" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="card__head">
               <div>
-                <div className="title">Please sign in</div>
-                <div className="subtitle">You need an account to generate hooks.</div>
+                <div className="title">Please sign in first</div>
+                <div className="subtitle">Create an account in seconds. Then generate hooks.</div>
               </div>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button
-                className="btn btn--primary"
-                type="button"
-                onClick={() => router.push("/login?next=/create")}
-              >
-                Sign in / Create account
-              </button>
+            <button
+              type="button"
+              className="btn btn--primary"
+              style={{ width: "100%", marginBottom: 10 }}
+              onClick={goToLogin}
+            >
+              Sign in / Create account
+            </button>
 
-              <button
-                className="btn btn--ghost"
-                type="button"
-                onClick={() => setShowSignin(false)}
-              >
-                Not now
-              </button>
-
-              <div style={{ fontSize: 12, opacity: 0.7, lineHeight: 1.5 }}>
-                Tip: 3 free generations after you sign in.
-              </div>
-            </div>
+            <button
+              type="button"
+              className="btn btn--ghost"
+              style={{ width: "100%" }}
+              onClick={() => setShowSignin(false)}
+            >
+              Not now
+            </button>
           </div>
         </div>
       )}
@@ -430,6 +443,7 @@ export default function CreatePage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <h1 style={{ marginBottom: 0 }}>Fix your hook before you post</h1>
 
+            {/* ✅ plan badge line */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span
                 style={{
@@ -562,6 +576,7 @@ export default function CreatePage() {
 
           {error && <p className="create-error">{error}</p>}
 
+          {/* ✅ CONVERSION PAYWALL CARD */}
           {limitReached && !error && !plan.isPro && (
             <div className="create-result">
               <h3>You’ve used your free hooks.</h3>
