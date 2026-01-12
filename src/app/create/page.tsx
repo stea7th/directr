@@ -558,21 +558,9 @@ export default function CreatePage() {
             </label>
 
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-  <button
-    type="button"
-    className="create-generate-btn"
-    onClick={handleGenerate}
-    disabled={loading}
-  >
-    {loading
-      ? "Finding hooks..."
-      : file
-      ? "Find hooks from file"
-      : plan.isPro
-      ? "Generate hooks"
-      : "Generate viral hooks"}
-  </button>
-</div>
+              <button type="button" className="create-generate-btn" onClick={handleGenerate} disabled={loading}>
+                {loading ? "Finding hooks..." : file ? "Find hooks from file" : "Generate viral hooks"}
+              </button>
 
               <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
                 {plan.isPro ? "✅ Pro active • unlimited generations" : "3 free generations • then $19/mo for unlimited hooks"}
