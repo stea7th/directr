@@ -17,6 +17,7 @@ type PlanState = {
 export default function CreatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const supabase = createClient();
 
   const upgraded = searchParams.get("upgraded") === "1";
   const canceled = searchParams.get("canceled") === "1";
@@ -58,14 +59,14 @@ export default function CreatePage() {
     try {
       setAuthLoading(true);
 
-      // ✅ getSession is more reliable than getUser() for “am I signed in?”
-      const { data, error } = await supabaseBrowser.auth.getSession();
+      // ✅ reliable: getSession for "am I signed in?"
+      const { data, error } = await supabase.auth.getSession();
       if (error) console.error("getSession error:", error);
 
       const authed = !!data?.session?.user;
       setIsAuthed(authed);
 
-      // if authed, never show the popup
+      // if authed, never show popup
       if (authed) setShowSignin(false);
     } catch (e) {
       console.error("refreshAuth error:", e);
@@ -76,14 +77,12 @@ export default function CreatePage() {
   }
 
   async function requireAuthOrPopup(): Promise<boolean> {
-    // If auth is still loading, don't incorrectly pop
-    if (authLoading) return false;
-
-    const { data } = await supabaseBrowser.auth.getSession();
+    // If auth is still loading, do a live check instead of popping incorrectly
+    const { data } = await supabase.auth.getSession();
     const authed = !!data?.session?.user;
 
-    // keep state synced
     setIsAuthed(authed);
+    setAuthLoading(false);
 
     if (authed) {
       setShowSignin(false);
@@ -98,7 +97,7 @@ export default function CreatePage() {
     try {
       setPlan((p) => ({ ...p, loading: true }));
 
-      const { data } = await supabaseBrowser.auth.getSession();
+      const { data } = await supabase.auth.getSession();
       const user = data?.session?.user;
 
       if (!user) {
@@ -106,7 +105,7 @@ export default function CreatePage() {
         return;
       }
 
-      const { data: profile, error: profileErr } = await supabaseBrowser
+      const { data: profile, error: profileErr } = await supabase
         .from("profiles")
         .select("is_pro, generations_used")
         .eq("id", user.id)
@@ -135,14 +134,19 @@ export default function CreatePage() {
     refreshAuth();
     refreshPlan();
 
-    // ✅ keep auth state synced in realtime
-    const { data: sub } = supabaseBrowser.auth.onAuthStateChange(() => {
-      refreshAuth();
+    // ✅ keep auth state synced in realtime (don’t flicker popup)
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      const authed = !!session?.user;
+      setIsAuthed(authed);
+      setAuthLoading(false);
+      if (authed) setShowSignin(false);
+
+      // refresh plan on auth changes
       refreshPlan();
     });
 
     return () => {
-      sub?.subscription?.unsubscribe();
+      data?.subscription?.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -169,7 +173,7 @@ export default function CreatePage() {
         const path = `${Date.now()}-${file.name}`;
 
         const { data: uploadData, error: uploadError } =
-          await supabaseBrowser.storage.from("raw_uploads").upload(path, file, {
+          await supabase.storage.from("raw_uploads").upload(path, file, {
             cacheControl: "3600",
             upsert: false,
           });
@@ -182,7 +186,7 @@ export default function CreatePage() {
 
         const {
           data: { publicUrl },
-        } = supabaseBrowser.storage.from("raw_uploads").getPublicUrl(uploadData.path);
+        } = supabase.storage.from("raw_uploads").getPublicUrl(uploadData.path);
 
         const res = await fetch("/api/clipper", {
           method: "POST",
@@ -190,13 +194,11 @@ export default function CreatePage() {
           body: JSON.stringify({ fileUrl: publicUrl, prompt }),
         });
 
-        // ✅ if server says sign in, show popup
         if (res.status === 401) {
           setShowSignin(true);
           return;
         }
 
-        // handle limit reached
         if (res.status === 402) {
           setLimitReached(true);
           await refreshPlan();
@@ -337,7 +339,6 @@ export default function CreatePage() {
   }
 
   async function handleUpgrade() {
-    // ✅ gate with reliable session check
     const ok = await requireAuthOrPopup();
     if (!ok) return;
 
@@ -357,7 +358,6 @@ export default function CreatePage() {
         body: JSON.stringify({ priceId }),
       });
 
-      // ✅ if API says sign in required, show popup (instead of red error)
       if (res.status === 401) {
         setShowSignin(true);
         return;
@@ -366,7 +366,6 @@ export default function CreatePage() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.success || !data?.url) {
-        // if your checkout route returns signin_required in json too
         if (data?.error === "signin_required") {
           setShowSignin(true);
           return;
@@ -390,7 +389,7 @@ export default function CreatePage() {
 
   return (
     <main className="create-root">
-      {/* ✅ Sign-in popup (only shows when truly not authed) */}
+      {/* ✅ Sign-in popup (ONLY when truly not authed) */}
       {showSignin && !isAuthed && !authLoading && (
         <div
           style={{
@@ -443,7 +442,6 @@ export default function CreatePage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <h1 style={{ marginBottom: 0 }}>Fix your hook before you post</h1>
 
-            {/* ✅ plan badge line */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span
                 style={{
@@ -576,7 +574,6 @@ export default function CreatePage() {
 
           {error && <p className="create-error">{error}</p>}
 
-          {/* ✅ CONVERSION PAYWALL CARD */}
           {limitReached && !error && !plan.isPro && (
             <div className="create-result">
               <h3>You’ve used your free hooks.</h3>
