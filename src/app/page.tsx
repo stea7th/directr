@@ -42,7 +42,7 @@ export default function Home() {
             Directr turns one sentence into a <strong>Blueprint</strong> — the hook, what to say, how to say it, what to
             film, and how to end.
             <br />
-            <span className="lp-subDim">Structured, not locked-in. You can tune voice, angles, audience, and CTA.</span>
+            <span className="lp-subDim">Versital options let you tune voice, angles, audience, and CTA.</span>
           </p>
 
           <div className="lp-ctaRow">
