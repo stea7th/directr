@@ -51,7 +51,7 @@ export default function CreatePage() {
   const [goal, setGoal] = useState("Get more views, drive sales, grow page, etc.");
   const [lengthSeconds, setLengthSeconds] = useState("30");
 
-  // ✅ New Blueprint controls
+  // ✅ Blueprint controls
   const [voice, setVoice] = useState<CreatorVoice>("Raw & conversational");
   const [audienceLevel, setAudienceLevel] = useState<AudienceLevel>("Aware but stuck");
   const [hookAngles, setHookAngles] = useState<HookAngle[]>(["Curiosity gap"]);
@@ -217,7 +217,6 @@ export default function CreatePage() {
               platform,
               goal,
               lengthSeconds,
-              // ✅ new blueprint fields
               voice,
               audienceLevel,
               hookAngles,
@@ -399,11 +398,15 @@ export default function CreatePage() {
               </span>
 
               {upgraded && (
-                <span style={{ fontSize: 12, color: "rgba(160, 255, 200, 0.9)" }}>✅ Payment received — Pro is active</span>
+                <span style={{ fontSize: 12, color: "rgba(160, 255, 200, 0.9)" }}>
+                  ✅ Payment received — Pro is active
+                </span>
               )}
 
               {canceled && (
-                <span style={{ fontSize: 12, color: "rgba(255, 190, 120, 0.9)" }}>Checkout canceled — you can upgrade anytime</span>
+                <span style={{ fontSize: 12, color: "rgba(255, 190, 120, 0.9)" }}>
+                  Checkout canceled — you can upgrade anytime
+                </span>
               )}
             </div>
           </div>
@@ -509,6 +512,7 @@ export default function CreatePage() {
 
               <div className="create-adv-field" style={{ gridColumn: "1 / -1" }}>
                 <label>Hook angle (pick up to 2)</label>
+
                 <div
                   style={{
                     display: "grid",
@@ -553,24 +557,28 @@ export default function CreatePage() {
                     );
                   })}
                 </div>
-
-                <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
-                  Included in every plan: hooks • best pick • delivery notes • video flow • shot list • captions + CTA
-                </div>
               </div>
             </div>
           )}
 
-          {/* Bottom row */}
-          <div className="create-bottom-row">
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, width: "100%" }}>
-              <button type="button" className="create-generate-btn" onClick={handleGenerate} disabled={loading}>
-                {generateLabel}
-              </button>
+          {/* ✅ Footer area that fixes the “off” bottom spacing */}
+          <div className="create-blueprint-footer">
+            {mode === "blueprint" && (
+              <p className="create-included">
+                Included in every plan: hooks • best pick • delivery notes • video flow • shot list • captions + CTA
+              </p>
+            )}
 
-              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
-                {plan.isPro ? "✅ Pro active • unlimited generations" : "3 free generations • then $19/mo for unlimited hooks"}
-              </span>
+            <div className="create-bottom-row">
+              <div className="create-cta-wrap">
+                <button type="button" className="create-generate-btn" onClick={handleGenerate} disabled={loading}>
+                  {generateLabel}
+                </button>
+
+                <span className="create-cta-sub">
+                  {plan.isPro ? "✅ Pro active • unlimited generations" : "3 free generations • then $19/mo for unlimited hooks"}
+                </span>
+              </div>
             </div>
           </div>
 
