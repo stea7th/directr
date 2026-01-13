@@ -29,7 +29,7 @@ export default function Home() {
         <section className="lp-hero">
           <div className="lp-pill">
             <span className="lp-pillGlow" />
-            <span className="lp-pillText">Blueprint removes the decision-making</span>
+            <span className="lp-pillText">Directr removes the decision-making</span>
           </div>
 
           <h1 className="lp-h1">
@@ -51,7 +51,7 @@ export default function Home() {
             </Link>
 
             <a href="#example" className="lp-secondaryBtn">
-              See blueprint
+              See example
             </a>
 
             <Link href="/pricing" className="lp-ghostBtn">
@@ -227,7 +227,7 @@ Say it fast. Pause after “lost.” Then slow down on “Start like this instea
             {[
               {
                 q: "Is this just a hook generator?",
-                a: "No. Quick gives hooks. Blueprint gives hooks + best pick + delivery notes + flow + shot list + captions and posting notes.",
+                a: "No. Quick gives hooks. Directr gives hooks + best pick + delivery notes + flow + shot list + captions and posting notes.",
               },
               {
                 q: "Will this sound like me?",
