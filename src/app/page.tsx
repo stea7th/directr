@@ -11,7 +11,7 @@ export default function Home() {
             <div className="lp-logoDot" />
             <div className="lp-brandText">
               <div className="lp-brandName">Directr</div>
-              <div className="lp-brandSub">Hook + plan generator</div>
+              <div className="lp-brandSub">Hooks + Blueprint</div>
             </div>
           </div>
 
@@ -29,20 +29,20 @@ export default function Home() {
         <section className="lp-hero">
           <div className="lp-pill">
             <span className="lp-pillGlow" />
-            <span className="lp-pillText">Hook + filming plan • in one output</span>
+            <span className="lp-pillText">Blueprint removes the decision-making</span>
           </div>
 
           <h1 className="lp-h1">
-            Fix your hook
+            Stop deciding.
             <br />
-            before you post.
+            Start filming.
           </h1>
 
           <p className="lp-sub">
-            Directr gives you <strong>spoken hooks</strong>, opening delivery notes, a clean video flow, a shot list,
-            captions, and posting notes — in one output.
+            Directr turns one sentence into a <strong>Blueprint</strong> — the hook, what to say, how to say it, what to
+            film, and how to end.
             <br />
-            <span className="lp-subDim">No “stop scrolling” fluff. No AI-voice vibes.</span>
+            <span className="lp-subDim">Structured, not locked-in. You can tune voice, angles, audience, and CTA.</span>
           </p>
 
           <div className="lp-ctaRow">
@@ -51,7 +51,7 @@ export default function Home() {
             </Link>
 
             <a href="#example" className="lp-secondaryBtn">
-              See example
+              See blueprint
             </a>
 
             <Link href="/pricing" className="lp-ghostBtn">
@@ -70,8 +70,8 @@ export default function Home() {
           <div className="lp-badges">
             {[
               ["Quick", "Fast hook options"],
-              ["Blueprint", "Full filming plan"],
-              ["Output", "Hooks • flow • shots • captions"],
+              ["Blueprint", "Film-ready plan (decisions done)"],
+              ["Output", "Hooks • delivery • flow • shots • captions"],
             ].map(([t, d]) => (
               <div key={t} className="lp-badge">
                 <div className="lp-badgeT">{t}</div>
@@ -85,26 +85,27 @@ export default function Home() {
         <section className="lp-section lp-why">
           <div className="lp-sectionHead">
             <div className="lp-kicker">Why this works</div>
-            <h2 className="lp-h2">Your content isn’t bad. Your first 2 seconds are.</h2>
+            <h2 className="lp-h2">Creators don’t stall from bad ideas. They stall from too many choices.</h2>
             <p className="lp-p">
-              Most creators lose the viewer before the value even starts. Directr forces a{" "}
-              <strong>strong opening</strong> and gives you the exact structure to deliver it without rambling.
+              Most tools give you text and leave you to figure out the rest.
+              Directr gives you a <strong>Blueprint</strong> that removes the decision layer — so you can film without
+              second-guessing.
             </p>
           </div>
 
           <div className="lp-cards3">
             {[
               {
-                title: "Hooks that sound human",
-                body: "Spoken, specific, sharp. No generic hype phrases.",
+                title: "Decisions are handled",
+                body: "You get hook options, a best pick, and a clear flow. No guessing what to open with.",
               },
               {
-                title: "A real filming plan",
-                body: "Delivery notes, flow, shot list, retention beats — the whole skeleton.",
+                title: "Film-ready structure",
+                body: "Delivery notes + flow + shot list so you can record fast and stay on track.",
               },
               {
-                title: "Post with confidence",
-                body: "Captions + posting notes + comment prompts so you don’t freeze.",
+                title: "Flexible to your style",
+                body: "Pick voice, angles, audience level, and CTA. Same framework, different creator.",
               },
             ].map((x) => (
               <div key={x.title} className="lp-card">
@@ -121,7 +122,7 @@ export default function Home() {
           <div className="lp-panel">
             <div className="lp-panelHead">
               <div>
-                <div className="lp-kicker">Example output</div>
+                <div className="lp-kicker">What shows up after one prompt</div>
                 <div className="lp-panelTitle">“Personal brand for beginners”</div>
               </div>
 
@@ -167,14 +168,14 @@ Say it fast. Pause after “lost.” Then slow down on “Start like this instea
           <div className="lp-sideCol">
             <div className="lp-panel lp-panelBlue">
               <div className="lp-kicker" style={{ marginBottom: 10 }}>
-                How it works
+                Blueprint (how it works)
               </div>
 
               <div className="lp-steps">
                 {[
-                  ["Type your idea", "One sentence is enough."],
-                  ["Get a director plan", "Hooks + delivery + flow + shots + captions."],
-                  ["Film and post", "Stop guessing. Execute."],
+                  ["Type one sentence", "Your idea + what the video is about."],
+                  ["Get a Blueprint", "Hooks + best pick + delivery + flow + shots + captions."],
+                  ["Film and post", "No second-guessing. Just execute."],
                 ].map(([t, d], i) => (
                   <div key={t} className="lp-step">
                     <div className="lp-stepBubble">{i + 1}</div>
@@ -196,18 +197,20 @@ Say it fast. Pause after “lost.” Then slow down on “Start like this instea
                 </Link>
 
                 <div className="lp-muted lp-center" style={{ fontSize: 12 }}>
-                  One good post pays for this.
+                  If you post consistently, this pays for itself.
                 </div>
               </div>
             </div>
 
             <div className="lp-panel">
               <div className="lp-kicker" style={{ marginBottom: 8 }}>
-                Not just hooks
+                Structured — not locked in
               </div>
               <div className="lp-muted" style={{ lineHeight: 1.7 }}>
-                Hooks are step one. Directr also gives you <strong>delivery notes</strong> and a{" "}
-                <strong>film-ready structure</strong> so you can execute immediately.
+                The framework keeps you tight. The options keep it yours.
+                <br />
+                Choose <strong>voice</strong>, <strong>hook angles</strong>, <strong>audience level</strong>, and{" "}
+                <strong>CTA</strong>.
               </div>
             </div>
           </div>
@@ -223,16 +226,16 @@ Say it fast. Pause after “lost.” Then slow down on “Start like this instea
           <div className="lp-faqGrid">
             {[
               {
-                q: "Do I need a big audience for this to work?",
-                a: "No. A clean hook + clear structure is what builds the audience in the first place.",
-              },
-              {
                 q: "Is this just a hook generator?",
-                a: "No. You get hooks plus delivery notes, video flow, a shot list, captions, and posting notes — in one output.",
+                a: "No. Quick gives hooks. Blueprint gives hooks + best pick + delivery notes + flow + shot list + captions and posting notes.",
               },
               {
-                q: "What if I’m not good on camera?",
-                a: "That’s why the delivery notes exist. You’ll know what to say, how to say it, and what to film.",
+                q: "Will this sound like me?",
+                a: "Yes. You pick voice + angles + audience + CTA. Same structure, different creator.",
+              },
+              {
+                q: "Do I need a big audience?",
+                a: "No. A strong opening + clear structure is what builds the audience in the first place.",
               },
               { q: "Can I cancel?", a: "Yep. Cancel anytime." },
             ].map((x) => (
@@ -249,15 +252,15 @@ Say it fast. Pause after “lost.” Then slow down on “Start like this instea
           <div className="lp-finalInner">
             <div className="lp-kicker">Ready</div>
             <h2 className="lp-h2" style={{ marginTop: 6 }}>
-              Stop guessing your hooks.
+              Stop deciding. Start filming.
             </h2>
             <p className="lp-p" style={{ marginTop: 8 }}>
-              Fix them before you post. Then film with a plan.
+              Type one sentence. Get a Blueprint. Post.
             </p>
 
             <div className="lp-ctaRow" style={{ marginTop: 14 }}>
               <Link href="/create" className="lp-primaryBtn">
-                Generate hooks free
+                Start free
               </Link>
               <Link href="/pricing" className="lp-ghostBtn">
                 Pricing
@@ -275,7 +278,7 @@ Say it fast. Pause after “lost.” Then slow down on “Start like this instea
         </section>
 
         {/* FOOTER */}
-        <footer className="lp-footer">directr.so • Write the hook. Film the plan. Post with confidence.</footer>
+        <footer className="lp-footer">directr.so • Stop deciding. Start filming.</footer>
 
         <style>{`
           .lp-root{
