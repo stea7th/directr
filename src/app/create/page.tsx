@@ -35,6 +35,16 @@ type HookAngle =
 
 type CtaIntent = "Comments" | "Follows" | "Saves" | "DM replies" | "Click link";
 
+const HOOK_ANGLES: HookAngle[] = [
+  "Call-out",
+  "Pattern interrupt",
+  "Contrarian",
+  "Curiosity gap",
+  "Relatable mistake",
+  "Proof-based",
+  "Identity-based",
+];
+
 export default function CreatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,7 +70,6 @@ export default function CreatePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
-
   const [result, setResult] = useState<string | null>(null);
 
   const [plan, setPlan] = useState<PlanState>({
@@ -255,7 +264,9 @@ export default function CreatePage() {
           status: res.status,
           textSnippet: text.slice(0, 200),
         });
-        setError(`Server returned non-JSON (status ${res.status}). Route might be misconfigured.`);
+        setError(
+          `Server returned non-JSON (status ${res.status}). Route might be misconfigured.`
+        );
         return;
       }
 
@@ -354,7 +365,11 @@ export default function CreatePage() {
           }}
           onClick={() => setShowSignin(false)}
         >
-          <div className="card" style={{ maxWidth: 520, width: "100%" }} onClick={(e) => e.stopPropagation()}>
+          <div
+            className="card"
+            style={{ maxWidth: 520, width: "100%" }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="card__head">
               <div>
                 <div className="title">Please sign in first</div>
@@ -371,7 +386,12 @@ export default function CreatePage() {
               Sign in / Create account
             </button>
 
-            <button type="button" className="btn btn--ghost" style={{ width: "100%" }} onClick={() => setShowSignin(false)}>
+            <button
+              type="button"
+              className="btn btn--ghost"
+              style={{ width: "100%" }}
+              onClick={() => setShowSignin(false)}
+            >
               Not now
             </button>
           </div>
@@ -492,7 +512,10 @@ export default function CreatePage() {
 
               <div className="create-adv-field">
                 <label>Audience level</label>
-                <select value={audienceLevel} onChange={(e) => setAudienceLevel(e.target.value as AudienceLevel)}>
+                <select
+                  value={audienceLevel}
+                  onChange={(e) => setAudienceLevel(e.target.value as AudienceLevel)}
+                >
                   <option value="Beginner">Beginner</option>
                   <option value="Aware but stuck">Aware but stuck</option>
                   <option value="Advanced / niche">Advanced / niche</option>
@@ -513,46 +536,19 @@ export default function CreatePage() {
               <div className="create-adv-field" style={{ gridColumn: "1 / -1" }}>
                 <label>Hook angle (pick up to 2)</label>
 
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                    gap: 10,
-                  }}
-                >
-                  {(
-                    [
-                      "Call-out",
-                      "Pattern interrupt",
-                      "Contrarian",
-                      "Curiosity gap",
-                      "Relatable mistake",
-                      "Proof-based",
-                      "Identity-based",
-                    ] as HookAngle[]
-                  ).map((angle) => {
+                {/* ✅ FIX: use dedicated grid + chip classes (no inline styles) */}
+                <div className="angle-grid">
+                  {HOOK_ANGLES.map((angle) => {
                     const checked = hookAngles.includes(angle);
                     return (
                       <button
                         key={angle}
                         type="button"
                         onClick={() => toggleHookAngle(angle)}
-                        className="btn btn--ghost"
-                        style={{
-                          justifyContent: "flex-start",
-                          borderRadius: 12,
-                          padding: "10px 12px",
-                          border: checked ? "1px solid rgba(148,202,255,0.55)" : "1px solid rgba(255,255,255,0.12)",
-                          background: checked
-                            ? "radial-gradient(circle at 0 0, rgba(148,202,255,0.25), rgba(47,79,130,0.18)), rgba(0,0,0,0.25)"
-                            : "rgba(0,0,0,0.18)",
-                          color: checked ? "rgba(235,245,255,0.95)" : "rgba(255,255,255,0.78)",
-                          fontSize: 12,
-                          fontWeight: 600,
-                        }}
+                        className={`angle-chip ${checked ? "is-active" : ""}`}
                       >
-                        <span style={{ marginRight: 8, opacity: 0.9 }}>{checked ? "✓" : "•"}</span>
-                        {angle}
+                        <span className="angle-chip__icon">{checked ? "✓" : "•"}</span>
+                        <span className="angle-chip__text">{angle}</span>
                       </button>
                     );
                   })}
@@ -561,7 +557,7 @@ export default function CreatePage() {
             </div>
           )}
 
-          {/* ✅ Footer area that fixes the “off” bottom spacing */}
+          {/* ✅ Footer area (keeps bottom spacing clean) */}
           <div className="create-blueprint-footer">
             {mode === "blueprint" && (
               <p className="create-included">
@@ -576,7 +572,9 @@ export default function CreatePage() {
                 </button>
 
                 <span className="create-cta-sub">
-                  {plan.isPro ? "✅ Pro active • unlimited generations" : "3 free generations • then $19/mo for unlimited hooks"}
+                  {plan.isPro
+                    ? "✅ Pro active • unlimited generations"
+                    : "3 free generations • then $19/mo for unlimited hooks"}
                 </span>
               </div>
             </div>
