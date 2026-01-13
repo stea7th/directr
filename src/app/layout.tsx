@@ -2,6 +2,7 @@
 import "./globals.css";
 import NavMobile from "@/components/NavMobile";
 import Link from "next/link";
+import Script from "next/script";
 import { createServerClient } from "@/lib/supabase/server";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import type { Metadata } from "next";
@@ -19,15 +20,12 @@ const mono = JetBrains_Mono({
 });
 
 function getSiteUrl() {
-  // Prefer explicit site URL (production)
   const explicit = process.env.NEXT_PUBLIC_SITE_URL;
   if (explicit) return explicit;
 
-  // Vercel provides hostname without protocol
   const vercel = process.env.VERCEL_URL;
   if (vercel) return `https://${vercel}`;
 
-  // Local fallback
   return "http://localhost:3000";
 }
 
@@ -58,15 +56,14 @@ export const metadata: Metadata = {
   ],
 
   icons: {
-    icon: "/icon.png", // optional (recommended)
-    apple: "/apple-touch-icon.png", // optional (recommended)
-    shortcut: "/favicon.ico", // optional
+    icon: "/icon.png",
+    apple: "/apple-touch-icon.png",
+    shortcut: "/favicon.ico",
   },
 
   openGraph: {
     title: "Directr — Fix your hook before you post",
-    description:
-      "Hooks + delivery + filming plan for TikTok, Reels, and Shorts.",
+    description: "Hooks + delivery + filming plan for TikTok, Reels, and Shorts.",
     url: "/",
     siteName: "Directr",
     images: [
@@ -83,8 +80,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Directr — Fix your hook before you post",
-    description:
-      "Hooks + delivery + filming plan for TikTok, Reels, and Shorts.",
+    description: "Hooks + delivery + filming plan for TikTok, Reels, and Shorts.",
     images: ["/og.png"],
   },
 
@@ -117,8 +113,30 @@ export default async function RootLayout({
     await s.auth.signOut();
   }
 
+  const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
+
   return (
     <html lang="en" className={`${inter.variable} ${mono.variable}`}>
+      <head>
+        {/* ✅ Google Analytics (only runs if NEXT_PUBLIC_GA_ID exists) */}
+        {GA_ID ? (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script id="ga-init" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${GA_ID}', { page_path: window.location.pathname });
+              `}
+            </Script>
+          </>
+        ) : null}
+      </head>
+
       <body className="site">
         <nav className="nav">
           <div className="nav__inner">
