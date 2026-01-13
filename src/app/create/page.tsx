@@ -571,9 +571,10 @@ export default function CreatePage() {
 
             <div className="create-bottom-row">
               <div className="create-cta-wrap">
-  <button ... className="create-generate-btn">...</button>
-  <span ...>...</span>
-</div>
+                <button type="button" className="create-generate-btn" onClick={handleGenerate} disabled={loading}>
+                  {generateLabel}
+                </button>
+
                 <span className="create-cta-sub">
                   {plan.isPro ? "✅ Pro active • unlimited generations" : "3 free generations • then $19/mo for unlimited hooks"}
                 </span>
