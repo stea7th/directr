@@ -3,54 +3,46 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <main
-      style={{
-        minHeight: "calc(100vh - 80px)",
-        width: "100%",
-        padding: "72px 24px 96px",
-        background:
-          "radial-gradient(circle at top, rgba(255,255,255,0.035), transparent 55%), #050506",
-        color: "#f5f5f7",
-        display: "flex",
-        justifyContent: "center",
-      }}
-    >
-      <div style={{ width: "100%", maxWidth: 1120 }}>
+    <main className="lp-root">
+      <div className="lp-shell">
+        {/* TOP STRIP */}
+        <header className="lp-top">
+          <div className="lp-brand">
+            <div className="lp-logoDot" />
+            <div className="lp-brandText">
+              <div className="lp-brandName">Directr</div>
+              <div className="lp-brandSub">Hook + plan generator</div>
+            </div>
+          </div>
+
+          <div className="lp-topActions">
+            <Link href="/pricing" className="lp-topLink">
+              Pricing
+            </Link>
+            <Link href="/create" className="lp-topPrimary">
+              Start free
+            </Link>
+          </div>
+        </header>
+
         {/* HERO */}
         <section className="lp-hero">
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 10,
-              borderRadius: 999,
-              padding: "6px 12px",
-              border: "1px solid rgba(255,255,255,0.12)",
-              background:
-                "radial-gradient(circle at top left, rgba(255,255,255,0.06), transparent 60%), rgba(6,6,8,0.55)",
-              color: "rgba(255,255,255,0.75)",
-              fontSize: 11,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              marginTop: 2,
-            }}
-          >
-            Directr
-            <span style={{ opacity: 0.7 }}>•</span>
-            <span style={{ letterSpacing: "0.12em", opacity: 0.85 }}>Hook + plan generator</span>
+          <div className="lp-pill">
+            <span className="lp-pillGlow" />
+            <span className="lp-pillText">Hook + filming plan • in one output</span>
           </div>
 
           <h1 className="lp-h1">
-            Fix your hook before you post.
+            Fix your hook
             <br />
-            Then film with a plan.
+            before you post.
           </h1>
 
           <p className="lp-sub">
-            Directr gives you <strong>spoken hooks</strong>, opening delivery notes, a clean video flow,
-            shot list, captions, and a posting plan — in one output.
+            Directr gives you <strong>spoken hooks</strong>, opening delivery notes, a clean video flow, a shot list,
+            captions, and posting notes — in one output.
             <br />
-            <span style={{ opacity: 0.85 }}>No “stop scrolling” fluff. No AI voice.</span>
+            <span className="lp-subDim">No “stop scrolling” fluff. No AI-voice vibes.</span>
           </p>
 
           <div className="lp-ctaRow">
@@ -58,7 +50,11 @@ export default function Home() {
               Start free
             </Link>
 
-            <Link href="/pricing" className="lp-secondaryBtn">
+            <a href="#example" className="lp-secondaryBtn">
+              See example
+            </a>
+
+            <Link href="/pricing" className="lp-ghostBtn">
               View pricing
             </Link>
           </div>
@@ -70,17 +66,29 @@ export default function Home() {
             <span className="lp-dot">•</span>
             <span>Cancel anytime</span>
           </div>
+
+          <div className="lp-badges">
+            {[
+              ["Quick", "Fast hook options"],
+              ["Blueprint", "Full filming plan"],
+              ["Output", "Hooks • flow • shots • captions"],
+            ].map(([t, d]) => (
+              <div key={t} className="lp-badge">
+                <div className="lp-badgeT">{t}</div>
+                <div className="lp-badgeD">{d}</div>
+              </div>
+            ))}
+          </div>
         </section>
 
-        {/* PAIN / WHY */}
+        {/* WHY */}
         <section className="lp-section lp-why">
           <div className="lp-sectionHead">
             <div className="lp-kicker">Why this works</div>
             <h2 className="lp-h2">Your content isn’t bad. Your first 2 seconds are.</h2>
             <p className="lp-p">
-              Most creators lose the viewer before the value even starts.
-              Directr forces a <strong>strong opening</strong> and gives you the exact structure to
-              deliver it without rambling.
+              Most creators lose the viewer before the value even starts. Directr forces a{" "}
+              <strong>strong opening</strong> and gives you the exact structure to deliver it without rambling.
             </p>
           </div>
 
@@ -88,7 +96,7 @@ export default function Home() {
             {[
               {
                 title: "Hooks that sound human",
-                body: "Spoken, specific, and sharp. No generic hype phrases.",
+                body: "Spoken, specific, sharp. No generic hype phrases.",
               },
               {
                 title: "A real filming plan",
@@ -107,16 +115,14 @@ export default function Home() {
           </div>
         </section>
 
-        {/* MAIN CONTENT GRID */}
-        <section className="lp-mainGrid">
-          {/* LEFT: SAMPLE OUTPUT */}
+        {/* MAIN GRID */}
+        <section id="example" className="lp-mainGrid">
+          {/* LEFT: OUTPUT */}
           <div className="lp-panel">
             <div className="lp-panelHead">
               <div>
                 <div className="lp-kicker">Example output</div>
-                <div style={{ fontSize: 14, fontWeight: 650 }}>
-                  “Personal brand for beginners”
-                </div>
+                <div className="lp-panelTitle">“Personal brand for beginners”</div>
               </div>
 
               <Link href="/create" className="lp-inlineLink">
@@ -150,68 +156,58 @@ Say it fast. Pause after “lost.” Then slow down on “Start like this instea
             </div>
 
             <div className="lp-panelFoot">
-              <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 12 }}>
-                Built for TikTok, Reels, and Shorts.
-              </span>
+              <span className="lp-muted">Built for TikTok, Reels, and Shorts.</span>
               <Link href="/create" className="lp-inlineLink">
                 Generate yours →
               </Link>
             </div>
           </div>
 
-          {/* RIGHT: HOW IT WORKS + CTA */}
+          {/* RIGHT */}
           <div className="lp-sideCol">
             <div className="lp-panel lp-panelBlue">
               <div className="lp-kicker" style={{ marginBottom: 10 }}>
                 How it works
               </div>
 
-              <div style={{ display: "grid", gap: 10 }}>
+              <div className="lp-steps">
                 {[
                   ["Type your idea", "One sentence is enough."],
                   ["Get a director plan", "Hooks + delivery + flow + shots + captions."],
                   ["Film and post", "Stop guessing. Execute."],
                 ].map(([t, d], i) => (
-                  <div
-                    key={t}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "22px 1fr",
-                      gap: 10,
-                      alignItems: "start",
-                    }}
-                  >
+                  <div key={t} className="lp-step">
                     <div className="lp-stepBubble">{i + 1}</div>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 650, marginBottom: 2 }}>{t}</div>
+                      <div className="lp-stepTitle">{t}</div>
                       <div className="lp-muted">{d}</div>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
-                <Link href="/create" className="lp-primaryBtn" style={{ width: "100%" }}>
+              <div className="lp-sideCta">
+                <Link href="/create" className="lp-primaryBtn lp-full">
                   Start free
                 </Link>
 
-                <Link href="/pricing" className="lp-secondaryBtn" style={{ width: "100%" }}>
+                <Link href="/pricing" className="lp-secondaryBtn lp-full">
                   Unlock unlimited — $19/mo
                 </Link>
 
-                <div className="lp-muted" style={{ textAlign: "center", fontSize: 12 }}>
-                  If you post consistently, hooks pay for themselves.
+                <div className="lp-muted lp-center" style={{ fontSize: 12 }}>
+                  One good post pays for this.
                 </div>
               </div>
             </div>
 
             <div className="lp-panel">
               <div className="lp-kicker" style={{ marginBottom: 8 }}>
-                No AI-voice output
+                Not just hooks
               </div>
               <div className="lp-muted" style={{ lineHeight: 1.7 }}>
-                Directr avoids generic hook phrases and forces <strong>spoken, specific lines</strong>.
-                Then it gives you a filming plan so you can execute immediately.
+                Hooks are step one. Directr also gives you <strong>delivery notes</strong> and a{" "}
+                <strong>film-ready structure</strong> so you can execute immediately.
               </div>
             </div>
           </div>
@@ -238,10 +234,7 @@ Say it fast. Pause after “lost.” Then slow down on “Start like this instea
                 q: "What if I’m not good on camera?",
                 a: "That’s why the delivery notes exist. You’ll know what to say, how to say it, and what to film.",
               },
-              {
-                q: "Can I cancel?",
-                a: "Yep. Cancel anytime.",
-              },
+              { q: "Can I cancel?", a: "Yep. Cancel anytime." },
             ].map((x) => (
               <div key={x.q} className="lp-card">
                 <div className="lp-cardTitle">{x.q}</div>
@@ -266,7 +259,7 @@ Say it fast. Pause after “lost.” Then slow down on “Start like this instea
               <Link href="/create" className="lp-primaryBtn">
                 Generate hooks free
               </Link>
-              <Link href="/pricing" className="lp-secondaryBtn">
+              <Link href="/pricing" className="lp-ghostBtn">
                 Pricing
               </Link>
             </div>
@@ -282,109 +275,251 @@ Say it fast. Pause after “lost.” Then slow down on “Start like this instea
         </section>
 
         {/* FOOTER */}
-        <footer className="lp-footer">
-          directr.so • Write the hook. Film the plan. Post with confidence.
-        </footer>
+        <footer className="lp-footer">directr.so • Write the hook. Film the plan. Post with confidence.</footer>
 
-        {/* Responsive + shared classes */}
         <style>{`
-          .lp-hero {
-            display: grid;
+          .lp-root{
+            min-height: calc(100vh - 80px);
+            width: 100%;
+            padding: 44px 24px 96px;
+            color: rgba(255,255,255,0.92);
+            background: #050506;
+            overflow-x: hidden;
+            position: relative;
+            isolation: isolate;
+            display: flex;
+            justify-content: center;
+          }
+          .lp-root::before{
+            content:"";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background:
+              radial-gradient(900px 520px at 50% 16%, rgba(86,114,255,0.14), transparent 60%),
+              radial-gradient(700px 520px at 20% 58%, rgba(0,220,255,0.09), transparent 60%),
+              radial-gradient(760px 560px at 82% 62%, rgba(130,70,255,0.10), transparent 60%),
+              radial-gradient(900px 700px at 50% 110%, rgba(255,255,255,0.04), transparent 60%);
+            filter: blur(18px);
+            opacity: 0.9;
+          }
+          .lp-shell{ width: 100%; max-width: 1120px; position: relative; }
+
+          /* top */
+          .lp-top{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap: 14px;
+            padding: 10px 2px 18px;
+          }
+          .lp-brand{ display:flex; align-items:center; gap: 10px; }
+          .lp-logoDot{
+            width: 10px; height: 10px; border-radius: 999px;
+            background: radial-gradient(circle at 0 0, rgba(148,202,255,0.95), rgba(85,130,255,0.55));
+            box-shadow: 0 0 0 2px rgba(148,202,255,0.10), 0 14px 30px rgba(0,0,0,0.55);
+          }
+          .lp-brandName{ font-size: 13px; font-weight: 700; letter-spacing: -0.01em; }
+          .lp-brandSub{ font-size: 12px; color: rgba(255,255,255,0.55); margin-top: 1px; }
+          .lp-topActions{ display:flex; align-items:center; gap: 10px; }
+          .lp-topLink{
+            font-size: 12px;
+            color: rgba(255,255,255,0.65);
+            text-decoration: none;
+            padding: 10px 10px;
+            border-radius: 10px;
+            transition: color 160ms ease, background 160ms ease, transform 160ms ease;
+          }
+          .lp-topLink:hover{ color: rgba(255,255,255,0.92); background: rgba(255,255,255,0.04); transform: translateY(-1px); }
+          .lp-topPrimary{
+            display:inline-flex; align-items:center; justify-content:center;
+            padding: 10px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 202, 255, 0.55);
+            background: radial-gradient(circle at 0 0, rgba(148,202,255,0.28), rgba(47,79,130,0.18)), rgba(0,0,0,0.18);
+            color: rgba(255,255,255,0.92);
+            font-size: 12px;
+            font-weight: 700;
+            text-decoration:none;
+            box-shadow: 0 18px 50px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.10);
+            transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease;
+          }
+          .lp-topPrimary:hover{ transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 26px 70px rgba(0,0,0,0.60), 0 0 28px rgba(120,170,255,0.12), inset 0 1px 0 rgba(255,255,255,0.12); }
+
+          /* hero */
+          .lp-hero{
+            display:grid;
             grid-template-columns: 1fr;
-            gap: 22px;
+            gap: 18px;
             align-items: center;
             justify-items: center;
             text-align: center;
-            margin: 0 auto;
+            margin: 10px auto 0;
             max-width: 920px;
+            padding: 32px 18px 18px;
+            border-radius: 26px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+            border: 1px solid rgba(255,255,255,0.10);
+            box-shadow: 0 28px 90px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06);
+            overflow: hidden;
+            position: relative;
+          }
+          .lp-hero::after{
+            content:"";
+            position:absolute;
+            inset:-2px;
+            pointer-events:none;
+            background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.06) 18%, transparent 38%, transparent 100%);
+            transform: translateX(-60%);
+            opacity: 0.25;
+            animation: lpSheen 8s ease-in-out infinite;
+          }
+          @keyframes lpSheen{
+            0%,55%{ transform: translateX(-60%); opacity: 0; }
+            70%{ opacity: 0.25; }
+            100%{ transform: translateX(60%); opacity: 0; }
           }
 
-          .lp-h1 {
-            font-size: 52px;
-            line-height: 1.04;
-            letter-spacing: -0.03em;
-            font-weight: 680;
-            margin: 0;
+          .lp-pill{
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            border-radius: 999px;
+            padding: 7px 12px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(0,0,0,0.18);
+            color: rgba(255,255,255,0.72);
+            font-size: 11px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
           }
-
-          .lp-sub {
+          .lp-pillGlow{
+            width: 8px; height: 8px; border-radius: 999px;
+            background: radial-gradient(circle at 0 0, rgba(148,202,255,1), rgba(85,130,255,0.45));
+            box-shadow: 0 0 0 2px rgba(148,202,255,0.12), 0 0 22px rgba(120,170,255,0.18);
+          }
+          .lp-h1{
+            font-size: 54px;
+            line-height: 1.02;
+            letter-spacing: -0.035em;
+            font-weight: 700;
             margin: 0;
-            max-width: 700px;
+            color: rgba(255,255,255,0.96);
+          }
+          .lp-sub{
+            margin: 0;
+            max-width: 720px;
             font-size: 15px;
-            line-height: 1.65;
+            line-height: 1.7;
             color: rgba(255,255,255,0.62);
           }
-
-          .lp-ctaRow {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            justify-content: center;
-            align-items: center;
-            margin-top: 2px;
-          }
-
-          .lp-primaryBtn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 11px 18px;
-            border-radius: 999px;
-            border: 1px solid rgba(148, 202, 255, 0.7);
-            background: radial-gradient(circle at 0 0, rgba(148,202,255,0.45), rgba(47,79,130,0.8)), #141922;
-            color: #f5f7ff;
-            font-size: 12px;
-            font-weight: 650;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            box-shadow: 0 0 0 1px rgba(24, 39, 70, 0.9), 0 16px 36px rgba(0, 0, 0, 0.9);
-            text-decoration: none;
-            transition: transform 0.18s ease-out, filter 0.18s ease-out;
-          }
-          .lp-primaryBtn:hover { transform: translateY(-1px); filter: brightness(1.06); }
-
-          .lp-secondaryBtn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 11px 16px;
-            border-radius: 999px;
-            border: 1px solid rgba(255,255,255,0.16);
-            background: transparent;
-            color: rgba(255,255,255,0.78);
-            font-size: 12px;
-            font-weight: 550;
-            text-decoration: none;
-            transition: transform 0.18s ease-out, color 0.18s ease-out, border-color 0.18s ease-out;
-          }
-          .lp-secondaryBtn:hover { transform: translateY(-1px); color: rgba(255,255,255,0.92); border-color: rgba(255,255,255,0.22); }
-
-          .lp-microRow {
-            display: flex;
+          .lp-subDim{ opacity: 0.85; }
+          .lp-ctaRow{
+            display:flex;
             gap: 10px;
             flex-wrap: wrap;
-            justify-content: center;
+            justify-content:center;
+            align-items:center;
+            margin-top: 2px;
+          }
+          .lp-primaryBtn{
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            padding: 12px 18px;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 202, 255, 0.60);
+            background: radial-gradient(circle at 0 0, rgba(148,202,255,0.35), rgba(47,79,130,0.20)), rgba(0,0,0,0.22);
+            color: rgba(255,255,255,0.95);
+            font-size: 12px;
+            font-weight: 750;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            text-decoration:none;
+            box-shadow: 0 22px 55px rgba(0,0,0,0.62), inset 0 1px 0 rgba(255,255,255,0.12);
+            transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease;
+          }
+          .lp-primaryBtn:hover{ transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 30px 75px rgba(0,0,0,0.68), 0 0 28px rgba(120,170,255,0.12), inset 0 1px 0 rgba(255,255,255,0.14); }
+
+          .lp-secondaryBtn{
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            padding: 12px 16px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.16);
+            background: rgba(0,0,0,0.12);
+            color: rgba(255,255,255,0.78);
+            font-size: 12px;
+            font-weight: 650;
+            text-decoration:none;
+            transition: transform 160ms ease, color 160ms ease, border-color 160ms ease, background 160ms ease;
+          }
+          .lp-secondaryBtn:hover{ transform: translateY(-1px); color: rgba(255,255,255,0.92); border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.04); }
+
+          .lp-ghostBtn{
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            padding: 12px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.10);
+            background: transparent;
+            color: rgba(255,255,255,0.62);
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration:none;
+            transition: transform 160ms ease, color 160ms ease, border-color 160ms ease, background 160ms ease;
+          }
+          .lp-ghostBtn:hover{ transform: translateY(-1px); color: rgba(255,255,255,0.90); border-color: rgba(255,255,255,0.16); background: rgba(255,255,255,0.03); }
+
+          .lp-microRow{
+            display:flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content:center;
             color: rgba(255,255,255,0.52);
             font-size: 12px;
             margin-top: 2px;
           }
-          .lp-dot { opacity: 0.5; }
+          .lp-dot{ opacity: 0.5; }
 
-          .lp-section { margin-top: 34px; }
-          .lp-sectionHead { max-width: 920px; margin: 0 auto 14px; text-align: center; display: grid; gap: 8px; }
-          .lp-kicker {
+          .lp-badges{
+            margin-top: 6px;
+            display:grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            width: 100%;
+            max-width: 820px;
+          }
+          .lp-badge{
+            border-radius: 16px;
+            padding: 12px 12px;
+            background: rgba(0,0,0,0.20);
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+          }
+          .lp-badgeT{ font-size: 12px; font-weight: 750; color: rgba(255,255,255,0.92); }
+          .lp-badgeD{ font-size: 12px; margin-top: 3px; color: rgba(255,255,255,0.55); line-height: 1.45; }
+
+          /* sections */
+          .lp-section{ margin-top: 34px; }
+          .lp-sectionHead{ max-width: 920px; margin: 0 auto 14px; text-align: center; display: grid; gap: 8px; }
+          .lp-kicker{
             font-size: 11px;
             letter-spacing: 0.12em;
             text-transform: uppercase;
             color: rgba(255,255,255,0.55);
           }
-          .lp-h2 {
+          .lp-h2{
             margin: 0;
             font-size: 22px;
-            font-weight: 680;
+            font-weight: 700;
             letter-spacing: -0.01em;
+            color: rgba(255,255,255,0.94);
           }
-          .lp-p {
+          .lp-p{
             margin: 0 auto;
             max-width: 760px;
             font-size: 13px;
@@ -392,61 +527,60 @@ Say it fast. Pause after “lost.” Then slow down on “Start like this instea
             color: rgba(255,255,255,0.62);
           }
 
-          .lp-cards3 {
+          .lp-cards3{
             margin-top: 14px;
-            display: grid;
+            display:grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 12px;
           }
-
-          .lp-card {
+          .lp-card{
             border-radius: 18px;
             padding: 16px;
-            background: radial-gradient(circle at top left, rgba(255,255,255,0.03), transparent 60%), #090a0d;
+            background: radial-gradient(circle at top left, rgba(255,255,255,0.03), transparent 60%), rgba(0,0,0,0.22);
             border: 1px solid rgba(255,255,255,0.08);
-            box-shadow: 0 18px 45px rgba(0,0,0,0.92), inset 0 0 0 0.5px rgba(255,255,255,0.02);
+            box-shadow: 0 18px 55px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06);
           }
-          .lp-cardTitle { font-size: 13px; font-weight: 650; margin-bottom: 6px; }
-          .lp-cardBody { font-size: 12px; line-height: 1.65; color: rgba(255,255,255,0.62); }
+          .lp-cardTitle{ font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+          .lp-cardBody{ font-size: 12px; line-height: 1.65; color: rgba(255,255,255,0.62); }
 
-          .lp-mainGrid {
+          /* main grid */
+          .lp-mainGrid{
             margin-top: 18px;
-            display: grid;
+            display:grid;
             grid-template-columns: 1.15fr 0.85fr;
             gap: 14px;
             align-items: start;
           }
-
-          .lp-panel {
+          .lp-panel{
             border-radius: 22px;
             padding: 18px;
-            background: radial-gradient(circle at top left, rgba(255,255,255,0.035), transparent 60%), #090a0d;
+            background: radial-gradient(circle at top left, rgba(255,255,255,0.035), transparent 60%), rgba(0,0,0,0.22);
             border: 1px solid rgba(255,255,255,0.08);
-            box-shadow: 0 22px 60px rgba(0,0,0,0.92), inset 0 0 0 0.5px rgba(255,255,255,0.02);
-            overflow: hidden;
+            box-shadow: 0 22px 70px rgba(0,0,0,0.58), inset 0 1px 0 rgba(255,255,255,0.06);
+            overflow:hidden;
           }
-          .lp-panelBlue {
-            background: radial-gradient(circle at 0 0, rgba(148,202,255,0.20), transparent 60%), #0b0d12;
+          .lp-panelBlue{
+            background: radial-gradient(circle at 0 0, rgba(148,202,255,0.18), transparent 60%), rgba(0,0,0,0.24);
             border: 1px solid rgba(148,202,255,0.22);
           }
-
-          .lp-panelHead {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+          .lp-panelHead{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
             gap: 12px;
             margin-bottom: 10px;
           }
-
-          .lp-inlineLink {
+          .lp-panelTitle{ font-size: 14px; font-weight: 750; letter-spacing: -0.01em; }
+          .lp-inlineLink{
             font-size: 12px;
             color: rgba(164, 210, 255, 0.96);
-            text-decoration: underline;
-            text-underline-offset: 3px;
+            text-decoration: none;
+            border-bottom: 1px solid rgba(164,210,255,0.35);
+            padding-bottom: 2px;
           }
-          .lp-inlineLink:hover { color: rgba(255,255,255,0.95); }
+          .lp-inlineLink:hover{ color: rgba(255,255,255,0.95); border-bottom-color: rgba(255,255,255,0.35); }
 
-          .lp-code {
+          .lp-code{
             border-radius: 16px;
             border: 1px solid rgba(255,255,255,0.08);
             background: rgba(0,0,0,0.35);
@@ -457,66 +591,79 @@ Say it fast. Pause after “lost.” Then slow down on “Start like this instea
             color: rgba(255,255,255,0.86);
             white-space: pre-wrap;
           }
-
-          .lp-panelFoot {
+          .lp-panelFoot{
             margin-top: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
             gap: 10px;
             flex-wrap: wrap;
           }
 
-          .lp-sideCol { display: grid; gap: 14px; }
-
-          .lp-stepBubble {
-            width: 22px;
-            height: 22px;
-            border-radius: 999px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: 650;
-            background: radial-gradient(circle at 0 0, rgba(148,202,255,0.55), rgba(47,79,130,0.7));
-            color: #05060a;
-            box-shadow: 0 10px 24px rgba(0,0,0,0.75);
+          .lp-sideCol{ display:grid; gap: 14px; }
+          .lp-steps{ display:grid; gap: 10px; }
+          .lp-step{
+            display:grid;
+            grid-template-columns: 22px 1fr;
+            gap: 10px;
+            align-items: start;
           }
+          .lp-stepBubble{
+            width: 22px; height: 22px;
+            border-radius: 999px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-size: 12px;
+            font-weight: 800;
+            background: radial-gradient(circle at 0 0, rgba(148,202,255,0.65), rgba(47,79,130,0.75));
+            color: #05060a;
+            box-shadow: 0 14px 30px rgba(0,0,0,0.55);
+          }
+          .lp-stepTitle{ font-size: 13px; font-weight: 750; margin-bottom: 2px; }
 
-          .lp-muted { font-size: 12px; line-height: 1.6; color: rgba(255,255,255,0.62); }
+          .lp-muted{ font-size: 12px; line-height: 1.6; color: rgba(255,255,255,0.62); }
+          .lp-sideCta{ margin-top: 14px; display:grid; gap: 10px; }
+          .lp-full{ width: 100%; }
+          .lp-center{ text-align: center; }
 
-          .lp-faqGrid {
+          /* faq + final */
+          .lp-faqGrid{
             margin-top: 14px;
-            display: grid;
+            display:grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 12px;
           }
-
-          .lp-final {
+          .lp-final{
             margin-top: 28px;
             border-radius: 22px;
             padding: 18px;
-            background: radial-gradient(circle at top left, rgba(255,255,255,0.03), transparent 60%), #090a0d;
+            background: radial-gradient(circle at top left, rgba(255,255,255,0.03), transparent 60%), rgba(0,0,0,0.22);
             border: 1px solid rgba(255,255,255,0.08);
-            box-shadow: 0 22px 60px rgba(0,0,0,0.92), inset 0 0 0 0.5px rgba(255,255,255,0.02);
+            box-shadow: 0 22px 70px rgba(0,0,0,0.58), inset 0 1px 0 rgba(255,255,255,0.06);
           }
-          .lp-finalInner { text-align: center; max-width: 820px; margin: 0 auto; }
+          .lp-finalInner{ text-align:center; max-width: 820px; margin: 0 auto; }
 
-          .lp-footer {
+          .lp-footer{
             margin-top: 28px;
-            text-align: center;
+            text-align:center;
             font-size: 12px;
             color: rgba(255,255,255,0.42);
           }
 
-          @media (max-width: 980px) {
-            .lp-mainGrid { grid-template-columns: 1fr; }
-            .lp-cards3 { grid-template-columns: 1fr; }
-            .lp-h1 { font-size: 40px; }
-            .lp-faqGrid { grid-template-columns: 1fr; }
+          @media (max-width: 980px){
+            .lp-mainGrid{ grid-template-columns: 1fr; }
+            .lp-cards3{ grid-template-columns: 1fr; }
+            .lp-faqGrid{ grid-template-columns: 1fr; }
+            .lp-h1{ font-size: 42px; }
+            .lp-badges{ grid-template-columns: 1fr; }
+            .lp-top{ padding-bottom: 10px; }
           }
-          @media (max-width: 520px) {
-            .lp-h1 { font-size: 34px; }
+          @media (max-width: 520px){
+            .lp-root{ padding-top: 34px; }
+            .lp-h1{ font-size: 34px; }
+            .lp-topActions{ gap: 8px; }
+            .lp-topLink{ display: none; }
           }
         `}</style>
       </div>
