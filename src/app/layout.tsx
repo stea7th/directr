@@ -19,39 +19,54 @@ const mono = JetBrains_Mono({
 });
 
 function getSiteUrl() {
+  // Prefer explicit site URL (production)
   const explicit = process.env.NEXT_PUBLIC_SITE_URL;
   if (explicit) return explicit;
 
+  // Vercel provides hostname without protocol
   const vercel = process.env.VERCEL_URL;
   if (vercel) return `https://${vercel}`;
 
-  // safe fallback for local
+  // Local fallback
   return "http://localhost:3000";
 }
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
+
   title: {
-    default: "Directr — Generate Scroll-Stopping Hooks",
+    default: "Directr — Fix your hook before you post",
     template: "%s | Directr",
   },
+
   description:
-    "Directr helps creators generate scroll-stopping hooks, captions, and posting frameworks for TikTok, Reels, and Shorts in seconds.",
+    "Hooks that sound human. Directr gives you hooks, delivery notes, filming plan, and captions for TikTok, Reels, and Shorts.",
+
   applicationName: "Directr",
+
   keywords: [
     "viral hooks",
     "hook generator",
     "tiktok hooks",
-    "reels hooks",
+    "instagram reels hooks",
     "youtube shorts hooks",
     "content hooks",
     "creator tools",
     "short form content",
+    "content director",
+    "filming plan",
   ],
+
+  icons: {
+    icon: "/icon.png", // optional (recommended)
+    apple: "/apple-touch-icon.png", // optional (recommended)
+    shortcut: "/favicon.ico", // optional
+  },
+
   openGraph: {
-    title: "Directr — Generate Scroll-Stopping Hooks",
+    title: "Directr — Fix your hook before you post",
     description:
-      "Generate scroll-stopping hooks, captions, and posting frameworks for TikTok, Reels, and Shorts in seconds.",
+      "Hooks + delivery + filming plan for TikTok, Reels, and Shorts.",
     url: "/",
     siteName: "Directr",
     images: [
@@ -59,18 +74,20 @@ export const metadata: Metadata = {
         url: "/og.png",
         width: 1200,
         height: 630,
-        alt: "Directr — Viral Hook Generator",
+        alt: "Directr — Fix your hook before you post",
       },
     ],
     type: "website",
   },
+
   twitter: {
     card: "summary_large_image",
-    title: "Directr — Generate Scroll-Stopping Hooks",
+    title: "Directr — Fix your hook before you post",
     description:
-      "Generate scroll-stopping hooks, captions, and posting frameworks for TikTok, Reels, and Shorts in seconds.",
+      "Hooks + delivery + filming plan for TikTok, Reels, and Shorts.",
     images: ["/og.png"],
   },
+
   robots: {
     index: true,
     follow: true,
@@ -114,7 +131,7 @@ export default async function RootLayout({
               <Link href="/create">Create</Link>
               <Link href="/pricing">Pricing</Link>
 
-              {/* keep auth button (not part of “menu links”) */}
+              {/* Auth button */}
               {user ? (
                 <form action={signOut}>
                   <button className="btn btn--ghost" type="submit">
@@ -132,7 +149,7 @@ export default async function RootLayout({
 
         <main className="page">{children}</main>
 
-        {/* Mobile nav still renders separately */}
+        {/* Mobile nav */}
         <NavMobile showLockControls={false} isAuthed={!!user} />
       </body>
     </html>
