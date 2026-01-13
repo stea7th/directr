@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 
-type Mode = "basic" | "advanced";
+type Mode = "quick" | "blueprint";
 
 type PlanState = {
   loading: boolean;
@@ -13,6 +13,27 @@ type PlanState = {
   used: number;
   freeLimit: number;
 };
+
+type CreatorVoice =
+  | "Calm & minimal"
+  | "High-energy & expressive"
+  | "Direct / no-BS"
+  | "Story-first"
+  | "Authority / teacher"
+  | "Raw & conversational";
+
+type AudienceLevel = "Beginner" | "Aware but stuck" | "Advanced / niche";
+
+type HookAngle =
+  | "Call-out"
+  | "Pattern interrupt"
+  | "Contrarian"
+  | "Curiosity gap"
+  | "Relatable mistake"
+  | "Proof-based"
+  | "Identity-based";
+
+type CtaIntent = "Comments" | "Follows" | "Saves" | "DM replies" | "Click link";
 
 export default function CreatePage() {
   const router = useRouter();
@@ -22,19 +43,25 @@ export default function CreatePage() {
   const upgraded = searchParams.get("upgraded") === "1";
   const canceled = searchParams.get("canceled") === "1";
 
-  const [mode, setMode] = useState<Mode>("basic");
+  const [mode, setMode] = useState<Mode>("quick");
   const [prompt, setPrompt] = useState("");
+
+  // Quick mode minimal defaults (still used by Blueprint too)
   const [platform, setPlatform] = useState("TikTok");
   const [goal, setGoal] = useState("Get more views, drive sales, grow page, etc.");
   const [lengthSeconds, setLengthSeconds] = useState("30");
-  const [tone, setTone] = useState("Casual");
+
+  // ✅ New Blueprint controls
+  const [voice, setVoice] = useState<CreatorVoice>("Raw & conversational");
+  const [audienceLevel, setAudienceLevel] = useState<AudienceLevel>("Aware but stuck");
+  const [hookAngles, setHookAngles] = useState<HookAngle[]>(["Curiosity gap"]);
+  const [ctaIntent, setCtaIntent] = useState<CtaIntent>("Comments");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
 
   const [result, setResult] = useState<string | null>(null);
-  const [editedUrl, setEditedUrl] = useState<string | null>(null);
 
   const [plan, setPlan] = useState<PlanState>({
     loading: true,
@@ -58,14 +85,12 @@ export default function CreatePage() {
     try {
       setAuthLoading(true);
 
-      // ✅ reliable: getSession for "am I signed in?"
       const { data, error } = await supabase.auth.getSession();
       if (error) console.error("getSession error:", error);
 
       const authed = !!data?.session?.user;
       setIsAuthed(authed);
 
-      // if authed, never show popup
       if (authed) setShowSignin(false);
     } catch (e) {
       console.error("refreshAuth error:", e);
@@ -76,7 +101,6 @@ export default function CreatePage() {
   }
 
   async function requireAuthOrPopup(): Promise<boolean> {
-    // If auth is still loading, do a live check instead of popping incorrectly
     const { data } = await supabase.auth.getSession();
     const authed = !!data?.session?.user;
 
@@ -129,18 +153,14 @@ export default function CreatePage() {
   }
 
   useEffect(() => {
-    // initial checks
     refreshAuth();
     refreshPlan();
 
-    // ✅ keep auth state synced in realtime (don’t flicker popup)
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       const authed = !!session?.user;
       setIsAuthed(authed);
       setAuthLoading(false);
       if (authed) setShowSignin(false);
-
-      // refresh plan on auth changes
       refreshPlan();
     });
 
@@ -150,13 +170,30 @@ export default function CreatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function toggleHookAngle(angle: HookAngle) {
+    setError(null);
+
+    setHookAngles((prev) => {
+      const exists = prev.includes(angle);
+
+      // remove if exists
+      if (exists) return prev.filter((a) => a !== angle);
+
+      // add if room
+      if (prev.length >= 2) {
+        setError("Pick up to 2 hook angles.");
+        return prev;
+      }
+
+      return [...prev, angle];
+    });
+  }
+
   async function handleGenerate() {
     setError(null);
     setLimitReached(false);
     setResult(null);
-    setEditedUrl(null);
 
-    // ✅ gate with reliable session check
     const ok = await requireAuthOrPopup();
     if (!ok) return;
 
@@ -165,10 +202,35 @@ export default function CreatePage() {
       return;
     }
 
+    // Blueprint: ensure at least 1 angle picked
+    if (mode === "blueprint" && hookAngles.length === 0) {
+      setError("Pick at least 1 hook angle.");
+      return;
+    }
+
     setLoading(true);
     try {
-      // TEXT ONLY → hook generator
-      const body = { prompt, platform, goal, lengthSeconds, tone };
+      const body =
+        mode === "blueprint"
+          ? {
+              prompt,
+              platform,
+              goal,
+              lengthSeconds,
+              // ✅ new blueprint fields
+              voice,
+              audienceLevel,
+              hookAngles,
+              ctaIntent,
+              mode: "blueprint",
+            }
+          : {
+              prompt,
+              platform,
+              goal,
+              lengthSeconds,
+              mode: "quick",
+            };
 
       const res = await fetch("/api/generate", {
         method: "POST",
@@ -210,14 +272,11 @@ export default function CreatePage() {
           setShowSignin(true);
           return;
         }
-        setError(data.error || "Failed to generate hooks.");
+        setError(data.error || "Failed to generate.");
         return;
       }
 
-      const notes = data?.text || "Generated successfully, but no hooks were returned.";
-      setResult(notes);
-      setEditedUrl(null);
-
+      setResult(data?.text || "Generated successfully, but no output was returned.");
       await refreshPlan();
     } catch (err: any) {
       console.error("Generate error (client):", err);
@@ -276,9 +335,12 @@ export default function CreatePage() {
     router.push(`/login?next=${next}`);
   }
 
+  const generateLabel =
+    loading ? "Building your plan..." : mode === "blueprint" ? "Generate a blueprint" : "Generate hooks";
+
   return (
     <main className="create-root">
-      {/* ✅ Sign-in popup (ONLY when truly not authed) */}
+      {/* ✅ Sign-in popup */}
       {showSignin && !isAuthed && !authLoading && (
         <div
           style={{
@@ -293,15 +355,11 @@ export default function CreatePage() {
           }}
           onClick={() => setShowSignin(false)}
         >
-          <div
-            className="card"
-            style={{ maxWidth: 520, width: "100%" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="card" style={{ maxWidth: 520, width: "100%" }} onClick={(e) => e.stopPropagation()}>
             <div className="card__head">
               <div>
                 <div className="title">Please sign in first</div>
-                <div className="subtitle">Create an account in seconds. Then generate hooks.</div>
+                <div className="subtitle">Create an account in seconds. Then generate your plan.</div>
               </div>
             </div>
 
@@ -314,12 +372,7 @@ export default function CreatePage() {
               Sign in / Create account
             </button>
 
-            <button
-              type="button"
-              className="btn btn--ghost"
-              style={{ width: "100%" }}
-              onClick={() => setShowSignin(false)}
-            >
+            <button type="button" className="btn btn--ghost" style={{ width: "100%" }} onClick={() => setShowSignin(false)}>
               Not now
             </button>
           </div>
@@ -346,15 +399,11 @@ export default function CreatePage() {
               </span>
 
               {upgraded && (
-                <span style={{ fontSize: 12, color: "rgba(160, 255, 200, 0.9)" }}>
-                  ✅ Payment received — Pro is active
-                </span>
+                <span style={{ fontSize: 12, color: "rgba(160, 255, 200, 0.9)" }}>✅ Payment received — Pro is active</span>
               )}
 
               {canceled && (
-                <span style={{ fontSize: 12, color: "rgba(255, 190, 120, 0.9)" }}>
-                  Checkout canceled — you can upgrade anytime
-                </span>
+                <span style={{ fontSize: 12, color: "rgba(255, 190, 120, 0.9)" }}>Checkout canceled — you can upgrade anytime</span>
               )}
             </div>
           </div>
@@ -362,17 +411,17 @@ export default function CreatePage() {
           <div className="create-mode-toggle">
             <button
               type="button"
-              className={`create-mode-btn ${mode === "basic" ? "create-mode-btn--active" : ""}`}
-              onClick={() => setMode("basic")}
+              className={`create-mode-btn ${mode === "quick" ? "create-mode-btn--active" : ""}`}
+              onClick={() => setMode("quick")}
             >
               Quick
             </button>
             <button
               type="button"
-              className={`create-mode-btn ${mode === "advanced" ? "create-mode-btn--active" : ""}`}
-              onClick={() => setMode("advanced")}
+              className={`create-mode-btn ${mode === "blueprint" ? "create-mode-btn--active" : ""}`}
+              onClick={() => setMode("blueprint")}
             >
-              Dialed
+              Blueprint
             </button>
           </div>
         </header>
@@ -382,26 +431,31 @@ export default function CreatePage() {
             <textarea
               name="prompt"
               className="create-textarea"
-              placeholder={"Example: I’m making a video about (topic). Give me 10 hooks that sound human."}
+              placeholder={
+                mode === "blueprint"
+                  ? "Paste your idea + what the video is about. (One sentence is enough.)"
+                  : "Example: Give me 10 scroll-stopping hooks for a video about (topic)."
+              }
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
             />
           </div>
 
-          {mode === "advanced" && (
+          {/* ✅ Blueprint controls */}
+          {mode === "blueprint" && (
             <div className="create-advanced-row">
               <div className="create-adv-field">
                 <label>Platform</label>
                 <select value={platform} onChange={(e) => setPlatform(e.target.value)}>
                   <option value="TikTok">TikTok</option>
-                  <option value="Reels">Instagram Reels</option>
-                  <option value="Shorts">YouTube Shorts</option>
-                  <option value="All">All of the above</option>
+                  <option value="Instagram Reels">Instagram Reels</option>
+                  <option value="YouTube Shorts">YouTube Shorts</option>
+                  <option value="All platforms">All platforms</option>
                 </select>
               </div>
 
               <div className="create-adv-field">
-                <label>Goal</label>
+                <label>Primary goal</label>
                 <input
                   type="text"
                   value={goal}
@@ -422,21 +476,96 @@ export default function CreatePage() {
               </div>
 
               <div className="create-adv-field">
-                <label>Tone</label>
-                <select value={tone} onChange={(e) => setTone(e.target.value)}>
-                  <option value="Casual">Casual</option>
-                  <option value="High-energy">High-energy</option>
-                  <option value="Storytelling">Storytelling</option>
-                  <option value="Authority">Authority</option>
+                <label>Creator voice</label>
+                <select value={voice} onChange={(e) => setVoice(e.target.value as CreatorVoice)}>
+                  <option value="Calm & minimal">Calm & minimal</option>
+                  <option value="High-energy & expressive">High-energy & expressive</option>
+                  <option value="Direct / no-BS">Direct / no-BS</option>
+                  <option value="Story-first">Story-first</option>
+                  <option value="Authority / teacher">Authority / teacher</option>
+                  <option value="Raw & conversational">Raw & conversational</option>
                 </select>
+              </div>
+
+              <div className="create-adv-field">
+                <label>Audience level</label>
+                <select value={audienceLevel} onChange={(e) => setAudienceLevel(e.target.value as AudienceLevel)}>
+                  <option value="Beginner">Beginner</option>
+                  <option value="Aware but stuck">Aware but stuck</option>
+                  <option value="Advanced / niche">Advanced / niche</option>
+                </select>
+              </div>
+
+              <div className="create-adv-field">
+                <label>Primary CTA</label>
+                <select value={ctaIntent} onChange={(e) => setCtaIntent(e.target.value as CtaIntent)}>
+                  <option value="Comments">Comments</option>
+                  <option value="Follows">Follows</option>
+                  <option value="Saves">Saves</option>
+                  <option value="DM replies">DM replies</option>
+                  <option value="Click link">Click link</option>
+                </select>
+              </div>
+
+              <div className="create-adv-field" style={{ gridColumn: "1 / -1" }}>
+                <label>Hook angle (pick up to 2)</label>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                    gap: 10,
+                  }}
+                >
+                  {(
+                    [
+                      "Call-out",
+                      "Pattern interrupt",
+                      "Contrarian",
+                      "Curiosity gap",
+                      "Relatable mistake",
+                      "Proof-based",
+                      "Identity-based",
+                    ] as HookAngle[]
+                  ).map((angle) => {
+                    const checked = hookAngles.includes(angle);
+                    return (
+                      <button
+                        key={angle}
+                        type="button"
+                        onClick={() => toggleHookAngle(angle)}
+                        className="btn btn--ghost"
+                        style={{
+                          justifyContent: "flex-start",
+                          borderRadius: 12,
+                          padding: "10px 12px",
+                          border: checked ? "1px solid rgba(148,202,255,0.55)" : "1px solid rgba(255,255,255,0.12)",
+                          background: checked
+                            ? "radial-gradient(circle at 0 0, rgba(148,202,255,0.25), rgba(47,79,130,0.18)), rgba(0,0,0,0.25)"
+                            : "rgba(0,0,0,0.18)",
+                          color: checked ? "rgba(235,245,255,0.95)" : "rgba(255,255,255,0.78)",
+                          fontSize: 12,
+                          fontWeight: 600,
+                        }}
+                      >
+                        <span style={{ marginRight: 8, opacity: 0.9 }}>{checked ? "✓" : "•"}</span>
+                        {angle}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
+                  Included in every plan: hooks • best pick • delivery notes • video flow • shot list • captions + CTA
+                </div>
               </div>
             </div>
           )}
 
+          {/* Bottom row */}
           <div className="create-bottom-row">
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, width: "100%" }}>
               <button type="button" className="create-generate-btn" onClick={handleGenerate} disabled={loading}>
-                {loading ? "Finding hooks..." : "Generate hooks"}
+                {generateLabel}
               </button>
 
               <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
@@ -446,18 +575,19 @@ export default function CreatePage() {
           </div>
 
           <p className="create-tip">
-            Tip: Paste your idea + what the video is about. The first 3 seconds decide everything.
+            Tip: Quick = fast hook ideas. Blueprint = full plan (voice + angles + CTA) so you can film immediately.
           </p>
 
           {error && <p className="create-error">{error}</p>}
 
+          {/* Paywall */}
           {limitReached && !error && !plan.isPro && (
             <div className="create-result">
               <h3>You’ve used your free hooks.</h3>
               <p style={{ margin: "8px 0 12px", color: "rgba(255,255,255,0.75)", fontSize: 13, lineHeight: 1.5 }}>
-                Creators who post consistently don’t guess their hooks.
+                Stop guessing what to say.
                 <br />
-                They generate them.
+                Generate a plan and post.
               </p>
 
               <button type="button" className="create-generate-btn" onClick={handleUpgrade} disabled={loading}>
@@ -465,50 +595,36 @@ export default function CreatePage() {
               </button>
 
               <p style={{ margin: "10px 0 0", fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
-                Cancel anytime. One viral video pays for this 100×.
+                Cancel anytime. One good post pays for this.
               </p>
             </div>
           )}
 
-          {(result || editedUrl) && !error && !limitReached && (
+          {result && !error && !limitReached && (
             <div className="create-result">
-              <h3>Hooks</h3>
-
-              {editedUrl && (
-                <p style={{ marginBottom: 8 }}>
-                  <strong>Clip:</strong>{" "}
-                  <a href={editedUrl} target="_blank" rel="noreferrer">
-                    Open
-                  </a>
-                </p>
-              )}
-
-              {result && (
-                <>
-                  <strong>Output:</strong>
-                  <pre>{result}</pre>
-                </>
-              )}
+              <h3>Output</h3>
+              <pre>{result}</pre>
             </div>
           )}
         </div>
       </section>
 
+      {/* Tiles */}
       <section className="create-tiles-section">
         <div className="create-tiles-grid">
           <article className="create-tile">
-            <h2>Hooks</h2>
-            <p>Scroll-stopping hook lines</p>
+            <h2>Quick</h2>
+            <p>Fast hook ideas when you just need options.</p>
           </article>
 
           <article className="create-tile">
-            <h2>Captions</h2>
-            <p>3 captions + 1 CTA per video</p>
+            <h2>Blueprint</h2>
+            <p>Voice + angles + CTA → a full filming plan you can execute.</p>
           </article>
 
           <article className="create-tile">
-            <h2>Flow</h2>
-            <p>Opening delivery + video structure</p>
+            <h2>Post faster</h2>
+            <p>Less guessing. More shipping.</p>
           </article>
         </div>
       </section>
