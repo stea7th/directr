@@ -26,10 +26,9 @@
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(900px 500px at 50% 20%, rgba(86, 114, 255, 0.14), transparent 60%),
-    radial-gradient(700px 500px at 18% 55%, rgba(0, 220, 255, 0.10), transparent 60%),
-    radial-gradient(700px 500px at 80% 62%, rgba(130, 70, 255, 0.10), transparent 60%),
+  background: radial-gradient(900px 500px at 50% 20%, rgba(86, 114, 255, 0.14), transparent 60%),
+    radial-gradient(700px 500px at 18% 55%, rgba(0, 220, 255, 0.1), transparent 60%),
+    radial-gradient(700px 500px at 80% 62%, rgba(130, 70, 255, 0.1), transparent 60%),
     radial-gradient(800px 600px at 50% 100%, rgba(255, 255, 255, 0.04), transparent 60%);
   filter: blur(18px);
   opacity: 0.9;
@@ -65,7 +64,7 @@
   padding: 6px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
 }
 
@@ -87,7 +86,7 @@
 }
 
 .create-mode-btn--active {
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.92);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
 }
@@ -97,16 +96,10 @@
   position: relative;
   border-radius: 26px;
   padding: 22px;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.07),
-    rgba(255, 255, 255, 0.03)
-  );
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(14px);
-  box-shadow:
-    0 28px 80px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   overflow: hidden;
 
   transition: box-shadow 200ms ease, border-color 200ms ease, transform 200ms ease;
@@ -118,29 +111,38 @@
   position: absolute;
   inset: -2px;
   pointer-events: none;
-  background: linear-gradient(
-    120deg,
-    transparent 0%,
-    rgba(255,255,255,0.06) 18%,
-    transparent 38%,
-    transparent 100%
-  );
+  background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.06) 18%, transparent 38%, transparent 100%);
   transform: translateX(-60%);
   opacity: 0.35;
   animation: cardSheen 7.5s ease-in-out infinite;
 }
 
 @keyframes cardSheen {
-  0%, 55% { transform: translateX(-60%); opacity: 0.0; }
-  70%     { opacity: 0.35; }
-  100%    { transform: translateX(60%); opacity: 0.0; }
+  0%,
+  55% {
+    transform: translateX(-60%);
+    opacity: 0;
+  }
+  70% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: translateX(60%);
+    opacity: 0;
+  }
 }
 
 /* breathing glow while generating */
 @keyframes pulseGlow {
-  0%   { box-shadow: 0 28px 80px rgba(0,0,0,.55), 0 0 0 rgba(120,170,255,0), inset 0 1px 0 rgba(255,255,255,.06); }
-  50%  { box-shadow: 0 28px 80px rgba(0,0,0,.55), 0 0 80px rgba(120,170,255,.22), inset 0 1px 0 rgba(255,255,255,.06); }
-  100% { box-shadow: 0 28px 80px rgba(0,0,0,.55), 0 0 0 rgba(120,170,255,0), inset 0 1px 0 rgba(255,255,255,.06); }
+  0% {
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55), 0 0 0 rgba(120, 170, 255, 0), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+  50% {
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55), 0 0 80px rgba(120, 170, 255, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+  100% {
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55), 0 0 0 rgba(120, 170, 255, 0), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
 }
 
 .create-main-card.is-loading {
@@ -161,9 +163,7 @@
 /* focus glow */
 .create-textarea-wrap:focus-within {
   border-color: rgba(120, 170, 255, 0.45);
-  box-shadow:
-    0 0 0 1px rgba(120, 170, 255, 0.25),
-    0 20px 60px rgba(80, 120, 255, 0.18),
+  box-shadow: 0 0 0 1px rgba(120, 170, 255, 0.25), 0 20px 60px rgba(80, 120, 255, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
@@ -212,9 +212,9 @@
 .create-adv-field select {
   height: 40px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.28);
-  color: rgba(255, 255, 255, 0.90);
+  color: rgba(255, 255, 255, 0.9);
   padding: 0 12px;
   outline: none;
 }
@@ -225,23 +225,107 @@
   box-shadow: 0 0 0 3px rgba(120, 170, 255, 0.12);
 }
 
+/* ----------------------------- */
+/* ✅ HOOK ANGLE GRID + CHIPS    */
+/* (used by the new TSX classes) */
+/* ----------------------------- */
+
+.angle-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.angle-chip {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.18);
+  color: rgba(255, 255, 255, 0.78);
+
+  border-radius: 12px;
+  padding: 10px 12px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center; /* ✅ fixes “off” feel */
+  gap: 8px;
+
+  cursor: pointer;
+  user-select: none;
+
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+
+  transition: transform 120ms ease, background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease;
+}
+
+.angle-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(160, 195, 255, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.angle-chip:active {
+  transform: translateY(0px);
+}
+
+.angle-chip__icon {
+  opacity: 0.9;
+  width: 14px;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.angle-chip__text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.angle-chip.is-active {
+  border: 1px solid rgba(148, 202, 255, 0.55);
+  background: radial-gradient(circle at 0 0, rgba(148, 202, 255, 0.25), rgba(47, 79, 130, 0.18)), rgba(0, 0, 0, 0.25);
+  color: rgba(235, 245, 255, 0.95);
+  box-shadow: 0 0 0 1px rgba(120, 170, 255, 0.12);
+}
+
+/* --- footer area (new TSX wrapper) --- */
+.create-blueprint-footer {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.create-included {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.4;
+}
+
 /* --- bottom row: CTA (FIXED) --- */
 .create-bottom-row {
   display: flex;
   align-items: flex-end;
   justify-content: flex-end; /* ✅ no more phantom left space */
   gap: 14px;
-  margin-top: 14px;
+  margin-top: 0;
   width: 100%;
 }
 
-/* ✅ wrapper for button + subtext (use this on the div around the button) */
+/* ✅ wrapper for button + subtext */
 .create-cta-wrap {
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 6px;
+}
+
+.create-cta-sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 /* kept (legacy) — safe if still referenced elsewhere */
@@ -292,26 +376,21 @@
   padding: 0 18px;
   border-radius: 999px;
   border: 1px solid rgba(150, 190, 255, 0.35);
-  background: linear-gradient(180deg, rgba(120, 170, 255, 0.40), rgba(85, 130, 255, 0.18));
+  background: linear-gradient(180deg, rgba(120, 170, 255, 0.4), rgba(85, 130, 255, 0.18));
   color: rgba(255, 255, 255, 0.92);
-  font-weight: 600;
+  font-weight: 650;
   cursor: pointer;
-  box-shadow:
-    0 18px 40px rgba(45, 90, 255, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  box-shadow: 0 18px 40px rgba(45, 90, 255, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   transition: transform 130ms ease, filter 160ms ease, box-shadow 160ms ease;
 
   /* ✅ makes the button feel “anchored” */
   min-width: 220px;
 }
 
-/* ✅ stronger primary feel (tiny upgrade) */
 .create-generate-btn:hover {
   transform: translateY(-1px);
   filter: brightness(1.06);
-  box-shadow:
-    0 26px 70px rgba(45, 90, 255, 0.34),
-    0 0 28px rgba(120, 170, 255, 0.14),
+  box-shadow: 0 26px 70px rgba(45, 90, 255, 0.34), 0 0 28px rgba(120, 170, 255, 0.14),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
@@ -336,23 +415,27 @@
 
 /* --- result reveal --- */
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .create-result {
   margin-top: 14px;
   border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.22);
   padding: 14px;
 
   animation: fadeUp 280ms ease-out;
 
   /* ✅ subtle “reward” glow */
-  box-shadow:
-    0 18px 60px rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(120, 170, 255, 0.10);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(120, 170, 255, 0.1);
 }
 
 .create-result h3 {
@@ -423,7 +506,7 @@
 .create-tile p {
   margin: 0;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.60);
+  color: rgba(255, 255, 255, 0.6);
 }
 
 /* --- responsive --- */
@@ -441,9 +524,15 @@
   .create-advanced-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .angle-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .create-tiles-grid {
     grid-template-columns: 1fr;
   }
+
   .create-file-label {
     max-width: 230px;
   }
@@ -453,6 +542,7 @@
   .create-root {
     padding-top: 78px;
   }
+
   .create-header h1 {
     font-size: 26px;
   }
@@ -462,12 +552,19 @@
     flex-direction: column;
     align-items: stretch;
   }
+
   .create-cta-wrap {
     align-items: stretch;
   }
+
   .create-generate-btn {
     width: 100%;
     min-width: 0;
+  }
+
+  /* angle chips full width on small screens */
+  .angle-grid {
+    grid-template-columns: 1fr;
   }
 
   /* legacy (safe if ever used) */
