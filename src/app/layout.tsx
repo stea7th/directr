@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -151,6 +152,8 @@ export default async function RootLayout({
 
         {/* Mobile nav */}
         <NavMobile showLockControls={false} isAuthed={!!user} />
+
+        <Analytics />
       </body>
     </html>
   );
