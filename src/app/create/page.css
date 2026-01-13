@@ -225,15 +225,26 @@
   box-shadow: 0 0 0 3px rgba(120, 170, 255, 0.12);
 }
 
-/* --- bottom row: file chip + generate pill --- */
+/* --- bottom row: CTA (FIXED) --- */
 .create-bottom-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-end;
+  justify-content: flex-end; /* ✅ no more phantom left space */
   gap: 14px;
   margin-top: 14px;
+  width: 100%;
 }
 
+/* ✅ wrapper for button + subtext (use this on the div around the button) */
+.create-cta-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+/* kept (legacy) — safe if still referenced elsewhere */
 .create-file-bar {
   position: relative;
   display: inline-flex;
@@ -289,6 +300,9 @@
     0 18px 40px rgba(45, 90, 255, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
   transition: transform 130ms ease, filter 160ms ease, box-shadow 160ms ease;
+
+  /* ✅ makes the button feel “anchored” */
+  min-width: 220px;
 }
 
 /* ✅ stronger primary feel (tiny upgrade) */
@@ -442,13 +456,21 @@
   .create-header h1 {
     font-size: 26px;
   }
+
+  /* ✅ bottom CTA becomes full-width + aligned */
   .create-bottom-row {
     flex-direction: column;
     align-items: stretch;
   }
+  .create-cta-wrap {
+    align-items: stretch;
+  }
   .create-generate-btn {
     width: 100%;
+    min-width: 0;
   }
+
+  /* legacy (safe if ever used) */
   .create-file-bar {
     width: 100%;
     justify-content: center;
