@@ -21,8 +21,9 @@ const { chromium } = require("playwright-core");
     await invalid.getByLabel("Email address").fill("creator@example.com");
     await invalid.getByLabel("Password").fill("incorrect-password");
     await invalid.getByRole("button", { name: "Sign in" }).click();
-    await invalid.getByRole("alert").waitFor({ timeout: 10000 });
-    assert.match(await invalid.getByRole("alert").innerText(), /invalid login credentials/i);
+    const authError = invalid.locator(".auth-feedback--error");
+    await authError.waitFor({ timeout: 10000 });
+    assert.match(await authError.innerText(), /invalid login credentials/i);
     console.log("PASS: invalid credentials show a visible, accurate error");
 
     const signupContext = await browser.newContext();
