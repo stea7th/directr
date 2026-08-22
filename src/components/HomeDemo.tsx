@@ -2,93 +2,61 @@
 
 import { useEffect, useState } from "react";
 
-const examples = [
+const directions = [
   {
     label: "Personal brand",
-    thought: "I want to talk about how I wasted time trying to look successful.",
-    concept: "Looking successful vs. becoming useful",
+    thought: "I wasted so much time trying to look successful.",
     hook: "I wasted a year trying to look successful instead of becoming useful.",
-    format: "Talking head + one cutaway",
-    shots: 4,
-    duration: 32,
-    delivery: "Slow down. Leave the first take imperfect.",
+    angle: "The performance of success",
+    format: "Talking head",
+    duration: "32 sec",
+    shots: ["You, direct to camera", "Walking out of your office", "Close-up of your laptop", "Back to camera"],
+    delivery: "Say it like you’re admitting something. Not teaching.",
   },
   {
     label: "Fitness",
-    thought: "People keep asking why my workouts got way shorter.",
-    concept: "Why I stopped treating the gym like a second job",
-    hook: "My best progress started when I stopped living in the gym.",
-    format: "Voiceover + training footage",
-    shots: 3,
-    duration: 26,
-    delivery: "Matter-of-fact. No transformation speech.",
+    thought: "My workouts got shorter and my results got better.",
+    hook: "The gym started working when I stopped making it my whole personality.",
+    angle: "Less gym. Better results.",
+    format: "Voiceover",
+    duration: "26 sec",
+    shots: ["Loading your first set", "One clean working rep", "Leaving the gym"],
+    delivery: "Calm. Matter-of-fact. No transformation speech.",
   },
   {
     label: "Real estate",
-    thought: "I toured a nice house but one detail ruined the whole thing.",
-    concept: "The detail beautiful listings hide",
-    hook: "This house looked perfect until I stood in the kitchen for ten seconds.",
-    format: "Walkthrough + voiceover",
-    shots: 4,
-    duration: 29,
-    delivery: "Let the reveal land before you explain it.",
+    thought: "This house looked perfect until I walked into the kitchen.",
+    hook: "Every listing photo hid the one thing I noticed in ten seconds.",
+    angle: "What the listing didn’t show",
+    format: "Walkthrough",
+    duration: "29 sec",
+    shots: ["Outside the front door", "Slow kitchen walkthrough", "Reveal the actual problem"],
+    delivery: "Let the camera find it before you explain it.",
   },
-];
+] as const;
 
 export default function HomeDemo() {
-  const [index, setIndex] = useState(0);
+  const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
-  const example = examples[index];
+  const direction = directions[active];
 
   useEffect(() => {
     if (paused || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const timer = window.setInterval(() => setIndex((current) => (current + 1) % examples.length), 7200);
-    return () => window.clearInterval(timer);
+    const interval = window.setInterval(() => setActive((value) => (value + 1) % directions.length), 8200);
+    return () => window.clearInterval(interval);
   }, [paused]);
 
   return (
-    <div className="home-demo" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
-      <div className="home-demo__tabs" aria-label="Direction examples">
-        {examples.map((item, itemIndex) => (
-          <button
-            key={item.label}
-            type="button"
-            onClick={() => setIndex(itemIndex)}
-            className={itemIndex === index ? "is-active" : ""}
-            aria-pressed={itemIndex === index}
-          >
-            {item.label}
-          </button>
-        ))}
+    <div className="director-preview" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+      <div className="director-preview__bar"><span className="director-preview__wordmark">directr<span>.</span></span><span className="director-preview__signal"><i /> Your direction is ready</span></div>
+      <div className="director-preview__tabs" role="tablist" aria-label="Example creator">
+        {directions.map((item, index) => <button key={item.label} type="button" role="tab" aria-selected={active === index} onClick={() => setActive(index)}>{item.label}</button>)}
       </div>
-
-      <div className="home-demo__workspace" key={example.label}>
-        <section className="home-demo__thought">
-          <span className="section-kicker">Your rough thought</span>
-          <p>“{example.thought}”</p>
-          <span className="home-demo__uncertainty">You do not need to know how to film it yet.</span>
-        </section>
-
-        <div className="home-demo__transfer" aria-hidden="true">
-          <span />
-          <span>→</span>
-          <span />
-        </div>
-
-        <section className="home-demo__direction">
-          <span className="section-kicker">Directr&apos;s direction</span>
-          <h3>{example.concept}</h3>
-          <div className="home-demo__hook">
-            <span>Opening line</span>
-            <p>“{example.hook}”</p>
-          </div>
-          <div className="home-demo__details">
-            <span>{example.format}</span>
-            <span>{example.shots} shots</span>
-            <span>{example.duration} sec</span>
-          </div>
-          <div className="home-demo__delivery">{example.delivery}</div>
-        </section>
+      <div className="director-preview__body" key={direction.label}>
+        <div className="director-preview__thought"><span>Your rough thought</span><p>“{direction.thought}”</p></div>
+        <div className="director-preview__result"><div className="director-preview__result-head"><span>Film this</span><span>{direction.format} · {direction.duration}</span></div><h3>{direction.angle}</h3><blockquote>“{direction.hook}”</blockquote></div>
+        <div className="director-preview__shots"><div className="director-preview__shots-head"><span>Your shots</span><span>{direction.shots.length} total</span></div>{direction.shots.map((shot, index) => <div className="director-shot" key={shot}><span>{String(index + 1).padStart(2, "0")}</span><p>{shot}</p><i /></div>)}</div>
+        <div className="director-preview__note"><span>Director&apos;s note</span><p>{direction.delivery}</p></div>
       </div>
     </div>
   );
