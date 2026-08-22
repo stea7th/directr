@@ -84,7 +84,7 @@ export async function fetchCreatorDNA(): Promise<CreatorDNA | null> {
   const remote = normalizeCreatorDNA({ ...body.profile, userId: body.userId });
   const cached = readLocalCreatorDNA();
 
-  if (!remote.onboardedAt && cached?.userId === body.userId && cached.onboardedAt) {
+  if (cached && !remote.onboardedAt && cached.userId === body.userId && cached.onboardedAt) {
     return cached;
   }
 

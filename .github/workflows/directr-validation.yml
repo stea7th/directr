@@ -24,5 +24,9 @@ jobs:
           node-version: 20
       - name: Install existing project dependencies
         run: npm install --no-audit --no-fund
+      - name: Check all TypeScript diagnostics
+        run: |
+          printf '/// <reference types="next" />\n/// <reference types="next/image-types/global" />\n' > next-env.d.ts
+          npx tsc --noEmit --pretty false
       - name: Build production Next.js application
         run: npm run build
