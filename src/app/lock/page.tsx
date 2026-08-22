@@ -30,7 +30,7 @@ export default async function LockPage(props: {
 
               <h1 className={styles.h1}>Directr is in private mode.</h1>
               <p className={styles.p}>
-                Access is limited while we stabilize uploads + editing.
+                Access is limited while we finish your creative director.
               </p>
 
               <div className={styles.section}>

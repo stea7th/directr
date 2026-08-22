@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation";
 import { authenticatedCreator, getCreatorDNA } from "@/lib/directr-server";
-import CreativeStudio from "./CreativeStudio";
+import DirectionExperience from "./DirectionExperience";
 
 export const dynamic = "force-dynamic";
 
-export default async function CreatePage() {
+export default async function DirectionPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const account = await authenticatedCreator();
-  if (!account) redirect("/login?next=%2Fcreate");
+  if (!account) redirect(`/login?next=${encodeURIComponent(`/direction/${id}`)}`);
   const profile = await getCreatorDNA(account.supabase, account.user);
   if (!profile.onboardedAt) redirect("/onboarding");
-  return <CreativeStudio profile={profile} />;
+  return <DirectionExperience id={id} profile={profile} />;
 }

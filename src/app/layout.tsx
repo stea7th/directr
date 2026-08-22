@@ -1,174 +1,97 @@
-// src/app/layout.tsx
 import "./globals.css";
-import NavMobile from "@/components/NavMobile";
 import Link from "next/link";
 import Script from "next/script";
-import { createServerClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import type { Metadata } from "next";
+import NavLink from "@/components/NavLink";
+import NavMobile from "@/components/NavMobile";
+import { createServerClient } from "@/lib/supabase/server";
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-  display: "swap",
-});
-
-function getSiteUrl() {
-  const explicit = process.env.NEXT_PUBLIC_SITE_URL;
-  if (explicit) return explicit;
-
-  const vercel = process.env.VERCEL_URL;
-  if (vercel) return `https://${vercel}`;
-
+function getSiteUrl(): string {
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return "http://localhost:3000";
 }
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
-
-  title: {
-    default: "Directr — Fix your hook before you post",
-    template: "%s | Directr",
-  },
-
-  description:
-    "Hooks that sound human. Directr gives you hooks, delivery notes, filming plan, and captions for TikTok, Reels, and Shorts.",
-
+  title: { default: "Directr — Know exactly what to film next", template: "%s | Directr" },
+  description: "Your creative director, built around you. Directr learns your taste and tells you what to make, what to say, and exactly how to film it.",
   applicationName: "Directr",
-
-  keywords: [
-    "viral hooks",
-    "hook generator",
-    "tiktok hooks",
-    "instagram reels hooks",
-    "youtube shorts hooks",
-    "content hooks",
-    "creator tools",
-    "short form content",
-    "content director",
-    "filming plan",
-  ],
-
-  icons: {
-    icon: "/icon.png",
-    apple: "/apple-touch-icon.png",
-    shortcut: "/favicon.ico",
-  },
-
+  keywords: ["creative director for creators", "what to film", "content direction", "creator coach", "film-ready content plan", "creator strategy", "short-form creative direction"],
+  icons: { icon: "/favicon.png" },
   openGraph: {
-    title: "Directr — Fix your hook before you post",
-    description: "Hooks + delivery + filming plan for TikTok, Reels, and Shorts.",
+    title: "Directr — Know exactly what to film next",
+    description: "Your creative director, built around you. Stop deciding. Start filming.",
     url: "/",
     siteName: "Directr",
-    images: [
-      {
-        url: "/og.png",
-        width: 1200,
-        height: 630,
-        alt: "Directr — Fix your hook before you post",
-      },
-    ],
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Directr — Know exactly what to film next" }],
     type: "website",
   },
-
   twitter: {
     card: "summary_large_image",
-    title: "Directr — Fix your hook before you post",
-    description: "Hooks + delivery + filming plan for TikTok, Reels, and Shorts.",
+    title: "Directr — Know exactly what to film next",
+    description: "Your creative director, built around you.",
     images: ["/og.png"],
   },
-
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-      "max-video-preview": -1,
-    },
-  },
+  robots: { index: true, follow: true },
 };
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
   async function signOut() {
     "use server";
-    const s = await createServerClient();
-    await s.auth.signOut();
+    const client = await createServerClient();
+    await client.auth.signOut();
+    redirect("/");
   }
 
-  const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
+  const analyticsId = process.env.NEXT_PUBLIC_GA_ID;
 
   return (
     <html lang="en" className={`${inter.variable} ${mono.variable}`}>
       <head>
-        {/* ✅ Google Analytics (only runs if NEXT_PUBLIC_GA_ID exists) */}
-        {GA_ID ? (
+        {analyticsId && (
           <>
-            <Script
-              src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
-              strategy="afterInteractive"
-            />
-            <Script id="ga-init" strategy="afterInteractive">
-              {`
-                window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);}
-                gtag('js', new Date());
-                gtag('config', '${GA_ID}', { page_path: window.location.pathname });
-              `}
-            </Script>
+            <Script src={`https://www.googletagmanager.com/gtag/js?id=${analyticsId}`} strategy="afterInteractive" />
+            <Script id="directr-google-analytics" strategy="afterInteractive">{`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','${analyticsId}',{page_path:window.location.pathname});`}</Script>
           </>
-        ) : null}
+        )}
       </head>
-
       <body className="site">
-        <nav className="nav">
+        <header className="nav">
           <div className="nav__inner">
-            <Link href="/" className="logo">
-              directr<span className="dot">.</span>
-            </Link>
-
-            {/* Desktop menu: ONLY Create + Pricing */}
-            <div className="menu">
-              <Link href="/create">Create</Link>
-              <Link href="/pricing">Pricing</Link>
-
-              {/* Auth button */}
-              {user ? (
-                <form action={signOut}>
-                  <button className="btn btn--ghost" type="submit">
-                    Sign out
-                  </button>
-                </form>
-              ) : (
-                <Link href="/login" className="btn btn--primary">
-                  Sign in
-                </Link>
-              )}
-            </div>
+            <Link href={user ? "/today" : "/"} className="logo" aria-label="Directr home">directr<span className="dot">.</span></Link>
+            {user ? (
+              <>
+                <nav className="desktop-product-nav" aria-label="Main navigation">
+                  <NavLink href="/today">Today</NavLink>
+                  <NavLink href="/create">Create</NavLink>
+                  <NavLink href="/coach">Coach</NavLink>
+                  <NavLink href="/library">Library</NavLink>
+                </nav>
+                <div className="nav-account">
+                  <Link href="/dna" className="nav-account__dna">Creator DNA</Link>
+                  <Link href="/pricing" className="nav-account__billing">Billing</Link>
+                  <form action={signOut}><button type="submit">Sign out</button></form>
+                </div>
+              </>
+            ) : (
+              <nav className="public-nav" aria-label="Public navigation">
+                <Link href="/pricing">Pricing</Link>
+                <Link href="/login?next=%2Fonboarding" className="public-nav__cta">Get your direction <span aria-hidden="true">→</span></Link>
+              </nav>
+            )}
           </div>
-        </nav>
-
+        </header>
         <main className="page">{children}</main>
-
-        {/* Mobile nav */}
-        <NavMobile showLockControls={false} isAuthed={!!user} />
+        <NavMobile isAuthed={Boolean(user)} />
       </body>
     </html>
   );

@@ -1,5 +1,4 @@
 // src/app/lock/LockScreen.tsx
-import "./lock.css";
 import LockForm from "./LockForm";
 
 export default function LockScreen() {
@@ -18,28 +17,28 @@ export default function LockScreen() {
 
         <h1 className="lockH1">Directr is in private mode.</h1>
         <p className="lockSub">
-          AI-powered creation → clips → captions. Access is limited while we stabilize uploads + editing.
+          Your creative director is getting ready. Access is limited while we finish the experience.
         </p>
 
         <div className="lockGrid">
           <div className="lockFeatures">
             <div className="lockFeat">
               <b>
-                Create <span style={{ opacity: 0.7 }}>scripts • angles • notes</span>
+                Direct <span style={{ opacity: 0.7 }}>angles • hooks • shot lists</span>
               </b>
               <p>Turn a prompt or upload into a clean content plan.</p>
             </div>
             <div className="lockFeat">
               <b>
-                Clipper <span style={{ opacity: 0.7 }}>hooks • moments</span>
+                Film Mode <span style={{ opacity: 0.7 }}>one shot at a time</span>
               </b>
-              <p>Find the best segments and generate a clip plan.</p>
+              <p>Know exactly what to film and when to stop.</p>
             </div>
             <div className="lockFeat">
               <b>
-                Planner <span style={{ opacity: 0.7 }}>weekly execution</span>
+                Coach <span style={{ opacity: 0.7 }}>clear creative feedback</span>
               </b>
-              <p>Turn outputs into a posting schedule + checklist.</p>
+              <p>Get better direction without the generic advice.</p>
             </div>
           </div>
 

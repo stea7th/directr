@@ -1,7 +1,5 @@
-export default function Page() {
-  return (
-    <main style={{ padding: 48, color: "white" }}>
-      Planner
-    </main>
-  );
+import { redirect } from "next/navigation";
+
+export default function LegacyPlannerPage() {
+  redirect("/today");
 }

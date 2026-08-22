@@ -1,8 +1,5 @@
-export default function Page() {
-  return (
-    <main style={{ padding: 48, color: "white" }}>
-      <h1>Clipper</h1>
-      <p>Coming soon.</p>
-    </main>
-  );
+import { redirect } from "next/navigation";
+
+export default function LegacyClipperPage() {
+  redirect("/create");
 }
