@@ -18,19 +18,19 @@ export default function LoginForm() {
 
   const nextPath = useMemo(() => {
     const n = searchParams.get("next");
-    if (n && n.startsWith("/")) return n;
+    if (n && n.startsWith("/") && !n.startsWith("//")) return n;
     return "/today";
   }, [searchParams]);
 
   const didRedirectRef = useRef(false);
 
-  const [mode, setMode] = useState<Mode>("signin");
+  const [mode, setMode] = useState<Mode>(searchParams.get("mode") === "signup" ? "signup" : "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true); // ✅ prevents weird flash states
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(searchParams.get("err"));
   const [msg, setMsg] = useState<string | null>(null);
 
   function clearNotices() {
@@ -106,7 +106,7 @@ export default function LoginForm() {
 
     setLoading(true);
     try {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || getSiteUrl();
+      const siteUrl = getSiteUrl() || process.env.NEXT_PUBLIC_SITE_URL || "";
       const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(
         nextPath
       )}`;
@@ -129,7 +129,7 @@ export default function LoginForm() {
       }
 
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: redirectTo },
@@ -137,6 +137,7 @@ export default function LoginForm() {
 
         if (error) throw error;
 
+        if (data.session) { goNext(); return; }
         setMsg("Account created. Check your email to confirm, then sign in.");
         setMode("signin");
         setPassword("");
@@ -162,7 +163,7 @@ export default function LoginForm() {
     clearNotices();
     setLoading(true);
     try {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || getSiteUrl();
+      const siteUrl = getSiteUrl() || process.env.NEXT_PUBLIC_SITE_URL || "";
       const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(
         nextPath
       )}`;
@@ -236,6 +237,7 @@ export default function LoginForm() {
         <input
           className="input"
           placeholder="Email"
+          type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"

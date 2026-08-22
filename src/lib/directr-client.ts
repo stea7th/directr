@@ -111,11 +111,12 @@ export async function saveCreatorDNA(profile: CreatorDNA): Promise<CreatorDNA> {
 
 export async function syncDirection(direction: CreativeDirection): Promise<void> {
   try {
-    await fetch("/api/directions", {
+    const response = await fetch("/api/directions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ direction }),
     });
+    if (!response.ok) console.warn("Directr could not sync this direction; the local copy is still available.");
   } catch {
     // The local copy remains available if cloud persistence is not configured yet.
   }

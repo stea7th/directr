@@ -75,9 +75,30 @@ export async function persistDirection(
     }));
 
     if (shots.length) {
-      await supabase
+      const { error: shotError } = await supabase
         .from("direction_shots")
         .upsert(shots, { onConflict: "direction_id,order_index" });
+      if (shotError) return false;
+    }
+
+    if (direction.status === "posted" || direction.creatorRating) {
+      const { data: existingPost } = await supabase
+        .from("content_posts")
+        .select("id")
+        .eq("direction_id", direction.id)
+        .eq("user_id", userId)
+        .maybeSingle();
+      const post = {
+        direction_id: direction.id,
+        user_id: userId,
+        creator_rating: direction.creatorRating || null,
+        posted_at: direction.status === "posted" ? new Date().toISOString() : null,
+      };
+      if (existingPost?.id) {
+        await supabase.from("content_posts").update(post).eq("id", existingPost.id).eq("user_id", userId);
+      } else {
+        await supabase.from("content_posts").insert(post);
+      }
     }
 
     return true;

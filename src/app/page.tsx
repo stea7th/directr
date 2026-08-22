@@ -21,17 +21,22 @@ export default function Home() {
   return (
     <div className="marketing-shell">
       <section className="marketing-hero">
-        <p className="marketing-eyebrow">Your creative director, built around you.</p>
+        <div className="marketing-hero__ambient" aria-hidden="true"><span /><span /><span /></div>
+        <p className="marketing-eyebrow"><span className="marketing-live-dot" /> Your creative director is ready.</p>
         <h1>Know exactly what<br /><span>to film next.</span></h1>
         <p className="marketing-hero__copy">Directr learns your content, your taste, and your goals — then tells you what to make and exactly how to film it.</p>
-        <div className="marketing-hero__actions"><Link href="/login?next=%2Fonboarding" className="directr-button directr-button--accent">Get your direction →</Link><a href="#how-it-works" className="marketing-text-link">See how it works</a></div>
-        <span className="marketing-hero__note">Three free directions. No production team required.</span>
+        <div className="marketing-hero__actions"><Link href="/login?mode=signup&next=%2Fonboarding" className="directr-button directr-button--accent marketing-primary-cta">Get your first direction →</Link><a href="#how-it-works" className="marketing-text-link">See it in action <span aria-hidden="true">↓</span></a></div>
+        <span className="marketing-hero__note">Three directions free. No credit card. No guessing.</span>
+        <div className="marketing-hero__proof" aria-label="How Directr helps"><span>One idea</span><i>→</i><span>One sharp hook</span><i>→</i><span>Four shots</span><i>→</i><span>Go film it</span></div>
       </section>
 
       <section id="how-it-works" className="marketing-demo-section">
-        <div className="marketing-section-heading"><span className="section-kicker">The idea is the easy part</span><h2>A rough thought.<br />A direction you can actually film.</h2></div>
+        <div className="marketing-section-heading"><span className="section-kicker">See the difference in ten seconds</span><h2>A rough thought.<br />A direction you can actually film.</h2><p>Pick a creator. Watch Directr decide the angle, opening line, format, shots, and delivery.</p></div>
         <HomeDemo />
+        <div className="marketing-demo-cta"><Link href="/login?mode=signup&next=%2Fonboarding">Get a direction built around you <span aria-hidden="true">→</span></Link></div>
       </section>
+
+      <section className="marketing-film-section"><div className="marketing-section-heading"><span className="section-kicker">A director in your pocket</span><h2>When it&apos;s time to film,<br /><span>you&apos;ll know every shot.</span></h2><p>No shot list buried in a document. Film Mode puts one clear instruction on screen, then gets out of your way.</p></div><div className="marketing-film-preview"><div className="marketing-film-device"><div className="marketing-film-device__top"><span>DIRECTR</span><span>SHOT 01 / 04</span></div><div className="marketing-film-device__frame"><span className="marketing-frame-corner marketing-frame-corner--tl"/><span className="marketing-frame-corner marketing-frame-corner--tr"/><span className="marketing-frame-corner marketing-frame-corner--bl"/><span className="marketing-frame-corner marketing-frame-corner--br"/><p>Main A-roll</p><span>Chest-up · Eye level · 8 sec</span></div><blockquote>“I wasted a year trying to look successful instead of becoming useful.”</blockquote><div className="marketing-film-device__record"><span /> Got the shot</div></div><div className="marketing-film-copy"><p>One shot at a time.</p><p>Delivery notes that actually help.</p><p>Everything you need. Nothing you don&apos;t.</p><strong>Four shots. Thirty seconds. Done.</strong></div></div></section>
 
       <section className="marketing-before-after">
         <div className="marketing-section-heading"><span className="section-kicker">The difference</span><h2>Stop turning every post<br />into a production.</h2></div>
@@ -48,7 +53,7 @@ export default function Home() {
 
       <section className="marketing-coach-section"><div className="marketing-section-heading"><span className="section-kicker">Your coach has standards</span><h2>Someone should tell you<br />when the content isn’t good.</h2><p>Directr does not exist to validate every idea. It exists to make the idea better.</p></div><div className="coach-notes">{coachNotes.map((note) => <div key={note}><span aria-hidden="true">—</span><p>{note}</p></div>)}</div></section>
 
-      <section className="marketing-close"><span className="section-kicker">Your Director is waiting</span><h2>Stop deciding.<br /><span>Start filming.</span></h2><Link href="/login?next=%2Fonboarding" className="directr-button directr-button--accent">Get your direction →</Link></section>
+      <section className="marketing-close"><span className="section-kicker">Your Director is waiting</span><h2>Stop deciding.<br /><span>Start filming.</span></h2><Link href="/login?mode=signup&next=%2Fonboarding" className="directr-button directr-button--accent marketing-primary-cta">Get your first direction →</Link><span className="marketing-hero__note">Start free. Know what to film today.</span></section>
 
       <footer className="marketing-footer"><Link href="/" className="logo">directr<span className="dot">.</span></Link><span>Your creative director, built around you.</span><Link href="/pricing">Pricing</Link></footer>
     </div>

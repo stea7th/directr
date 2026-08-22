@@ -86,26 +86,32 @@ alter table public.directions enable row level security;
 alter table public.direction_shots enable row level security;
 alter table public.content_posts enable row level security;
 
+grant select, insert, update, delete on public.creator_profiles to authenticated;
+grant select, insert, update, delete on public.creator_references to authenticated;
+grant select, insert, update, delete on public.directions to authenticated;
+grant select, insert, update, delete on public.direction_shots to authenticated;
+grant select, insert, update, delete on public.content_posts to authenticated;
+
 drop policy if exists "Creators manage their own profile" on public.creator_profiles;
 create policy "Creators manage their own profile" on public.creator_profiles
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 drop policy if exists "Creators manage their own references" on public.creator_references;
 create policy "Creators manage their own references" on public.creator_references
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 drop policy if exists "Creators manage their own directions" on public.directions;
 create policy "Creators manage their own directions" on public.directions
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 drop policy if exists "Creators manage their own direction shots" on public.direction_shots;
 create policy "Creators manage their own direction shots" on public.direction_shots
-  for all using (
-    exists (select 1 from public.directions where directions.id = direction_id and directions.user_id = auth.uid())
+  for all to authenticated using (
+    exists (select 1 from public.directions where directions.id = direction_id and directions.user_id = (select auth.uid()))
   ) with check (
-    exists (select 1 from public.directions where directions.id = direction_id and directions.user_id = auth.uid())
+    exists (select 1 from public.directions where directions.id = direction_id and directions.user_id = (select auth.uid()))
   );
 
 drop policy if exists "Creators manage their own posts" on public.content_posts;
 create policy "Creators manage their own posts" on public.content_posts
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);

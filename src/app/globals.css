@@ -138,6 +138,75 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .marketing-footer { display: flex; align-items: center; justify-content: space-between; padding: 25px 0 35px; border-top: 1px solid var(--line-soft); }
 .marketing-footer > span, .marketing-footer > a:last-child { color: var(--muted); font-size: 12px; }
 
+/* Cinematic marketing presentation: restrained motion, product-first proof. */
+.marketing-hero { position: relative; isolation: isolate; min-height: 720px; }
+.marketing-hero > :not(.marketing-hero__ambient) { animation: marketing-rise 720ms cubic-bezier(.2,.7,.2,1) both; }
+.marketing-hero h1 { animation-delay: 90ms; }
+.marketing-hero__copy { animation-delay: 170ms; }
+.marketing-hero__actions { animation-delay: 240ms; }
+.marketing-hero__ambient { position: absolute; z-index: -1; inset: 6% -18% 8%; overflow: hidden; opacity: .64; pointer-events: none; }
+.marketing-hero__ambient > span { position: absolute; left: 50%; top: 51%; width: 740px; height: 740px; border: 1px solid rgba(135,150,255,.075); border-radius: 50%; transform: translate(-50%,-50%); animation: marketing-orbit 18s ease-in-out infinite; }
+.marketing-hero__ambient > span:nth-child(2) { width: 540px; height: 540px; animation-delay: -6s; }
+.marketing-hero__ambient > span:nth-child(3) { width: 340px; height: 340px; animation-delay: -12s; }
+.marketing-eyebrow { display: inline-flex; align-items: center; gap: 9px; }
+.marketing-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #a5b0ff; box-shadow: 0 0 18px rgba(129,145,255,.6); animation: marketing-beacon 2.6s ease-in-out infinite; }
+.marketing-primary-cta { min-height: 53px; padding: 0 24px; font-size: 14px; box-shadow: 0 9px 36px rgba(115,134,255,.16); }
+.marketing-hero__proof { display: flex; align-items: center; gap: 12px; margin-top: 68px; color: var(--muted); font-size: 12px; }
+.marketing-hero__proof i { color: var(--accent); font-style: normal; }
+.marketing-demo-section { position: relative; }
+.home-demo { position: relative; overflow: hidden; box-shadow: 0 24px 85px rgba(0,0,0,.26); }
+.home-demo__workspace { animation: marketing-rise 400ms ease both; }
+.home-demo__transfer > span:nth-child(2) { animation: marketing-arrow 1.8s ease-in-out infinite; }
+.marketing-demo-cta { margin-top: 26px; text-align: right; }
+.marketing-demo-cta a { color: var(--accent); font-size: 13px; }
+.marketing-film-section { padding: 115px 0; border-top: 1px solid var(--line-soft); }
+.marketing-film-section .marketing-section-heading h2 span { color: #96969d; }
+.marketing-film-preview { display: grid; grid-template-columns: 360px 1fr; align-items: center; gap: 104px; max-width: 800px; margin: 77px auto 4px; }
+.marketing-film-device { min-height: 505px; padding: 24px 22px; border: 1px solid rgba(255,255,255,.12); border-radius: 30px; background: linear-gradient(165deg,#121214,#090909 65%); box-shadow: 0 28px 100px rgba(0,0,0,.38); }
+.marketing-film-device__top { display: flex; justify-content: space-between; color: var(--muted); font-family: var(--font-mono-stack); font-size: 10px; letter-spacing: .06em; }
+.marketing-film-device__frame { position: relative; display: flex; min-height: 236px; flex-direction: column; align-items: center; justify-content: center; margin-top: 30px; background: rgba(255,255,255,.013); }
+.marketing-film-device__frame > p { margin: 0 0 4px; font-size: 25px; letter-spacing: -.05em; }
+.marketing-film-device__frame > span:not(.marketing-frame-corner) { color: var(--muted); font-size: 11px; }
+.marketing-frame-corner { position: absolute; width: 18px; height: 18px; border-color: rgba(129,145,255,.72); border-style: solid; }
+.marketing-frame-corner--tl { top: 0; left: 0; border-width: 1px 0 0 1px; }.marketing-frame-corner--tr { top: 0; right: 0; border-width: 1px 1px 0 0; }.marketing-frame-corner--bl { bottom: 0; left: 0; border-width: 0 0 1px 1px; }.marketing-frame-corner--br { bottom: 0; right: 0; border-width: 0 1px 1px 0; }
+.marketing-film-device blockquote { margin: 22px 2px; color: var(--muted-strong); font-size: 13px; line-height: 1.7; }
+.marketing-film-device__record { display: flex; min-height: 44px; align-items: center; justify-content: center; gap: 9px; border: 1px solid var(--line); border-radius: 7px; font-size: 12px; }
+.marketing-film-device__record > span { width: 9px; height: 9px; border-radius: 50%; background: #e58c8c; }
+.marketing-film-copy > p { padding: 16px 0; border-bottom: 1px solid var(--line-soft); color: var(--muted-strong); font-size: 15px; }
+.marketing-film-copy > strong { display: block; margin-top: 28px; color: var(--accent); font-size: 14px; font-weight: 500; }
+@keyframes marketing-rise { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes marketing-orbit { 0%,100% { transform: translate(-50%,-50%) scale(.97); opacity: .45; } 50% { transform: translate(-50%,-50%) scale(1.035); opacity: 1; } }
+@keyframes marketing-beacon { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+@keyframes marketing-arrow { 0%,100% { transform: translateX(-2px); } 50% { transform: translateX(3px); } }
+
+/* Functional reference analysis and transcript-based pre-publication review. */
+.creative-tools { margin-top: 76px; padding-top: 34px; border-top: 1px solid var(--line-soft); }
+.creative-tools__switch { display: flex; gap: 26px; margin-bottom: 32px; }
+.creative-tools__switch button { padding: 0 0 11px; border: 0; border-bottom: 1px solid transparent; background: none; color: var(--muted); font-size: 13px; cursor: pointer; }
+.creative-tools__switch button[aria-selected="true"] { border-bottom-color: var(--accent); color: var(--fg); }
+.creative-tools__form { display: flex; max-width: 675px; flex-direction: column; align-items: flex-start; gap: 13px; }
+.creative-tools__form h2 { margin: 0; font-size: 25px; font-weight: 530; letter-spacing: -.04em; }
+.creative-tools__form > p { margin: 0 0 7px; color: var(--muted); font-size: 13px; line-height: 1.75; }
+.creative-tools__form > button { margin-top: 5px; }
+.creative-tools__result { width: 100%; margin-top: 22px; padding: 24px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); animation: marketing-rise 260ms ease both; }
+.creative-tools__result h3 { margin: 12px 0 8px; font-size: 20px; font-weight: 530; letter-spacing: -.03em; }
+.creative-tools__result > p, .creative-tools__result dd { margin: 5px 0 0; color: var(--muted-strong); font-size: 13px; line-height: 1.7; }
+.creative-tools__result dl { margin: 20px 0; }
+.creative-tools__result dl > div { padding: 12px 0; border-top: 1px solid var(--line-soft); }
+.creative-tools__result dt, .creative-tools__cuts > strong { color: var(--muted); font-size: 12px; }
+.creative-tools__cuts > p { margin: 8px 0; color: var(--muted-strong); font-size: 13px; }
+.creative-tools__next { padding-top: 16px; border-top: 1px solid var(--line-soft); color: var(--accent) !important; }
+
+@media (max-width: 720px) {
+  .marketing-hero__proof { flex-wrap: wrap; justify-content: center; gap: 9px; margin-top: 45px; font-size: 11px; }
+  .marketing-hero__ambient > span { width: 490px; height: 490px; }.marketing-hero__ambient > span:nth-child(2) { width: 350px; height: 350px; }.marketing-hero__ambient > span:nth-child(3) { width: 235px; height: 235px; }
+  .marketing-film-section { padding: 77px 0; }.marketing-film-preview { grid-template-columns: 1fr; gap: 32px; max-width: 350px; margin-top: 46px; }.marketing-film-device { min-height: 470px; }.marketing-film-copy { padding: 0 7px; }
+  .public-nav__signin { display: none; }.creative-tools { margin-top: 52px; }.creative-tools__switch { gap: 17px; }.creative-tools__switch button { font-size: 12px; }.creative-tools__result { padding: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marketing-hero > *, .marketing-hero__ambient > span, .marketing-live-dot, .home-demo__workspace, .home-demo__transfer > span, .creative-tools__result { animation: none !important; }
+}
+
 /* Onboarding and Creator DNA */
 .onboarding-shell { max-width: 660px; margin: 0 auto; padding: 61px 0 105px; }
 .onboarding-topline { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
