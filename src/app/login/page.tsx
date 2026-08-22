@@ -16,9 +16,5 @@ export default async function LoginPage() {
   // If cookie says you're authed, we should not show login
   if (user) redirect("/today");
 
-  return (
-    <div className="container" style={{ paddingTop: 28 }}>
-      <LoginForm />
-    </div>
-  );
+  return <div className="auth-page"><LoginForm /></div>;
 }

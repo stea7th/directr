@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      NEXT_PUBLIC_SUPABASE_URL: https://directr-preview.supabase.co
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
       NEXT_PUBLIC_SUPABASE_ANON_KEY: directr-preview-anon-placeholder
       SUPABASE_SERVICE_ROLE_KEY: directr-preview-service-placeholder
       SUPABASE_SERVICE_ROLE: directr-preview-service-placeholder
@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: Install existing project dependencies
         run: npm install --no-audit --no-fund
       - name: Check all TypeScript diagnostics
@@ -30,3 +30,16 @@ jobs:
           npx tsc --noEmit --pretty false
       - name: Build production Next.js application
         run: npm run build
+      - name: Install browser smoke-test driver
+        run: npm install --no-save --no-package-lock --no-audit --no-fund playwright-core
+      - name: Verify sign-in, signup, protected routes, and pricing in a real browser
+        env:
+          PORT: 3000
+        run: |
+          node scripts/mock-supabase.cjs > /tmp/directr-mock.log 2>&1 &
+          npm run start > /tmp/directr-server.log 2>&1 &
+          for attempt in $(seq 1 40); do
+            if curl --silent --fail http://127.0.0.1:3000/login > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/auth-smoke.cjs || { cat /tmp/directr-server.log; cat /tmp/directr-mock.log; exit 1; }
