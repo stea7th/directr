@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const examples = [
   {
@@ -37,10 +37,17 @@ const examples = [
 
 export default function HomeDemo() {
   const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
   const example = examples[index];
 
+  useEffect(() => {
+    if (paused || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(() => setIndex((current) => (current + 1) % examples.length), 7200);
+    return () => window.clearInterval(timer);
+  }, [paused]);
+
   return (
-    <div className="home-demo">
+    <div className="home-demo" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
       <div className="home-demo__tabs" aria-label="Direction examples">
         {examples.map((item, itemIndex) => (
           <button
@@ -55,7 +62,7 @@ export default function HomeDemo() {
         ))}
       </div>
 
-      <div className="home-demo__workspace">
+      <div className="home-demo__workspace" key={example.label}>
         <section className="home-demo__thought">
           <span className="section-kicker">Your rough thought</span>
           <p>“{example.thought}”</p>

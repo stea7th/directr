@@ -85,7 +85,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             ) : (
               <nav className="public-nav" aria-label="Public navigation">
                 <Link href="/pricing">Pricing</Link>
-                <Link href="/login?next=%2Fonboarding" className="public-nav__cta">Get your direction <span aria-hidden="true">→</span></Link>
+                <Link href="/login" className="public-nav__signin">Sign in</Link>
+                <Link href="/login?mode=signup&next=%2Fonboarding" className="public-nav__cta">Get your direction <span aria-hidden="true">→</span></Link>
               </nav>
             )}
           </div>

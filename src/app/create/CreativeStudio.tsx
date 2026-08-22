@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import CreatorDNAIndicator from "@/components/CreatorDNAIndicator";
+import CreativeTools from "./CreativeTools";
 import { type CreatorDNA, type CreativeDirection } from "@/lib/directr";
 import { readLocalDirections, saveLocalDirection, writeLocalCreatorDNA } from "@/lib/directr-client";
 
@@ -133,14 +134,7 @@ export default function CreativeStudio({ profile }: { profile: CreatorDNA }) {
         <Link href="/dna">Update Creator DNA <span aria-hidden="true">→</span></Link>
       </div>
 
-      <aside className="reference-preview">
-        <div>
-          <span className="section-kicker">Coming later</span>
-          <h2>Make a reference your own.</h2>
-          <p>Paste a video you like and Directr will eventually abstract its structure into something original. Automatic reference analysis is not available yet.</p>
-        </div>
-        <button type="button" className="directr-button directr-button--quiet" disabled>Reference analysis · Coming soon</button>
-      </aside>
+      <CreativeTools />
     </div>
   );
 }
