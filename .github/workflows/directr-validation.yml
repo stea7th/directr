@@ -1,0 +1,28 @@
+name: Validate Directr preview
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://directr-preview.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: directr-preview-anon-placeholder
+      SUPABASE_SERVICE_ROLE_KEY: directr-preview-service-placeholder
+      SUPABASE_SERVICE_ROLE: directr-preview-service-placeholder
+      STRIPE_SECRET_KEY: sk_test_directr_preview_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_directr_preview_placeholder
+      OPENAI_API_KEY: sk-directr-preview-placeholder
+      NEXT_PUBLIC_SITE_URL: https://directr.so
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install existing project dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build production Next.js application
+        run: npm run build
