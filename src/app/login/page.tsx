@@ -14,7 +14,7 @@ export default async function LoginPage() {
   } = await supabase.auth.getUser();
 
   // If cookie says you're authed, we should not show login
-  if (user) redirect("/create");
+  if (user) redirect("/today");
 
   return (
     <div className="container" style={{ paddingTop: 28 }}>

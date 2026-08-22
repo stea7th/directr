@@ -3,37 +3,25 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-type Props = {
-  showLockControls?: boolean;
-  isAuthed?: boolean;
-};
-
-export default function NavMobile(_props: Props) {
+export default function NavMobile({ isAuthed = false }: { isAuthed?: boolean; showLockControls?: boolean }) {
   const pathname = usePathname();
+  if (!isAuthed || pathname.startsWith("/film/") || pathname === "/onboarding") return null;
 
-  // Mobile nav: ONLY Create + Pricing
   const tabs = [
+    { href: "/today", label: "Today" },
     { href: "/create", label: "Create" },
-    { href: "/pricing", label: "Pricing" },
+    { href: "/coach", label: "Coach" },
+    { href: "/library", label: "Library" },
   ];
 
   return (
-    <div className="mnav">
+    <nav className="mnav" aria-label="Main navigation">
       <div className="mnav__inner">
-        {tabs.map((t) => {
-          const active =
-            pathname === t.href || (t.href !== "/" && pathname?.startsWith(t.href));
-          return (
-            <Link
-              key={t.href}
-              href={t.href}
-              className={`mnav__tab ${active ? "is-active" : ""}`}
-            >
-              <div className="mnav__label">{t.label}</div>
-            </Link>
-          );
+        {tabs.map((tab) => {
+          const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+          return <Link key={tab.href} href={tab.href} className={`mnav__tab ${active ? "is-active" : ""}`}>{tab.label}</Link>;
         })}
       </div>
-    </div>
+    </nav>
   );
 }

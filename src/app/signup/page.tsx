@@ -23,7 +23,7 @@ export default function SignupPage() {
       const { error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
 
-      router.push("/create");
+      router.push("/today");
       router.refresh();
     } catch (e: any) {
       setErr(e?.message ?? "Signup failed");
@@ -35,7 +35,7 @@ export default function SignupPage() {
   return (
     <div className="card" style={{ maxWidth: 520, margin: "0 auto" }}>
       <div className="title">Create account</div>
-      <div className="subtitle">Sign up to access Directr.</div>
+      <div className="subtitle">Your creative director, built around you.</div>
 
       <form onSubmit={onSignup} className="field" style={{ gap: 10 }}>
         <input

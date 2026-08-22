@@ -19,7 +19,7 @@ export default function LoginForm() {
   const nextPath = useMemo(() => {
     const n = searchParams.get("next");
     if (n && n.startsWith("/")) return n;
-    return "/create";
+    return "/today";
   }, [searchParams]);
 
   const didRedirectRef = useRef(false);
