@@ -9,9 +9,9 @@ export default function NavMobile({ isAuthed = false }: { isAuthed?: boolean; sh
 
   const tabs = [
     { href: "/today", label: "Today" },
-    { href: "/create", label: "Create" },
     { href: "/coach", label: "Coach" },
     { href: "/library", label: "Library" },
+    { href: "/dna", label: "DNA" },
   ];
 
   return (
