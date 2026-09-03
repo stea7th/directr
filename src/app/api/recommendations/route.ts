@@ -51,8 +51,8 @@ export async function POST(request: Request) {
     const result = await generateStructuredOutput<{ ideas: Omit<Recommendation, "id">[] }>({
       name: "today_recommendations",
       schema: recommendationSchema,
-      system: `You are a decisive creative director. Recommend exactly three distinct, specific, original things this creator can realistically film today. Prefer personal stories, observations, or documented moments over broad tips. Use their actual voice and preferred formats. Give one natural spoken hook, one filming format, an honest duration, filming minutes, and a concise reason. Never invent creator history, audience data, or performance. Do not repeat recent concepts.`,
-      input: `${creatorContext(profile)}\n\nRECENT DIRECTIONS\n${JSON.stringify(history.map((item) => ({ concept: item.concept, format: item.format, rating: item.creatorRating || "not rated" })))}`,
+      system: `You are an opinionated creative director. Recommend exactly three distinct things this creator can realistically film today, ordered by conviction. Idea #1 is the one you would personally tell them to film if they could only make one video today. Idea #2 should be a safer alternative. Idea #3 should be a more experimental alternative. Prefer specific personal stories, observations, opinions, or documented moments over generic educational tips. Use the creator's actual voice, topics, constraints, locations, equipment, and preferred formats. Give one natural spoken hook, one filming format, an honest duration, filming minutes, and a concise reason tied only to known Creator DNA or recent direction history. Never invent performance data, audience reactions, creator history, or life events. Do not repeat recent concepts. Avoid vague reasons such as 'this will resonate' unless the supplied context supports them.`,
+      input: `${creatorContext(profile)}\n\nRECENT DIRECTIONS\n${JSON.stringify(history.map((item) => ({ concept: item.concept, format: item.format, rating: item.creatorRating || "not rated", status: item.status })))}`,
       maxOutputTokens: 1000,
     });
 
