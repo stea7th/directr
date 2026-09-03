@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 const directions = [
   {
     label: "Personal brand",
-    thought: "I wasted so much time trying to look successful.",
+    reason: "You prefer opinion-led personal stories, and this is easy to film with your usual setup.",
     hook: "I wasted a year trying to look successful instead of becoming useful.",
     angle: "The performance of success",
     format: "Talking head",
@@ -15,7 +15,7 @@ const directions = [
   },
   {
     label: "Fitness",
-    thought: "My workouts got shorter and my results got better.",
+    reason: "Your shorter, practical videos fit this better than another motivational workout post.",
     hook: "The gym started working when I stopped making it my whole personality.",
     angle: "Less gym. Better results.",
     format: "Voiceover",
@@ -25,7 +25,7 @@ const directions = [
   },
   {
     label: "Real estate",
-    thought: "This house looked perfect until I walked into the kitchen.",
+    reason: "You have a strong visual reveal, so Directr is choosing walkthrough over talking-head commentary.",
     hook: "Every listing photo hid the one thing I noticed in ten seconds.",
     angle: "What the listing didn’t show",
     format: "Walkthrough",
@@ -48,13 +48,13 @@ export default function HomeDemo() {
 
   return (
     <div className="director-preview" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
-      <div className="director-preview__bar"><span className="director-preview__wordmark">directr<span>.</span></span><span className="director-preview__signal"><i /> Your direction is ready</span></div>
+      <div className="director-preview__bar"><span className="director-preview__wordmark">directr<span>.</span></span><span className="director-preview__signal"><i /> Today&apos;s pick is ready</span></div>
       <div className="director-preview__tabs" role="tablist" aria-label="Example creator">
         {directions.map((item, index) => <button key={item.label} type="button" role="tab" aria-selected={active === index} onClick={() => setActive(index)}>{item.label}</button>)}
       </div>
       <div className="director-preview__body" key={direction.label}>
-        <div className="director-preview__thought"><span>Your rough thought</span><p>“{direction.thought}”</p></div>
-        <div className="director-preview__result"><div className="director-preview__result-head"><span>Film this</span><span>{direction.format} · {direction.duration}</span></div><h3>{direction.angle}</h3><blockquote>“{direction.hook}”</blockquote></div>
+        <div className="director-preview__thought"><span>Why Directr chose it</span><p>{direction.reason}</p></div>
+        <div className="director-preview__result"><div className="director-preview__result-head"><span>Film this today</span><span>{direction.format} · {direction.duration}</span></div><h3>{direction.angle}</h3><blockquote>“{direction.hook}”</blockquote></div>
         <div className="director-preview__shots"><div className="director-preview__shots-head"><span>Your shots</span><span>{direction.shots.length} total</span></div>{direction.shots.map((shot, index) => <div className="director-shot" key={shot}><span>{String(index + 1).padStart(2, "0")}</span><p>{shot}</p><i /></div>)}</div>
         <div className="director-preview__note"><span>Director&apos;s note</span><p>{direction.delivery}</p></div>
       </div>
